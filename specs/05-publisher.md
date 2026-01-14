@@ -20,7 +20,8 @@ class Publisher {
 publish(data: Buffer, attributes?: Attributes, orderingKey?: string): Promise<string>
 publishMessage(message: PubSubMessage): Promise<string>
 flush(): Promise<void>
-setOptions(options: PublishOptions): void
+setPublishOptions(options: PublishOptions): void
+resumePublishing(orderingKey: string): void
 ```
 
 ### Type Definitions
@@ -30,8 +31,10 @@ interface PublishOptions {
   batching?: BatchPublishOptions;
   messageOrdering?: boolean;     // Default: false
   flowControlOptions?: PublisherFlowControlOptions;
-  gaxOpts?: CallOptions;         // gRPC and retry configuration
+  gaxOpts?: CallOptions;         // gRPC configuration (timeout, retry codes, backoff)
+                                  // See research/06-publisher-config.md:189-211 for details
   enableOpenTelemetryTracing?: boolean; // Default: false
+                                        // Enables distributed tracing for publish operations
 }
 
 interface BatchPublishOptions {
@@ -104,19 +107,34 @@ interface PubSubMessage {
 **And** ensure ordered delivery to MessageQueue
 **And** messages without orderingKey use default batch
 
-### BR-008: Flow Control - Max Outstanding Messages
+### BR-008: Ordering Key Error Recovery
+**Given** messageOrdering is enabled
+**When** publish fails for message with orderingKey
+**Then** pause all publishing for that orderingKey
+**And** reject all subsequent publish attempts for that key
+**Until** resumePublishing(orderingKey) is called
+**And** publishing for other orderingKeys continues unaffected
+
+### BR-009: resumePublishing Restarts Publishing
+**Given** publishing paused for orderingKey due to error
+**When** resumePublishing(orderingKey) is called
+**Then** clear error state for that orderingKey
+**And** allow new messages with that orderingKey to be published
+**And** previously queued messages for that key are discarded
+
+### BR-010: Flow Control - Max Outstanding Messages
 **Given** maxOutstandingMessages is set to N
 **When** N messages are awaiting publish confirmation
 **Then** block new publish() calls
 **Until** previous messages are published and confirmed
 
-### BR-009: Flow Control - Max Outstanding Bytes
+### BR-011: Flow Control - Max Outstanding Bytes
 **Given** maxOutstandingBytes is set to N bytes
 **When** N bytes are awaiting publish confirmation
 **Then** block new publish() calls
 **Until** enough bytes are published to go below threshold
 
-### BR-010: Disable Batching
+### BR-012: Disable Batching
 **Given** all batching thresholds set to 1
 **When** a message is published
 **Then** publish immediately without batching
@@ -278,7 +296,57 @@ await Promise.all([
 // Verify ordering is maintained (test via subscription)
 ```
 
-### AC-007: Flow Control Max Messages
+### AC-007: Ordering Key Error Pause and Resume
+```typescript
+const topic = pubsub.topic('my-topic');
+await topic.create();
+
+topic.setPublishOptions({
+  messageOrdering: true
+});
+
+// Simulate publish failure (inject error into queue)
+const mockQueue = topic.publisher.queue;
+mockQueue.simulateError('user-1', new Error('Publish failed'));
+
+// First publish succeeds
+await topic.publishMessage({
+  data: Buffer.from('msg-1'),
+  orderingKey: 'user-1'
+});
+
+// Trigger error condition
+// (Implementation detail: next publish for user-1 fails)
+
+// Subsequent publishes for same key should reject
+await expect(
+  topic.publishMessage({
+    data: Buffer.from('msg-2'),
+    orderingKey: 'user-1'
+  })
+).rejects.toThrow('Publishing paused for ordering key: user-1');
+
+// Other keys unaffected
+await expect(
+  topic.publishMessage({
+    data: Buffer.from('msg-3'),
+    orderingKey: 'user-2'
+  })
+).resolves.toBeDefined();
+
+// Resume publishing
+topic.resumePublishing('user-1');
+
+// Now user-1 key works again
+await expect(
+  topic.publishMessage({
+    data: Buffer.from('msg-4'),
+    orderingKey: 'user-1'
+  })
+).resolves.toBeDefined();
+```
+
+### AC-008: Flow Control Max Messages
 ```typescript
 const topic = pubsub.topic('my-topic');
 await topic.create();
@@ -306,7 +374,7 @@ const duration = Date.now() - startTime;
 expect(duration).toBeGreaterThan(50);
 ```
 
-### AC-008: Disable Batching
+### AC-009: Disable Batching
 ```typescript
 const topic = pubsub.topic('my-topic');
 await topic.create();
@@ -328,7 +396,7 @@ const messageIds = await Promise.all([
 expect(messageIds).toHaveLength(2);
 ```
 
-### AC-009: Unique Message IDs
+### AC-010: Unique Message IDs
 ```typescript
 const topic = pubsub.topic('my-topic');
 await topic.create();
@@ -344,7 +412,7 @@ const uniqueIds = new Set(messageIds);
 expect(uniqueIds.size).toBe(100);
 ```
 
-### AC-010: Empty Message Batch
+### AC-011: Empty Message Batch
 ```typescript
 const topic = pubsub.topic('my-topic');
 await topic.create();
@@ -450,7 +518,7 @@ const messageId = await topic.publishMessage({
 });
 ```
 
-### Ordered Publishing with Batching
+### Ordered Publishing with Error Recovery
 ```typescript
 const topic = pubsub.topic('user-events');
 await topic.create();
@@ -463,14 +531,28 @@ topic.setPublishOptions({
   }
 });
 
-// Multiple users, messages batched per user
+// Publish messages with error recovery
 const users = ['user-1', 'user-2', 'user-3'];
 for (let i = 0; i < 100; i++) {
   const user = users[i % users.length];
-  topic.publishMessage({
-    data: Buffer.from(`Event ${i}`),
-    orderingKey: user
-  });
+
+  try {
+    await topic.publishMessage({
+      data: Buffer.from(`Event ${i}`),
+      orderingKey: user
+    });
+  } catch (error) {
+    console.error(`Publish failed for ${user}:`, error);
+
+    // Resume publishing for this ordering key
+    topic.resumePublishing(user);
+
+    // Retry the message
+    await topic.publishMessage({
+      data: Buffer.from(`Event ${i} (retry)`),
+      orderingKey: user
+    });
+  }
 }
 
 await topic.flush();
@@ -480,4 +562,5 @@ await topic.flush();
 
 | Date | Version | Changes |
 |------|---------|---------|
+| 2026-01-14 | 1.1 | Fixed API compatibility issues and added ordered publishing error recovery |
 | 2026-01-14 | 1.0 | Initial specification |
