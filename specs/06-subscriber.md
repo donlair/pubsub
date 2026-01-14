@@ -29,20 +29,27 @@ setOptions(options: SubscriberOptions): void
 ```typescript
 interface SubscriberOptions {
   flowControl?: FlowControlOptions;
-  ackDeadline?: number;          // Seconds, default: 60
-  messageOrdering?: boolean;     // Default: false
+  ackDeadlineSeconds?: number;   // Seconds (10-600), default: 60
+  enableMessageOrdering?: boolean; // Default: false
   streamingOptions?: StreamingOptions;
+  batching?: BatchOptions;       // Acknowledgment batching
 }
 
 interface FlowControlOptions {
   maxMessages?: number;          // Default: 1000
   maxBytes?: number;             // Default: 100 * 1024 * 1024 (100MB)
   allowExcessMessages?: boolean; // Default: false
+  maxExtension?: number;         // Max ack deadline extension (seconds), default: 3600
 }
 
 interface StreamingOptions {
   maxStreams?: number;           // Default: 5
   highWaterMark?: number;        // Default: 0 (no buffering)
+}
+
+interface BatchOptions {
+  maxMessages?: number;          // Default: 3000
+  maxMilliseconds?: number;      // Default: 100
 }
 ```
 
@@ -74,14 +81,14 @@ interface StreamingOptions {
 **And** then pause until capacity available
 
 ### BR-005: Ack Deadline Tracking
-**Given** ackDeadline is set to N seconds
+**Given** ackDeadlineSeconds is set to N seconds
 **When** a message is delivered
 **Then** start lease timer for N seconds
 **And** if not acked within N seconds, make available for redelivery
 **And** emit 'message' event again with same message
 
 ### BR-006: Message Ordering
-**Given** messageOrdering is enabled
+**Given** enableMessageOrdering is enabled
 **When** messages with same orderingKey arrive
 **Then** deliver them sequentially in order
 **And** wait for ack before delivering next message with same key
@@ -224,7 +231,7 @@ expect(receivedMessages.length).toBe(3);
 ### AC-004: Ack Deadline Redelivery
 ```typescript
 const subscription = pubsub.subscription('my-sub', {
-  ackDeadline: 1  // 1 second
+  ackDeadlineSeconds: 1  // 1 second
 });
 await subscription.create();
 
@@ -255,7 +262,7 @@ expect(deliveryCount).toBe(2);
 ### AC-005: Message Ordering Sequential Delivery
 ```typescript
 const subscription = pubsub.subscription('my-sub', {
-  messageOrdering: true
+  enableMessageOrdering: true
 });
 await subscription.create();
 
@@ -484,6 +491,16 @@ expect(receivedMessages.length).toBeGreaterThanOrEqual(5);
 - Ordering requires queuing messages per orderingKey
 - Pause should stop pulling but not stop ack deadline timers
 
+### Default Values
+
+**IMPORTANT**: The default ackDeadlineSeconds is 60 seconds, not 10.
+
+- **Default**: 60 seconds
+- **Range**: 10-600 seconds
+- **Google API Behavior**: Matches `@google-cloud/pubsub` v5.2.0+
+
+This ensures proper API compatibility and prevents premature message redelivery.
+
 ## Examples
 
 ### High-Throughput Subscriber
@@ -514,7 +531,7 @@ const subscription = pubsub.subscription('real-time', {
   flowControl: {
     maxMessages: 100
   },
-  ackDeadline: 30
+  ackDeadlineSeconds: 30
 });
 
 await subscription.create();
@@ -531,8 +548,8 @@ subscription.open();
 ### Ordered Message Processing
 ```typescript
 const subscription = pubsub.subscription('user-events', {
-  messageOrdering: true,
-  ackDeadline: 300  // 5 minutes for complex processing
+  enableMessageOrdering: true,
+  ackDeadlineSeconds: 300  // 5 minutes for complex processing
 });
 
 await subscription.create();

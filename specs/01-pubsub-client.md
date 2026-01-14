@@ -18,6 +18,114 @@ interface PubSubOptions {
   apiEndpoint?: string;
   keyFilename?: string;
   credentials?: object;
+  email?: string;
+  token?: string;
+  port?: number;
+  servicePath?: string;
+  sslCreds?: any;
+  clientConfig?: any;
+  fallback?: boolean | 'rest' | 'proto';
+  grpc?: any;
+  gaxOpts?: GaxOptions;
+}
+
+interface PageOptions {
+  gaxOpts?: CallOptions;
+  autoPaginate?: boolean;
+  maxResults?: number;
+  pageToken?: string;
+}
+
+interface GetTopicsOptions extends PageOptions {}
+
+interface GetSubscriptionsOptions extends PageOptions {
+  topic?: string | Topic;
+}
+
+interface CreateTopicOptions {
+  labels?: { [key: string]: string };
+  messageStoragePolicy?: { allowedPersistenceRegions?: string[] };
+  kmsKeyName?: string;
+  schemaSettings?: { schema?: string; encoding?: 'JSON' | 'BINARY' };
+  messageRetentionDuration?: Duration;
+  gaxOpts?: CallOptions;
+}
+
+interface CreateSubscriptionOptions {
+  flowControl?: FlowControlOptions;
+  ackDeadline?: number;
+  pushConfig?: PushConfig;
+  deadLetterPolicy?: DeadLetterPolicy;
+  retryPolicy?: RetryPolicy;
+  filter?: string;
+  enableMessageOrdering?: boolean;
+  enableExactlyOnceDelivery?: boolean;
+  detached?: boolean;
+  labels?: { [key: string]: string };
+  expirationPolicy?: ExpirationPolicy;
+  gaxOpts?: CallOptions;
+}
+
+interface CreateSchemaOptions {
+  gaxOpts?: CallOptions;
+}
+
+enum SchemaType {
+  AVRO = 'AVRO',
+  PROTOCOL_BUFFER = 'PROTOCOL_BUFFER',
+  JSON = 'JSON'
+}
+
+// Supporting types
+interface Duration {
+  seconds?: number;
+  nanos?: number;
+}
+
+interface FlowControlOptions {
+  maxMessages?: number;
+  maxBytes?: number;
+  allowExcessMessages?: boolean;
+}
+
+interface PushConfig {
+  pushEndpoint?: string;
+  attributes?: { [key: string]: string };
+}
+
+interface DeadLetterPolicy {
+  deadLetterTopic?: string;
+  maxDeliveryAttempts?: number;
+}
+
+interface RetryPolicy {
+  minimumBackoff?: Duration;
+  maximumBackoff?: Duration;
+}
+
+interface ExpirationPolicy {
+  ttl?: Duration;
+}
+
+interface CallOptions {
+  timeout?: number;
+  retry?: RetryOptions;
+}
+
+interface RetryOptions {
+  retryCodes?: number[];
+  backoffSettings?: BackoffSettings;
+}
+
+interface BackoffSettings {
+  initialRetryDelayMillis?: number;
+  retryDelayMultiplier?: number;
+  maxRetryDelayMillis?: number;
+}
+
+interface GaxOptions {
+  timeout?: number;
+  retry?: RetryOptions;
 }
 ```
 
@@ -30,6 +138,7 @@ topic(name: string): Topic
 createTopic(name: string, options?: CreateTopicOptions): Promise<[Topic, any]>
 getTopic(name: string): Promise<[Topic, any]>
 getTopics(options?: GetTopicsOptions): Promise<[Topic[], any, any]>
+getTopicsStream(options?: PageOptions): NodeJS.ReadableStream
 ```
 
 #### Subscription Management
@@ -39,6 +148,7 @@ subscription(name: string, options?: SubscriptionOptions): Subscription
 createSubscription(topic: string | Topic, name: string, options?: CreateSubscriptionOptions): Promise<[Subscription, any]>
 getSubscription(name: string): Promise<[Subscription, any]>
 getSubscriptions(options?: GetSubscriptionsOptions): Promise<[Subscription[], any, any]>
+getSubscriptionsStream(options?: GetSubscriptionsOptions): NodeJS.ReadableStream
 ```
 
 #### Schema Management
@@ -46,6 +156,24 @@ getSubscriptions(options?: GetSubscriptionsOptions): Promise<[Subscription[], an
 ```typescript
 createSchema(schemaId: string, type: SchemaType, definition: string, options?: CreateSchemaOptions): Promise<[Schema, any]>
 schema(id: string): Schema
+listSchemas(view?: 'BASIC' | 'FULL', options?: PageOptions): AsyncIterable<Schema>
+validateSchema(schema: { type: SchemaType; definition: string }, options?: any): Promise<void>
+getSchemaClient(): Promise<SchemaServiceClient>
+```
+
+#### Snapshot Management
+
+```typescript
+snapshot(name: string): Snapshot
+getSnapshotsStream(options?: PageOptions): NodeJS.ReadableStream
+```
+
+#### Client Methods
+
+```typescript
+getClientConfig(): Promise<any>
+getProjectId(): Promise<string>
+close(): Promise<void>
 ```
 
 ### Properties
@@ -53,6 +181,11 @@ schema(id: string): Schema
 ```typescript
 projectId: string;
 isEmulator: boolean;
+isIdResolved: boolean;
+v1: {
+  PublisherClient: any;
+  SubscriberClient: any;
+};
 ```
 
 ## Behavior Requirements
@@ -103,6 +236,82 @@ isEmulator: boolean;
 **When** `getSubscriptions()` is called
 **Then** return array of all Subscription instances
 **And** filter by topic if `options.topic` is provided
+
+### BR-008: Get Topics Stream
+**Given** a PubSub instance exists
+**When** `getTopicsStream(options)` is called
+**Then** return a Node.js ReadableStream that emits Topic instances
+**And** stream automatically handles pagination
+**And** stream ends when all topics are retrieved
+
+### BR-009: Get Subscriptions Stream
+**Given** a PubSub instance exists
+**When** `getSubscriptionsStream(options)` is called
+**Then** return a Node.js ReadableStream that emits Subscription instances
+**And** filter by topic if `options.topic` is provided
+**And** stream automatically handles pagination
+
+### BR-010: Create Schema
+**Given** a PubSub instance exists
+**When** `createSchema(schemaId, type, definition, options)` is called
+**Then** validate the schema definition based on type
+**And** store schema for future message validation
+**And** return tuple `[Schema, metadata]`
+**And** throw AlreadyExistsError if schema already exists
+
+### BR-011: Schema Factory Method
+**Given** a PubSub instance exists
+**When** `schema(id)` is called
+**Then** return a Schema instance for that ID
+**And** subsequent calls with same ID return same instance
+**And** schema should not be created in backend yet
+
+### BR-012: List Schemas
+**Given** schemas exist
+**When** `listSchemas(view, options)` is called
+**Then** return AsyncIterable<Schema>
+**And** respect view parameter ('BASIC' or 'FULL')
+**And** 'BASIC' returns name and type only
+**And** 'FULL' returns complete schema including definition
+
+### BR-013: Validate Schema
+**Given** a schema definition
+**When** `validateSchema({ type, definition }, options)` is called
+**Then** validate syntax and structure
+**And** throw InvalidArgumentError if invalid
+**And** return Promise<void> on success
+
+### BR-014: Snapshot Factory Method
+**Given** a PubSub instance exists
+**When** `snapshot(name)` is called
+**Then** return a Snapshot instance for that name
+**And** subsequent calls return same instance
+
+### BR-015: Get Snapshots Stream
+**Given** snapshots exist
+**When** `getSnapshotsStream(options)` is called
+**Then** return ReadableStream of Snapshot instances
+**And** stream automatically handles pagination
+
+### BR-016: Get Client Config
+**Given** a PubSub instance exists
+**When** `getClientConfig()` is called
+**Then** return configuration used by internal gRPC clients
+**And** include service path, port, and other gRPC options
+
+### BR-017: Get Project ID
+**Given** a PubSub instance exists
+**When** `getProjectId()` is called
+**Then** return the resolved project ID
+**And** resolve from options, credentials, or environment
+
+### BR-018: Close Client
+**Given** a PubSub instance exists with active connections
+**When** `close()` is called
+**Then** close all active subscriptions
+**And** close internal gRPC clients
+**And** cleanup resources
+**And** return Promise<void> when complete
 
 ## Acceptance Criteria
 
@@ -158,6 +367,121 @@ const pubsub = new PubSub();
 const sub1 = pubsub.subscription('my-sub');
 const sub2 = pubsub.subscription('my-sub');
 expect(sub1).toBe(sub2);
+```
+
+### AC-008: Get Topics Stream
+
+```typescript
+const pubsub = new PubSub();
+await pubsub.createTopic('topic-1');
+await pubsub.createTopic('topic-2');
+await pubsub.createTopic('topic-3');
+
+const topics: Topic[] = [];
+
+const stream = pubsub.getTopicsStream();
+stream.on('data', (topic: Topic) => {
+  topics.push(topic);
+});
+
+await new Promise((resolve, reject) => {
+  stream.on('end', resolve);
+  stream.on('error', reject);
+});
+
+expect(topics.length).toBeGreaterThan(0);
+```
+
+### AC-009: Get Subscriptions Stream
+
+```typescript
+const pubsub = new PubSub();
+const topic = pubsub.topic('my-topic');
+await topic.create();
+await pubsub.createSubscription('my-topic', 'sub-1');
+await pubsub.createSubscription('my-topic', 'sub-2');
+
+const subscriptions: Subscription[] = [];
+
+const stream = pubsub.getSubscriptionsStream();
+stream.on('data', (sub: Subscription) => {
+  subscriptions.push(sub);
+});
+
+await new Promise((resolve) => stream.on('end', resolve));
+
+expect(subscriptions.length).toBeGreaterThan(0);
+```
+
+### AC-010: Create and Validate Schema
+
+```typescript
+const pubsub = new PubSub();
+
+const avroDefinition = JSON.stringify({
+  type: 'record',
+  name: 'User',
+  fields: [
+    { name: 'id', type: 'string' },
+    { name: 'name', type: 'string' }
+  ]
+});
+
+// Validate before creating
+await pubsub.validateSchema({
+  type: SchemaType.AVRO,
+  definition: avroDefinition
+});
+
+// Create schema
+const [schema] = await pubsub.createSchema(
+  'user-schema',
+  SchemaType.AVRO,
+  avroDefinition
+);
+
+expect(schema.id).toContain('user-schema');
+```
+
+### AC-011: List Schemas
+
+```typescript
+const pubsub = new PubSub();
+await pubsub.createSchema('schema-1', SchemaType.AVRO, avroDefinition);
+await pubsub.createSchema('schema-2', SchemaType.AVRO, avroDefinition2);
+
+const schemas: Schema[] = [];
+
+for await (const schema of pubsub.listSchemas('FULL')) {
+  schemas.push(schema);
+}
+
+expect(schemas.length).toBeGreaterThan(0);
+```
+
+### AC-012: Get Project ID
+
+```typescript
+const pubsub = new PubSub({ projectId: 'my-project' });
+
+const projectId = await pubsub.getProjectId();
+
+expect(projectId).toBe('my-project');
+```
+
+### AC-013: Close Client
+
+```typescript
+const pubsub = new PubSub();
+const subscription = pubsub.subscription('my-sub');
+await subscription.create();
+subscription.open();
+
+// Close all resources
+await pubsub.close();
+
+// Subscriptions should be closed
+expect(subscription.isOpen).toBe(false);
 ```
 
 ## Dependencies

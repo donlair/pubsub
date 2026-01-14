@@ -25,14 +25,15 @@ class Message {
 ### Properties
 
 ```typescript
-id: string;                      // Unique message ID
-ackId: string;                   // Acknowledgment ID
-data: Buffer;                    // Message payload as Buffer
-attributes: Attributes;          // Key-value pairs
-publishTime: Date;               // When message was published
-orderingKey?: string;            // Optional ordering key
-deliveryAttempt?: number;        // Number of delivery attempts
-length: number;                  // Size of data in bytes (readonly)
+readonly id: string;                      // Unique message ID
+readonly ackId: string;                   // Acknowledgment ID (unique per delivery)
+readonly data: Buffer;                    // Message payload as Buffer
+readonly attributes: Attributes;          // Key-value pairs
+readonly publishTime: Date;               // When message was published
+readonly received: number;                // Timestamp when subscription received message
+readonly orderingKey?: string;            // Optional ordering key
+readonly deliveryAttempt?: number;        // Number of delivery attempts (only with deadLetterPolicy)
+readonly length: number;                  // Size of data in bytes (readonly, equivalent to data.length)
 ```
 
 ### Methods
@@ -40,7 +41,9 @@ length: number;                  // Size of data in bytes (readonly)
 ```typescript
 ack(): void                      // Acknowledge - removes from subscription
 nack(): void                     // Negative ack - redelivers immediately
-modifyAckDeadline(seconds: number): void  // Extend ack deadline
+modifyAckDeadline(seconds: number): void  // Extend/modify ack deadline (0-600 seconds, 0=immediate redelivery)
+ackWithResponse(): Promise<AckResponse>   // Acknowledge with exactly-once delivery confirmation
+nackWithResponse(): Promise<AckResponse>  // Negative ack with exactly-once delivery confirmation
 ```
 
 ### Type Definitions
@@ -48,6 +51,14 @@ modifyAckDeadline(seconds: number): void  // Extend ack deadline
 ```typescript
 interface Attributes {
   [key: string]: string;
+}
+
+enum AckResponse {
+  SUCCESS = 0,              // gRPC OK - Acknowledgment successful
+  INVALID = 3,              // gRPC INVALID_ARGUMENT - Invalid ack ID
+  PERMISSION_DENIED = 7,    // gRPC PERMISSION_DENIED - Insufficient permissions
+  FAILED_PRECONDITION = 9,  // gRPC FAILED_PRECONDITION - Subscription state issue
+  OTHER = 13                // gRPC INTERNAL - Other transient errors
 }
 ```
 
@@ -78,10 +89,11 @@ interface Attributes {
 
 ### BR-004: Modify Ack Deadline
 **Given** a message is received
-**When** `modifyAckDeadline(120)` is called
-**Then** the ack deadline is extended by 120 seconds
-**And** the message will not timeout for 120 seconds
+**When** `modifyAckDeadline(seconds)` is called with 0-600 seconds
+**Then** the ack deadline is set to the specified seconds
+**And** the message will not timeout for that duration
 **And** this can be called multiple times to keep extending
+**And** passing 0 causes immediate redelivery (equivalent to nack)
 
 ### BR-005: Ack Deadline Expiry
 **Given** a message is received
@@ -112,6 +124,19 @@ interface Attributes {
 **When** accessed by subscriber
 **Then** `message.orderingKey` contains the ordering key
 **And** if no ordering key, property is undefined
+
+### BR-010: Exactly-Once Delivery Ack
+**Given** enableExactlyOnceDelivery is enabled on subscription
+**When** `ackWithResponse()` is called
+**Then** return Promise<AckResponse>
+**And** SUCCESS indicates message will not be redelivered
+**And** other codes indicate ack failed and message may be redelivered
+
+### BR-011: Message Size Limit
+**Given** a message is published
+**When** data size exceeds 10MB
+**Then** throw InvalidArgumentError
+**And** message is not accepted for publishing
 
 ## Acceptance Criteria
 
@@ -338,6 +363,104 @@ await new Promise(resolve => setTimeout(resolve, 200));
 expect(lastDeliveryAttempt).toBe(3);
 ```
 
+### AC-011: Ack With Response Returns Success
+
+```typescript
+const subscription = pubsub.subscription('my-sub', {
+  enableExactlyOnceDelivery: true
+});
+await subscription.create();
+
+let ackResponse: AckResponse | null = null;
+
+subscription.on('message', async (message) => {
+  ackResponse = await message.ackWithResponse();
+});
+
+subscription.open();
+
+await topic.publishMessage({ data: Buffer.from('test') });
+
+await new Promise(resolve => setTimeout(resolve, 100));
+
+expect(ackResponse).toBe(AckResponse.SUCCESS); // 0
+```
+
+### AC-012: Nack With Response Returns Success
+
+```typescript
+const subscription = pubsub.subscription('my-sub', {
+  enableExactlyOnceDelivery: true
+});
+await subscription.create();
+
+let nackResponse: AckResponse | null = null;
+let deliveryCount = 0;
+
+subscription.on('message', async (message) => {
+  deliveryCount++;
+  if (deliveryCount === 1) {
+    nackResponse = await message.nackWithResponse();
+  } else {
+    await message.ackWithResponse();
+  }
+});
+
+subscription.open();
+
+await topic.publishMessage({ data: Buffer.from('test') });
+
+await new Promise(resolve => setTimeout(resolve, 100));
+
+expect(nackResponse).toBe(AckResponse.SUCCESS); // 0
+expect(deliveryCount).toBeGreaterThan(1); // Message redelivered
+```
+
+### AC-013: Ack With Response Handles Invalid Ack ID
+
+```typescript
+const subscription = pubsub.subscription('my-sub', {
+  enableExactlyOnceDelivery: true
+});
+await subscription.create();
+
+subscription.on('message', async (message) => {
+  // Ack once (valid)
+  const firstResponse = await message.ackWithResponse();
+  expect(firstResponse).toBe(AckResponse.SUCCESS); // 0
+
+  // Ack again (invalid - already acked)
+  const secondResponse = await message.ackWithResponse();
+  expect(secondResponse).toBe(AckResponse.INVALID); // 3
+});
+
+subscription.open();
+
+await topic.publishMessage({ data: Buffer.from('test') });
+
+await new Promise(resolve => setTimeout(resolve, 100));
+```
+
+### AC-014: Response Methods Work Without Exactly-Once
+
+```typescript
+// Subscription without exactly-once delivery
+const subscription = pubsub.subscription('my-sub');
+await subscription.create();
+
+subscription.on('message', async (message) => {
+  // Should still work, always returns SUCCESS
+  const response = await message.ackWithResponse();
+  expect(response).toBe(AckResponse.SUCCESS); // 0
+});
+
+subscription.open();
+
+await topic.publishMessage({ data: Buffer.from('test') });
+
+await new Promise(resolve => setTimeout(resolve, 50));
+```
+
 ## Dependencies
 
 - Subscription (parent)
@@ -350,6 +473,14 @@ expect(lastDeliveryAttempt).toBe(3);
 {
   code: 3,
   message: 'Ack deadline must be between 0 and 600 seconds'
+}
+```
+
+### Message Too Large
+```typescript
+{
+  code: 3,
+  message: 'Message size exceeds maximum of 10MB'
 }
 ```
 
