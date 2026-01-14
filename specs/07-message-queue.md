@@ -59,7 +59,7 @@ interface InternalMessage {
   id: string;
   data: Buffer;
   attributes: Attributes;
-  publishTime: Date;
+  publishTime: PreciseDate;
   orderingKey?: string;
   deliveryAttempt: number;
   length: number;                // Size in bytes (convenience property)
@@ -209,7 +209,10 @@ interface SubscriptionMetadata {
 **Then** validate total message size (data + attributes + metadata) <= 10MB
 **And** validate attribute key length <= 256 bytes
 **And** validate attribute value length <= 1024 bytes
-**And** throw InvalidArgumentError (code 3) if size limits exceeded
+**And** validate attribute keys are non-empty
+**And** validate attribute keys don't start with reserved prefixes ('goog', 'googclient_')
+**And** validate all attribute values are strings
+**And** throw InvalidArgumentError (code 3) if validation fails
 
 ### BR-018: Ack ID Lifecycle
 **Given** a message is delivered to a subscription
@@ -225,6 +228,32 @@ interface SubscriptionMetadata {
 **Then** return messages in publish order (FIFO) by default
 **And** maintain oldest-first ordering for messages without orderingKey
 **And** maintain separate ordered queues per orderingKey when message ordering enabled
+
+### BR-020: MessageLease Cleanup
+**Given** messages are acked or nacked
+**When** ack/nack operations complete
+**Then** remove MessageLease from in-flight tracking immediately
+**And** clear ackId from lookup map
+**And** cancel associated timeout timer
+**And** prevent memory leaks from accumulated leases
+
+### BR-021: Topic Deletion with In-Flight Messages
+**Given** a topic has subscriptions with in-flight messages
+**When** `unregisterTopic()` is called
+**Then** remove topic from registry
+**And** detach all subscriptions (subscriptions remain but topic reference cleared)
+**And** cancel all in-flight ack timers for all subscriptions
+**And** clear all pending messages in subscription queues
+**And** prevent further message delivery to those subscriptions
+
+### BR-022: Queue Size Limits
+**Given** a subscription queue is accepting messages
+**When** queue size reaches maximum threshold (10,000 messages or 100MB)
+**Then** reject new messages to that subscription
+**And** log warning about queue capacity reached
+**And** continue accepting messages for other subscriptions
+**And** resume accepting messages when queue size drops below threshold
+**Note**: Messages published to topic are discarded for subscriptions at capacity
 
 ## Acceptance Criteria
 
@@ -370,7 +399,7 @@ const queue = MessageQueue.getInstance();
 
 queue.registerTopic('test-topic');
 queue.registerSubscription('test-sub', 'test-topic', {
-  ackDeadline: 10  // 10 seconds (minimum valid)
+  ackDeadlineSeconds: 10  // 10 seconds (minimum valid)
 });
 
 const messages: InternalMessage[] = [
@@ -404,7 +433,7 @@ const queue = MessageQueue.getInstance();
 
 queue.registerTopic('test-topic');
 queue.registerSubscription('test-sub', 'test-topic', {
-  ackDeadline: 10  // 10 seconds (minimum valid)
+  ackDeadlineSeconds: 10  // 10 seconds (minimum valid)
 });
 
 const messages: InternalMessage[] = [
@@ -536,6 +565,52 @@ const sub = queue.getSubscription('test-sub');
 expect(sub?.topic).toBe('test-topic');
 ```
 
+### AC-013: FIFO Message Ordering Without Ordering Key
+```typescript
+const queue = MessageQueue.getInstance();
+
+queue.registerTopic('test-topic');
+queue.registerSubscription('test-sub', 'test-topic');
+
+// Publish messages in order: A, B, C (no orderingKey)
+const messages: InternalMessage[] = [
+  {
+    id: 'msg-1',
+    data: Buffer.from('A'),
+    attributes: {},
+    publishTime: new Date(),
+    orderingKey: undefined,
+    deliveryAttempt: 1
+  },
+  {
+    id: 'msg-2',
+    data: Buffer.from('B'),
+    attributes: {},
+    publishTime: new Date(),
+    orderingKey: undefined,
+    deliveryAttempt: 1
+  },
+  {
+    id: 'msg-3',
+    data: Buffer.from('C'),
+    attributes: {},
+    publishTime: new Date(),
+    orderingKey: undefined,
+    deliveryAttempt: 1
+  }
+];
+
+queue.publish('test-topic', messages);
+
+const pulled = queue.pull('test-sub', 10);
+
+// Must be delivered in publish order (FIFO)
+expect(pulled).toHaveLength(3);
+expect(pulled[0].data.toString()).toBe('A');
+expect(pulled[1].data.toString()).toBe('B');
+expect(pulled[2].data.toString()).toBe('C');
+```
+
 ## Dependencies
 
 - None (internal singleton, used by all other components)
@@ -571,8 +646,10 @@ expect(sub?.topic).toBe('test-topic');
 - Use Map for O(1) topic/subscription lookups
 - Use efficient queue data structure (Array or linked list)
 - Index messages by orderingKey for ordering feature
-- Limit queue size per subscription to prevent memory issues
-- Clean up expired leases periodically
+- **Limit queue size per subscription**: 10,000 messages or 100MB per subscription
+- **Clean up expired leases periodically**: Run cleanup every 60 seconds to prevent memory leaks
+- **Message retention**: Enforce 7-day retention (configurable via messageRetentionDuration)
+- **Ack ID garbage collection**: Remove expired ackIds after 10 minutes
 
 ## Implementation Notes
 
@@ -593,7 +670,7 @@ const queue = MessageQueue.getInstance();
 // Register topic and subscription
 queue.registerTopic('orders');
 queue.registerSubscription('order-processor', 'orders', {
-  ackDeadline: 60
+  ackDeadlineSeconds: 60
 });
 
 // Publish messages
@@ -622,7 +699,7 @@ const queue = MessageQueue.getInstance();
 queue.registerTopic('user-events');
 queue.registerSubscription('event-processor', 'user-events', {
   messageOrdering: true,
-  ackDeadline: 120
+  ackDeadlineSeconds: 120
 });
 
 // Publish ordered messages
