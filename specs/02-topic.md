@@ -19,6 +19,7 @@ class Topic {
 ```typescript
 name: string;                    // Fully-qualified topic name
 publisher: Publisher;            // Associated publisher instance
+iam: IAM;                        // IAM policy manager for this topic
 metadata?: TopicMetadata;
 ```
 
@@ -41,11 +42,11 @@ resumePublishing(orderingKey: string): void
 
 ```typescript
 create(options?: CreateTopicOptions): Promise<[Topic, any]>
-delete(): Promise<[any]>
-exists(): Promise<[boolean]>
+delete(options?: CallOptions): Promise<[any]>
+exists(options?: CallOptions): Promise<[boolean]>
 get(options?: GetTopicOptions): Promise<[Topic, any]>
-getMetadata(): Promise<[TopicMetadata]>
-setMetadata(metadata: TopicMetadata): Promise<[any]>
+getMetadata(options?: CallOptions): Promise<[any]>
+setMetadata(metadata: any, options?: CallOptions): Promise<[any]>
 ```
 
 #### Subscription Methods
@@ -103,6 +104,33 @@ interface SchemaSettings {
 interface Duration {
   seconds?: number;
   nanos?: number;
+}
+
+interface CallOptions {
+  timeout?: number;              // Request timeout in milliseconds
+  retry?: RetryOptions;          // Retry configuration
+  autoPaginate?: boolean;        // Auto-pagination for list methods
+}
+
+interface GetTopicOptions extends CallOptions {
+  autoCreate?: boolean;          // Create topic if it doesn't exist
+}
+
+interface IAM {
+  getPolicy(): Promise<[Policy, any]>;
+  setPolicy(policy: Policy): Promise<[Policy, any]>;
+  testPermissions(permissions: string[]): Promise<[string[], any]>;
+}
+
+interface Policy {
+  bindings?: PolicyBinding[];
+  etag?: string;
+  version?: number;
+}
+
+interface PolicyBinding {
+  role?: string;
+  members?: string[];
 }
 ```
 

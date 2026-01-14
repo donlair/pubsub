@@ -39,11 +39,13 @@ readonly length: number;                  // Size of data in bytes (readonly, eq
 ### Methods
 
 ```typescript
-ack(): void                      // Acknowledge - removes from subscription
-nack(): void                     // Negative ack - redelivers immediately
-modifyAckDeadline(seconds: number): void  // Extend/modify ack deadline (0-600 seconds, 0=immediate redelivery)
-ackWithResponse(): Promise<AckResponse>   // Acknowledge with exactly-once delivery confirmation
-nackWithResponse(): Promise<AckResponse>  // Negative ack with exactly-once delivery confirmation
+ack(): void                                         // Acknowledge - removes from subscription
+nack(): void                                        // Negative ack - redelivers immediately
+modifyAckDeadline(seconds: number): void            // Extend/modify ack deadline (0-600 seconds, 0=immediate redelivery)
+modAck(deadline: number): void                      // Alias for modifyAckDeadline
+ackWithResponse(): Promise<AckResponse>             // Acknowledge with exactly-once delivery confirmation
+nackWithResponse(): Promise<AckResponse>            // Negative ack with exactly-once delivery confirmation
+modAckWithResponse(deadline: number): Promise<AckResponse>  // Modify ack deadline with exactly-once delivery confirmation
 ```
 
 ### Type Definitions

@@ -47,7 +47,8 @@ getName(): Promise<string>  // Returns fully-qualified schema name
 ```typescript
 enum SchemaType {
   AVRO = 'AVRO',
-  PROTOCOL_BUFFER = 'PROTOCOL_BUFFER'
+  PROTOCOL_BUFFER = 'PROTOCOL_BUFFER',
+  JSON = 'JSON'  // Custom extension for local development only
 }
 
 enum Encoding {
@@ -60,10 +61,11 @@ interface CreateSchemaOptions {
 }
 
 interface SchemaMetadata {
-  name: string;
-  type: SchemaType;
-  definition: string;
-  created: Date;
+  name?: string;
+  type?: SchemaType;
+  definition?: string;
+  revisionId?: string;
+  revisionCreateTime?: google.protobuf.ITimestamp;
 }
 
 interface PubSubMessage {
@@ -319,25 +321,7 @@ expect(retrieved.type).toBe(SchemaType.JSON);
 expect(retrieved.definition).toBe(definition);
 ```
 
-### AC-008: AVRO Not Implemented
-```typescript
-const schema = pubsub.schema('avro-schema');
-
-await expect(
-  schema.create(SchemaType.AVRO, 'avro-definition')
-).rejects.toThrow('AVRO schemas not yet implemented');
-```
-
-### AC-009: Protocol Buffer Not Implemented
-```typescript
-const schema = pubsub.schema('proto-schema');
-
-await expect(
-  schema.create(SchemaType.PROTOCOL_BUFFER, 'proto-definition')
-).rejects.toThrow('Protocol Buffer schemas not yet implemented');
-```
-
-### AC-010: Invalid JSON Schema Definition
+### AC-008: Invalid JSON Schema Definition
 ```typescript
 const schema = pubsub.schema('invalid-schema');
 
@@ -348,7 +332,7 @@ await expect(
 ).rejects.toThrow();
 ```
 
-### AC-011: List Schemas
+### AC-009: List Schemas
 ```typescript
 const schema1 = pubsub.schema('schema-1');
 const schema2 = pubsub.schema('schema-2');
@@ -366,7 +350,7 @@ expect(schemas.length).toBeGreaterThanOrEqual(2);
 expect(schemas.some(s => s.id === 'schema-1')).toBe(true);
 ```
 
-### AC-012: Validate Schema Definition
+### AC-010: Validate Schema Definition
 ```typescript
 const invalidDefinition = '{"type": "unknown"}';
 
@@ -386,7 +370,7 @@ await pubsub.validateSchema({
 });
 ```
 
-### AC-013: Get Schema Name
+### AC-011: Get Schema Name
 ```typescript
 const schema = pubsub.schema('test-schema');
 await schema.create(SchemaType.JSON, '{"type": "object"}');

@@ -28,20 +28,23 @@ setOptions(options: SubscriberOptions): void
 
 ```typescript
 interface SubscriberOptions {
-  flowControl?: FlowControlOptions;
-  ackDeadline?: number;          // Seconds (10-600), default: 10 (runtime override)
-  streamingOptions?: StreamingOptions;
-  batching?: BatchOptions;       // Acknowledgment batching
+  minAckDeadline?: number | Duration;      // Seconds, default: 10
+  maxAckDeadline?: number | Duration;      // Seconds, default: 600
+  maxExtensionTime?: number | Duration;    // Seconds, default: 3600 (1 hour)
+  batching?: BatchOptions;
+  flowControl?: SubscriberFlowControlOptions;
+  useLegacyFlowControl?: boolean;          // Default: false
+  streamingOptions?: MessageStreamOptions;
+  closeOptions?: SubscriberCloseOptions;
 }
 
-interface FlowControlOptions {
+interface SubscriberFlowControlOptions {
   maxMessages?: number;          // Default: 1000
   maxBytes?: number;             // Default: 100 * 1024 * 1024 (100MB)
   allowExcessMessages?: boolean; // Default: false
-  maxExtension?: number;         // Max ack deadline extension (seconds), default: 3600
 }
 
-interface StreamingOptions {
+interface MessageStreamOptions {
   maxStreams?: number;           // Default: 5
   timeout?: number;              // Default: 300000 (5 minutes in milliseconds)
 }
@@ -50,6 +53,13 @@ interface BatchOptions {
   maxMessages?: number;          // Default: 3000
   maxMilliseconds?: number;      // Default: 100
 }
+
+interface SubscriberCloseOptions {
+  behavior?: 'NACK' | 'WAIT';    // Default: 'WAIT'
+  timeout?: number | Duration;   // Timeout for waiting
+}
+
+type Duration = number | { seconds?: number; nanos?: number };
 ```
 
 ## Behavior Requirements
@@ -80,7 +90,7 @@ interface BatchOptions {
 **And** then pause until capacity available
 
 ### BR-005: Ack Deadline Tracking
-**Given** ackDeadline is set to N seconds (or subscription default)
+**Given** minAckDeadline is set to N seconds (or subscription default)
 **When** a message is delivered
 **Then** start lease timer for N seconds
 **And** if not acked within N seconds, make available for redelivery

@@ -27,23 +27,25 @@ setOptions(options: PublishOptions): void
 
 ```typescript
 interface PublishOptions {
-  batching?: BatchingOptions;
+  batching?: BatchPublishOptions;
   messageOrdering?: boolean;     // Default: false
-  flowControlOptions?: FlowControlOptions;
+  flowControlOptions?: PublisherFlowControlOptions;
   gaxOpts?: CallOptions;         // gRPC and retry configuration
   enableOpenTelemetryTracing?: boolean; // Default: false
 }
 
-interface BatchingOptions {
+interface BatchPublishOptions {
   maxMessages?: number;          // Default: 100
   maxMilliseconds?: number;      // Default: 10
   maxBytes?: number;             // Default: 1024 * 1024 (1MB)
 }
 
-interface FlowControlOptions {
-  maxOutstandingMessages?: number;  // Default: Infinity
-  maxOutstandingBytes?: number;     // Default: Infinity
+interface PublisherFlowControlOptions {
+  maxOutstandingMessages?: number;  // Default: 100
+  maxOutstandingBytes?: number;     // Default: 1048576 (1 MB)
 }
+
+type Attributes = Record<string, string>;
 
 interface PubSubMessage {
   data: Buffer;

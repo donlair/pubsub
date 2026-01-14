@@ -18,8 +18,6 @@ interface PubSubOptions {
   apiEndpoint?: string;
   keyFilename?: string;
   credentials?: object;
-  email?: string;
-  token?: string;
   port?: number;
   servicePath?: string;
   sslCreds?: any;
@@ -27,6 +25,8 @@ interface PubSubOptions {
   fallback?: boolean | 'rest' | 'proto';
   grpc?: any;
   gaxOpts?: GaxOptions;
+  enableOpenTelemetryTracing?: boolean;  // Default: false
+  emulatorMode?: boolean;                // Explicit emulator control
 }
 
 interface PageOptions {
@@ -34,6 +34,7 @@ interface PageOptions {
   autoPaginate?: boolean;
   maxResults?: number;
   pageToken?: string;
+  pageSize?: number;             // Number of items per page
 }
 
 interface GetTopicsOptions extends PageOptions {}
@@ -217,7 +218,7 @@ v1: {
 **When** `createTopic(name)` is called
 **Then** create the topic in the message queue
 **And** return a tuple `[Topic, metadata]`
-**And** throw NotFoundError if topic already exists with `{code: 6}` (ALREADY_EXISTS)
+**And** throw AlreadyExistsError if topic already exists with `{code: 6}` (ALREADY_EXISTS)
 
 ### BR-004: Get Topics
 **Given** multiple topics exist

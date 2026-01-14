@@ -88,6 +88,19 @@ Message ordering is a cross-cutting concern that affects:
 **And** max length 1024 bytes
 **And** any UTF-8 characters allowed
 
+### BR-011: Ordering Key Pause on Error
+**Given** a publish error occurs for a message with an ordering key
+**When** the error is a permanent/non-retryable error
+**Then** pause publishing for that ordering key
+**And** subsequent publishes to that key should fail immediately
+**And** require explicit resume before continuing
+
+### BR-012: Resume Publishing After Error
+**Given** an ordering key is paused due to an error
+**When** resumePublishing(orderingKey) is called on the topic
+**Then** clear the error state for that ordering key
+**And** allow new messages with that key to be published
+
 ## Acceptance Criteria
 
 ### AC-001: Create Topic and Publish with Ordering Key
@@ -432,6 +445,65 @@ expect(messageIds).toHaveLength(20);
 expect(messageIds.every(id => typeof id === 'string')).toBe(true);
 ```
 
+### AC-011: Ordering Key Paused on Error
+```typescript
+const topic = pubsub.topic('ordered-events');
+await topic.create();
+topic.setPublishOptions({ messageOrdering: true });
+
+// Simulate a publish error (e.g., invalid message)
+try {
+  await topic.publishMessage({
+    data: Buffer.from(''), // Invalid empty data
+    orderingKey: 'user-123'
+  });
+} catch (error) {
+  expect(error).toBeDefined();
+}
+
+// Subsequent publishes to same key should fail
+await expect(
+  topic.publishMessage({
+    data: Buffer.from('test'),
+    orderingKey: 'user-123'
+  })
+).rejects.toThrow('Ordering key user-123 is paused');
+
+// Different ordering keys should still work
+const messageId = await topic.publishMessage({
+  data: Buffer.from('test'),
+  orderingKey: 'user-456'
+});
+expect(messageId).toBeDefined();
+```
+
+### AC-012: Resume Publishing After Error
+```typescript
+const topic = pubsub.topic('ordered-events');
+await topic.create();
+topic.setPublishOptions({ messageOrdering: true });
+
+// Cause an error to pause the ordering key
+try {
+  await topic.publishMessage({
+    data: Buffer.from(''), // Invalid
+    orderingKey: 'user-123'
+  });
+} catch (error) {
+  // Expected error
+}
+
+// Resume the ordering key
+topic.resumePublishing('user-123');
+
+// Publishing should now work
+const messageId = await topic.publishMessage({
+  data: Buffer.from('test'),
+  orderingKey: 'user-123'
+});
+expect(messageId).toBeDefined();
+```
+
 ## Dependencies
 
 - Publisher (maintains separate batches per key)
@@ -478,6 +550,43 @@ expect(messageIds.every(id => typeof id === 'string')).toBe(true);
 - Ordering key is part of message immutable data
 - Empty string is invalid ordering key
 - Null/undefined ordering key means unordered
+
+### Topic API Methods for Ordering
+
+```typescript
+// Topic class method
+resumePublishing(orderingKey: string): void
+```
+
+Resumes publishing for an ordering key that was paused due to a publish error.
+
+**When to use:**
+- After a publish error with an ordering key
+- After fixing the root cause of the error
+- To unblock the ordering key for new messages
+
+**Example:**
+```typescript
+try {
+  await topic.publishMessage({
+    data: Buffer.from('message'),
+    orderingKey: 'user-123'
+  });
+} catch (error) {
+  console.error('Publish failed:', error);
+
+  // Fix the issue (e.g., validate data, check permissions)
+
+  // Resume publishing for this key
+  topic.resumePublishing('user-123');
+
+  // Retry with valid data
+  await topic.publishMessage({
+    data: Buffer.from('valid message'),
+    orderingKey: 'user-123'
+  });
+}
+```
 
 ## Examples
 

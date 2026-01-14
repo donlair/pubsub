@@ -43,7 +43,7 @@ delete(gaxOptions?: CallOptions): Promise<[any]>
 exists(options?: CallOptions): Promise<[boolean]>
 get(options?: GetOptions): Promise<[Subscription, any]>
 getMetadata(options?: CallOptions): Promise<[SubscriptionMetadata, GetSubscriptionResponse]>
-setMetadata(metadata: SubscriptionMetadata): Promise<[any]>
+setMetadata(metadata: SubscriptionMetadata, options?: CallOptions): Promise<[SubscriptionMetadata, any]>
 ```
 
 #### Message Reception Methods
@@ -62,7 +62,7 @@ setOptions(options: SubscriptionOptions): void
 #### Advanced Methods
 
 ```typescript
-seek(snapshot: string | Date): Promise<[any]>
+seek(snapshot: string | Snapshot | Date, options?: CallOptions): Promise<[any]>
 createSnapshot(name: string): Promise<[Snapshot, any]>
 modifyPushConfig(config: PushConfig, options?: CallOptions): Promise<[any]>
 snapshot(name: string): Snapshot
