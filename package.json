@@ -1,0 +1,14 @@
+{
+  "name": "pubsub",
+  "module": "index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@google-cloud/pubsub": "^5.2.1"
+  }
+}
