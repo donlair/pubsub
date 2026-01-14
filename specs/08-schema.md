@@ -32,13 +32,14 @@ metadata?: SchemaMetadata;
 create(type: SchemaType, definition: string, options?: CreateSchemaOptions): Promise<[Schema, any]>
 delete(): Promise<[any]>
 exists(): Promise<[boolean]>
-get(): Promise<[Schema, any]>
+get(view?: 'BASIC' | 'FULL', options?: any): Promise<[Schema, any]>
 ```
 
 #### Validation Methods
 
 ```typescript
-validateMessage(message: PubSubMessage): Promise<boolean>
+validateMessage(message: string | Buffer, encoding: Encoding, options?: any): Promise<void>
+getName(): Promise<string>  // Returns fully-qualified schema name
 ```
 
 ### Type Definitions
@@ -46,8 +47,12 @@ validateMessage(message: PubSubMessage): Promise<boolean>
 ```typescript
 enum SchemaType {
   AVRO = 'AVRO',
-  PROTOCOL_BUFFER = 'PROTOCOL_BUFFER',
-  JSON = 'JSON'  // Our extension for simple validation
+  PROTOCOL_BUFFER = 'PROTOCOL_BUFFER'
+}
+
+enum Encoding {
+  BINARY = 'BINARY',
+  JSON = 'JSON'
 }
 
 interface CreateSchemaOptions {
@@ -68,6 +73,49 @@ interface PubSubMessage {
 }
 ```
 
+## Local Development Extension: JSON Schema Validation
+
+**⚠️ IMPORTANT**: JSON Schema validation is a **custom extension** for local development convenience and is **NOT part of Google Cloud Pub/Sub API**.
+
+### What This Means
+
+- **Google's API** only supports `SchemaType.AVRO` and `SchemaType.PROTOCOL_BUFFER`
+- **This implementation** extends the `SchemaType` enum to include `JSON` for local development
+- **Migration Impact**: Code using `SchemaType.JSON` will **NOT work** with real Google Cloud Pub/Sub
+
+### Usage
+
+For local development and testing, this implementation allows:
+
+```typescript
+// LOCAL ONLY - NOT COMPATIBLE WITH GOOGLE PUB/SUB
+enum SchemaType {
+  AVRO = 'AVRO',
+  PROTOCOL_BUFFER = 'PROTOCOL_BUFFER',
+  JSON = 'JSON'  // Custom extension for local development only
+}
+
+// Create JSON schema (local development only)
+await schema.create(SchemaType.JSON, jsonSchemaDefinition);
+```
+
+### Migration Path
+
+When moving to production Google Cloud Pub/Sub:
+
+1. **Remove JSON validation** code or
+2. **Implement client-side validation** using `ajv` or similar library
+3. **Use AVRO or Protocol Buffer** schemas for server-side validation
+
+### Why Provide This Extension?
+
+JSON Schema validation is provided for:
+- **Rapid local development** without AVRO/Protobuf complexity
+- **Testing** message structures before implementing full schemas
+- **Compatibility** with JSON-based workflows during development
+
+**Production applications should use Google's officially supported AVRO or Protocol Buffer schemas.**
+
 ## Behavior Requirements
 
 ### BR-001: Schema Creation
@@ -83,24 +131,25 @@ interface PubSubMessage {
 **Then** return true if schema is registered
 **And** return false otherwise
 
-### BR-003: Message Validation - JSON
-**Given** a schema with type JSON is created
-**When** `validateMessage(message)` is called
-**Then** parse message.data as JSON
-**And** validate against JSON Schema definition
-**And** return true if valid, throw error if invalid
+### BR-003: Message Validation Interface
+**Given** a schema is created
+**When** `validateMessage(message, encoding)` is called
+**Then** parse the message (string or Buffer) based on encoding
+**And** validate against schema definition
+**And** return Promise<void> on success
+**And** throw InvalidArgumentError if validation fails
 
 ### BR-004: Message Validation - AVRO (Stub)
 **Given** a schema with type AVRO is created
-**When** `validateMessage(message)` is called
-**Then** throw NotImplementedError with helpful message
-**And** suggest JSON schema as alternative
+**When** `validateMessage(message, encoding)` is called
+**Then** throw UnimplementedError with message "AVRO schemas"
+**And** suggest alternative validation methods
 
 ### BR-005: Message Validation - Protocol Buffer (Stub)
 **Given** a schema with type PROTOCOL_BUFFER is created
-**When** `validateMessage(message)` is called
-**Then** throw NotImplementedError with helpful message
-**And** suggest JSON schema as alternative
+**When** `validateMessage(message, encoding)` is called
+**Then** throw UnimplementedError with message "Protocol Buffer schemas"
+**And** suggest alternative validation methods
 
 ### BR-006: Topic with Schema
 **Given** a topic has a schema attached
@@ -124,85 +173,79 @@ interface PubSubMessage {
 
 ## Acceptance Criteria
 
-### AC-001: Create JSON Schema
+**⚠️ Note on JSON Schema Tests**: Several acceptance criteria below use `SchemaType.JSON` for convenience. This is a **local development extension only** and will not work with real Google Cloud Pub/Sub. For production, use `SchemaType.AVRO` or `SchemaType.PROTOCOL_BUFFER`.
+
+### AC-001: Create AVRO Schema
 ```typescript
 const pubsub = new PubSub();
 const schema = pubsub.schema('user-schema');
 
-const definition = JSON.stringify({
-  type: 'object',
-  properties: {
-    userId: { type: 'number' },
-    action: { type: 'string' }
-  },
-  required: ['userId', 'action']
+const avroDefinition = JSON.stringify({
+  type: 'record',
+  name: 'User',
+  fields: [
+    { name: 'userId', type: 'int' },
+    { name: 'action', type: 'string' }
+  ]
 });
 
 const [createdSchema] = await schema.create(
-  SchemaType.JSON,
-  definition
+  SchemaType.AVRO,
+  avroDefinition
 );
 
-expect(createdSchema.type).toBe(SchemaType.JSON);
+expect(createdSchema.type).toBe(SchemaType.AVRO);
 expect(await createdSchema.exists()).toBe(true);
 ```
 
-### AC-002: Validate Valid Message
+### AC-002: AVRO Validation Throws Unimplemented
 ```typescript
 const schema = pubsub.schema('user-schema');
 
-const definition = JSON.stringify({
-  type: 'object',
-  properties: {
-    userId: { type: 'number' },
-    action: { type: 'string' }
-  },
-  required: ['userId', 'action']
+const avroDefinition = JSON.stringify({
+  type: 'record',
+  name: 'User',
+  fields: [
+    { name: 'userId', type: 'int' },
+    { name: 'action', type: 'string' }
+  ]
 });
 
-await schema.create(SchemaType.JSON, definition);
+await schema.create(SchemaType.AVRO, avroDefinition);
 
-const validMessage = {
-  data: Buffer.from(JSON.stringify({
-    userId: 123,
-    action: 'login'
-  })),
-  attributes: {}
-};
-
-const isValid = await schema.validateMessage(validMessage);
-expect(isValid).toBe(true);
-```
-
-### AC-003: Reject Invalid Message
-```typescript
-const schema = pubsub.schema('user-schema');
-
-const definition = JSON.stringify({
-  type: 'object',
-  properties: {
-    userId: { type: 'number' },
-    action: { type: 'string' }
-  },
-  required: ['userId', 'action']
+const messageData = JSON.stringify({
+  userId: 123,
+  action: 'login'
 });
-
-await schema.create(SchemaType.JSON, definition);
-
-const invalidMessage = {
-  data: Buffer.from(JSON.stringify({
-    userId: 'not-a-number',  // Should be number
-    action: 'login'
-  })),
-  attributes: {}
-};
 
 await expect(
-  schema.validateMessage(invalidMessage)
-).rejects.toThrow();
+  schema.validateMessage(messageData, Encoding.JSON)
+).rejects.toThrow('AVRO schemas');
+```
+
+### AC-003: Protocol Buffer Validation Throws Unimplemented
+```typescript
+const schema = pubsub.schema('proto-schema');
+
+const protoDefinition = `
+  message User {
+    int32 userId = 1;
+    string action = 2;
+  }
+`;
+
+await schema.create(SchemaType.PROTOCOL_BUFFER, protoDefinition);
+
+const messageData = Buffer.from([/* binary data */]);
+
+await expect(
+  schema.validateMessage(messageData, Encoding.BINARY)
+).rejects.toThrow('Protocol Buffer schemas');
 ```
 
 ### AC-004: Topic with Schema Validation
+**Note**: This test uses `SchemaType.JSON` which is a custom extension for local development only.
+
 ```typescript
 const schema = pubsub.schema('order-schema');
 
@@ -218,7 +261,12 @@ const definition = JSON.stringify({
 await schema.create(SchemaType.JSON, definition);
 
 const topic = pubsub.topic('orders');
-await topic.create({ schema: 'order-schema' });
+await topic.create({
+  schemaSettings: {
+    schema: 'order-schema',
+    encoding: Encoding.JSON
+  }
+});
 
 // Valid message - should succeed
 const messageId1 = await topic.publishJSON({
@@ -300,10 +348,81 @@ await expect(
 ).rejects.toThrow();
 ```
 
+### AC-011: List Schemas
+```typescript
+const schema1 = pubsub.schema('schema-1');
+const schema2 = pubsub.schema('schema-2');
+
+await schema1.create(SchemaType.JSON, '{"type": "object"}');
+await schema2.create(SchemaType.JSON, '{"type": "object"}');
+
+// List all schemas
+const schemas: Schema[] = [];
+for await (const s of pubsub.listSchemas('FULL')) {
+  schemas.push(s);
+}
+
+expect(schemas.length).toBeGreaterThanOrEqual(2);
+expect(schemas.some(s => s.id === 'schema-1')).toBe(true);
+```
+
+### AC-012: Validate Schema Definition
+```typescript
+const invalidDefinition = '{"type": "unknown"}';
+
+await expect(
+  pubsub.validateSchema({
+    type: SchemaType.JSON,
+    definition: invalidDefinition
+  })
+).rejects.toThrow();
+
+const validDefinition = JSON.stringify({ type: 'object' });
+
+// Should not throw
+await pubsub.validateSchema({
+  type: SchemaType.JSON,
+  definition: validDefinition
+});
+```
+
+### AC-013: Get Schema Name
+```typescript
+const schema = pubsub.schema('test-schema');
+await schema.create(SchemaType.JSON, '{"type": "object"}');
+
+const name = await schema.getName();
+
+expect(name).toMatch(/^projects\/.*\/schemas\/test-schema$/);
+```
+
 ## Dependencies
 
 - PubSub client (parent)
 - JSON Schema validator (e.g., `ajv` library)
+
+## PubSub Client Schema Methods
+
+The PubSub client provides these schema-related methods:
+
+```typescript
+class PubSub {
+  listSchemas(view?: 'BASIC' | 'FULL', options?: PageOptions): AsyncIterable<Schema>
+  validateSchema(schema: { type: SchemaType; definition: string }, options?: any): Promise<void>
+  getSchemaClient(): Promise<SchemaServiceClient>
+}
+```
+
+### listSchemas()
+Returns an async iterable of all schemas in the project.
+- `view='BASIC'`: Returns minimal metadata
+- `view='FULL'`: Returns complete schema definitions
+
+### validateSchema()
+Validates a schema definition before creation. Throws if invalid.
+
+### getSchemaClient()
+Returns low-level schema service client for advanced operations.
 
 ## Error Handling
 
@@ -368,7 +487,12 @@ await schema.create(SchemaType.JSON, JSON.stringify({
 
 // Create topic with schema
 const topic = pubsub.topic('events');
-await topic.create({ schema: 'event-schema' });
+await topic.create({
+  schemaSettings: {
+    schema: 'event-schema',
+    encoding: Encoding.JSON
+  }
+});
 
 // Valid messages pass
 await topic.publishJSON({
@@ -452,7 +576,12 @@ await schema.create(SchemaType.JSON, JSON.stringify({
 }));
 
 const topic = pubsub.topic('user-updates');
-await topic.create({ schema: 'user-profile-schema' });
+await topic.create({
+  schemaSettings: {
+    schema: 'user-profile-schema',
+    encoding: Encoding.JSON
+  }
+});
 
 // Schema ensures data quality
 await topic.publishJSON({
