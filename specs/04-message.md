@@ -71,7 +71,7 @@ enum AckResponse {
 **When** accessed by subscriber
 **Then** all properties (id, data, attributes, publishTime) are accessible
 **And** data is a Buffer instance
-**And** publishTime is a Date instance
+**And** publishTime is a PreciseDate instance
 
 ### BR-002: Acknowledge (ack)
 **Given** a message is received
@@ -139,6 +139,14 @@ enum AckResponse {
 **When** data size exceeds 10MB
 **Then** throw InvalidArgumentError
 **And** message is not accepted for publishing
+
+### BR-012: Attribute Constraints
+**Given** message has attributes
+**When** validating attributes
+**Then** each attribute key must be ≤ 256 bytes
+**And** each attribute value must be ≤ 1024 bytes
+**And** keys must not start with reserved prefixes (googclient_*, goog*)
+**And** InvalidArgumentError thrown if constraints violated
 
 ## Acceptance Criteria
 
@@ -463,6 +471,47 @@ await topic.publishMessage({ data: Buffer.from('test') });
 await new Promise(resolve => setTimeout(resolve, 50));
 ```
 
+### AC-015: Attribute Validation
+
+```typescript
+test('should throw when attribute key exceeds 256 bytes', async () => {
+  const topic = pubsub.topic('test-topic');
+  await topic.create();
+
+  const longKey = 'x'.repeat(257);
+  await expect(
+    topic.publishMessage({
+      data: Buffer.from('test'),
+      attributes: { [longKey]: 'value' }
+    })
+  ).rejects.toThrow('Attribute key too long');
+});
+
+test('should throw when attribute value exceeds 1024 bytes', async () => {
+  const topic = pubsub.topic('test-topic');
+  await topic.create();
+
+  await expect(
+    topic.publishMessage({
+      data: Buffer.from('test'),
+      attributes: { key: 'x'.repeat(1025) }
+    })
+  ).rejects.toThrow('Attribute value too long');
+});
+
+test('should throw when using reserved attribute prefix', async () => {
+  const topic = pubsub.topic('test-topic');
+  await topic.create();
+
+  await expect(
+    topic.publishMessage({
+      data: Buffer.from('test'),
+      attributes: { 'googclient_reserved': 'value' }
+    })
+  ).rejects.toThrow('Reserved attribute key');
+});
+```
+
 ## Dependencies
 
 - Subscription (parent)
@@ -483,6 +532,30 @@ await new Promise(resolve => setTimeout(resolve, 50));
 {
   code: 3,
   message: 'Message size exceeds maximum of 10MB'
+}
+```
+
+### Attribute Key Too Long
+```typescript
+{
+  code: 3,
+  message: 'Attribute key exceeds maximum of 256 bytes'
+}
+```
+
+### Attribute Value Too Long
+```typescript
+{
+  code: 3,
+  message: 'Attribute value exceeds maximum of 1024 bytes'
+}
+```
+
+### Reserved Attribute Key
+```typescript
+{
+  code: 3,
+  message: 'Attribute key uses reserved prefix: googclient_* or goog*'
 }
 ```
 
