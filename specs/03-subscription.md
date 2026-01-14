@@ -80,11 +80,17 @@ interface SubscriptionOptions {
     maxExtension?: number;       // Default: 3600 seconds (max time to extend ack deadline)
   };
   ackDeadlineSeconds?: number;   // Seconds (10-600), default: 10
+  minAckDeadline?: number;       // Minimum ack deadline in seconds, default: 10
+  maxAckDeadline?: number;       // Maximum ack deadline in seconds, default: 600
+  maxExtensionTime?: number;     // Maximum extension time in seconds, default: 3600
   enableMessageOrdering?: boolean; // Default: false
+  batching?: BatchOptions;       // Batching for ack/nack operations
+  useLegacyFlowControl?: boolean; // Use client-side only flow control, default: false
   streamingOptions?: {
     maxStreams?: number;         // Default: 5
     timeout?: number;            // Default: 300000 (5 minutes in milliseconds)
   };
+  closeOptions?: SubscriberCloseOptions; // Behavior when closing subscription
 }
 
 interface CreateSubscriptionOptions extends SubscriptionOptions {
@@ -96,7 +102,8 @@ interface CreateSubscriptionOptions extends SubscriptionOptions {
   enableExactlyOnceDelivery?: boolean; // Default: false
   expirationPolicy?: ExpirationPolicy;
   labels?: { [key: string]: string };
-  messageRetentionDuration?: Duration;
+  messageRetentionDuration?: Duration;  // Range: 10 minutes to 7 days, default: 7 days
+  gaxOpts?: CallOptions;               // Optional gax configuration for API calls
 }
 
 interface DeadLetterPolicy {
@@ -107,6 +114,7 @@ interface DeadLetterPolicy {
 interface RetryPolicy {
   minimumBackoff?: Duration;     // Default: 10s
   maximumBackoff?: Duration;     // Default: 600s
+  // Backoff formula: min(minimumBackoff * 2^(deliveryAttempt - 1), maximumBackoff)
 }
 
 interface ExpirationPolicy {
@@ -116,6 +124,33 @@ interface ExpirationPolicy {
 interface Duration {
   seconds?: number;
   nanos?: number;
+  // Note: Duration can also be a simple number representing seconds
+  // Example: messageRetentionDuration: 86400 is equivalent to { seconds: 86400 }
+}
+
+interface BatchOptions {
+  maxMessages?: number;        // Default: 3000 (max acks/nacks before sending)
+  maxMilliseconds?: number;    // Default: 100 (max wait time before sending batch)
+}
+
+interface SubscriberCloseOptions {
+  behavior?: 'WAIT' | 'IMMEDIATE'; // WAIT: wait for in-flight messages, IMMEDIATE: close now
+  timeout?: Duration;               // Max time to wait for pending operations
+}
+
+interface CallOptions {
+  timeout?: number;            // Request timeout in milliseconds
+  retry?: RetryOptions;        // Retry configuration
+  autoPaginate?: boolean;      // Auto-fetch all pages
+}
+
+interface RetryOptions {
+  retries?: number;            // Maximum retry attempts
+  backoffSettings?: {
+    initialRetryDelayMillis?: number;
+    retryDelayMultiplier?: number;
+    maxRetryDelayMillis?: number;
+  };
 }
 ```
 
