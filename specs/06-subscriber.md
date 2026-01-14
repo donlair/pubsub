@@ -30,7 +30,7 @@ setOptions(options: SubscriberOptions): void
 interface SubscriberOptions {
   minAckDeadline?: number | Duration;      // Seconds, default: 10
   maxAckDeadline?: number | Duration;      // Seconds, default: 600
-  maxExtensionTime?: number | Duration;    // Seconds, typical: 3600 (1 hour), no explicit default
+  maxExtensionTime?: number | Duration;    // Seconds, default: 3600 (60 minutes)
   batching?: BatchOptions;
   flowControl?: SubscriberFlowControlOptions;
   useLegacyFlowControl?: boolean;          // Default: false

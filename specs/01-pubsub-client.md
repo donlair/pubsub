@@ -27,8 +27,12 @@ interface PubSubOptions {
   gaxOpts?: GaxOptions;
   autoRetry?: boolean;                   // Default: true
   enableOpenTelemetryTracing?: boolean;  // Default: false
-  emulatorMode?: boolean;                // Explicit emulator control
+  emulatorMode?: boolean;                // Explicit emulator control (auto-detected via PUBSUB_EMULATOR_HOST env var)
 }
+
+// Environment variable auto-detection:
+// - PUBSUB_EMULATOR_HOST: If set, library auto-connects to emulator (e.g., 'localhost:8085')
+// - PUBSUB_PROJECT_ID or GOOGLE_CLOUD_PROJECT: Used for project ID if not specified in options
 
 interface PageOptions {
   gaxOpts?: CallOptions;

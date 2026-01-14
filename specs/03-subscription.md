@@ -134,7 +134,7 @@ interface BatchOptions {
 }
 
 interface SubscriberCloseOptions {
-  behavior?: 'WAIT' | 'IMMEDIATE'; // WAIT: wait for in-flight messages, IMMEDIATE: close now
+  behavior?: 'NACK' | 'WAIT';       // NACK: nack immediately, WAIT: wait for processing then nack
   timeout?: Duration;               // Max time to wait for pending operations
 }
 
