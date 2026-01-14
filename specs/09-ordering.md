@@ -26,14 +26,14 @@ Message ordering is a cross-cutting concern that affects:
 ## Behavior Requirements
 
 ### BR-001: Enable Ordering on Topic
-**Given** a topic exists
-**When** `setPublishOptions({ messageOrdering: true })` is called
-**Then** enable message ordering for the topic
-**And** maintain separate batches per ordering key
+**Given** a topic is being created or configured
+**When** topic is created with ordering-compatible configuration
+**Then** topic can accept messages with ordering keys
+**And** publisher maintains separate batches per ordering key
 
 ### BR-002: Enable Ordering on Subscription
-**Given** a subscription exists
-**When** `setOptions({ messageOrdering: true })` is called
+**Given** a subscription is being created
+**When** created with `enableMessageOrdering: true` option
 **Then** enable ordered delivery for the subscription
 **And** deliver messages sequentially per ordering key
 
@@ -90,17 +90,14 @@ Message ordering is a cross-cutting concern that affects:
 
 ## Acceptance Criteria
 
-### AC-001: Enable Ordering on Topic
+### AC-001: Create Topic and Publish with Ordering Key
 ```typescript
 const pubsub = new PubSub();
 const topic = pubsub.topic('ordered-events');
 await topic.create();
 
-topic.setPublishOptions({
-  messageOrdering: true
-});
-
-// Publishing with ordering keys now works
+// Topics accept messages with ordering keys
+// Publisher will batch messages by ordering key
 await topic.publishMessage({
   data: Buffer.from('event-1'),
   orderingKey: 'user-123'
@@ -112,12 +109,8 @@ await topic.publishMessage({
 const topic = pubsub.topic('ordered-events');
 await topic.create();
 
-topic.setPublishOptions({ messageOrdering: true });
-
 const subscription = topic.subscription('ordered-sub');
-await subscription.create();
-
-subscription.setOptions({ messageOrdering: true });
+await subscription.create({ enableMessageOrdering: true });
 
 const receivedOrder: string[] = [];
 
@@ -243,13 +236,11 @@ expect(maxConcurrent).toBeGreaterThan(1);
 const topic = pubsub.topic('ordered-events');
 await topic.create();
 
-topic.setPublishOptions({ messageOrdering: true });
-
-const subscription = topic.subscription('ordered-sub', {
-  messageOrdering: true,
+const subscription = topic.subscription('ordered-sub');
+await subscription.create({
+  enableMessageOrdering: true,
   ackDeadline: 1
 });
-await subscription.create();
 
 const receivedMessages: string[] = [];
 let firstMessageDelivered = false;
@@ -298,11 +289,8 @@ expect(Math.max(...firstIndices)).toBeLessThan(Math.min(...secondIndices));
 const topic = pubsub.topic('ordered-events');
 await topic.create();
 
-topic.setPublishOptions({ messageOrdering: true });
-
 const subscription = topic.subscription('ordered-sub');
-await subscription.create();
-subscription.setOptions({ messageOrdering: true });
+await subscription.create({ enableMessageOrdering: true });
 
 const receivedMessages: string[] = [];
 
@@ -342,15 +330,10 @@ expect(receivedMessages).toContain('unordered');
 const topic = pubsub.topic('ordered-events');
 await topic.create();
 
-topic.setPublishOptions({ messageOrdering: true });
-
 const sub1 = topic.subscription('sub-1');
 const sub2 = topic.subscription('sub-2');
-await sub1.create();
-await sub2.create();
-
-sub1.setOptions({ messageOrdering: true });
-sub2.setOptions({ messageOrdering: true });
+await sub1.create({ enableMessageOrdering: true });
+await sub2.create({ enableMessageOrdering: true });
 
 const received1: string[] = [];
 const received2: string[] = [];
@@ -384,8 +367,6 @@ expect(received2).toEqual(['first', 'second']);
 const topic = pubsub.topic('ordered-events');
 await topic.create();
 
-topic.setPublishOptions({ messageOrdering: true });
-
 // Empty ordering key should throw
 await expect(
   topic.publishMessage({
@@ -404,19 +385,19 @@ await expect(
 ).rejects.toThrow('Ordering key exceeds maximum length');
 ```
 
-### AC-009: Ordering Without Enable Throws
+### AC-009: Ordering Key Accepted Without Explicit Enable
 ```typescript
 const topic = pubsub.topic('ordered-events');
 await topic.create();
 
-// messageOrdering NOT enabled
+// Ordering keys can be used without explicitly enabling message ordering
+// The ordering key is treated as message metadata
+const messageId = await topic.publishMessage({
+  data: Buffer.from('test'),
+  orderingKey: 'user-123'
+});
 
-await expect(
-  topic.publishMessage({
-    data: Buffer.from('test'),
-    orderingKey: 'user-123'
-  })
-).rejects.toThrow('Message ordering must be enabled');
+expect(messageId).toBeDefined();
 ```
 
 ### AC-010: Batching with Ordering Keys
@@ -425,7 +406,6 @@ const topic = pubsub.topic('ordered-events');
 await topic.create();
 
 topic.setPublishOptions({
-  messageOrdering: true,
   batching: {
     maxMessages: 10,
     maxMilliseconds: 50
