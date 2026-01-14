@@ -62,6 +62,7 @@ interface InternalMessage {
   publishTime: Date;
   orderingKey?: string;
   deliveryAttempt: number;
+  length: number;                // Size in bytes (convenience property)
 }
 
 interface MessageLease {
@@ -138,11 +139,11 @@ interface SubscriptionMetadata {
 **And** make available for immediate re-pull
 
 ### BR-008: Ack Deadline Expiry
-**Given** a message is in-flight with ack deadline
+**Given** a message is in-flight with ack deadline (10-600 seconds, default 60)
 **When** deadline expires without ack or nack
 **Then** automatically return message to queue
 **And** increment deliveryAttempt counter
-**And** make available for re-pull
+**And** make available for re-pull (subject to retry backoff if configured)
 
 ### BR-009: Modify Ack Deadline
 **Given** a message is in-flight
@@ -156,6 +157,8 @@ interface SubscriptionMetadata {
 **When** pulled by subscription with messageOrdering enabled
 **Then** messages with same orderingKey are delivered in order
 **And** next message with same key not available until previous is acked
+**And** messages with different orderingKeys can be pulled concurrently
+**And** messages without orderingKey are not blocked by ordered messages
 
 ### BR-011: Subscription Deletion
 **Given** a subscription exists with pending messages
@@ -170,6 +173,58 @@ interface SubscriptionMetadata {
 **Then** remove topic from registry
 **And** detach all subscriptions (but don't delete them)
 **And** clear all messages
+
+### BR-013: Flow Control Enforcement
+**Given** a subscription has flow control limits configured
+**When** `pull()` is called and in-flight messages >= maxMessages OR in-flight bytes >= maxBytes
+**Then** return empty array (no messages available)
+**And** resume returning messages when capacity becomes available
+**And** track both message count and byte size for flow control
+
+### BR-014: Track In-Flight Metrics
+**Given** messages are pulled by subscriptions
+**When** tracking in-flight messages
+**Then** track total count of in-flight messages per subscription
+**And** track total bytes of in-flight messages per subscription
+**And** decrement counts when messages are acked or nacked
+**And** use for flow control limit enforcement
+
+### BR-015: Retry Backoff
+**Given** a subscription has retryPolicy configured
+**When** message is nacked or ack deadline expires
+**Then** calculate backoff delay: min(minimumBackoff * 2^(deliveryAttempt-1), maximumBackoff)
+**And** message becomes available after backoff delay (not immediately)
+**And** use default backoff if no retryPolicy specified (min: 10s, max: 600s)
+
+### BR-016: Dead Letter Queue
+**Given** a subscription has deadLetterPolicy configured
+**When** message.deliveryAttempt >= deadLetterPolicy.maxDeliveryAttempts
+**Then** automatically publish message to deadLetterPolicy.deadLetterTopic
+**And** remove from original subscription queue
+**And** preserve original message metadata (publishTime, attributes, orderingKey)
+
+### BR-017: Message Size Validation
+**Given** messages are being published
+**When** `publish()` is called
+**Then** validate total message size (data + attributes + metadata) <= 10MB
+**And** validate attribute key length <= 256 bytes
+**And** validate attribute value length <= 1024 bytes
+**And** throw InvalidArgumentError (code 3) if size limits exceeded
+
+### BR-018: Ack ID Lifecycle
+**Given** a message is delivered to a subscription
+**When** ackId is generated
+**Then** format as unique string per delivery (e.g., {messageId}-{deliveryAttempt})
+**And** invalidate previous ackIds for same message
+**And** throw InvalidArgumentError when ack/nack uses invalid or expired ackId
+**And** only current ackId is valid for a message
+
+### BR-019: Message Queue Ordering
+**Given** messages are stored in subscription queues
+**When** messages are pulled
+**Then** return messages in publish order (FIFO) by default
+**And** maintain oldest-first ordering for messages without orderingKey
+**And** maintain separate ordered queues per orderingKey when message ordering enabled
 
 ## Acceptance Criteria
 
@@ -315,7 +370,7 @@ const queue = MessageQueue.getInstance();
 
 queue.registerTopic('test-topic');
 queue.registerSubscription('test-sub', 'test-topic', {
-  ackDeadline: 1  // 1 second
+  ackDeadline: 10  // 10 seconds (minimum valid)
 });
 
 const messages: InternalMessage[] = [
@@ -335,7 +390,7 @@ const pulled1 = queue.pull('test-sub', 10);
 expect(pulled1).toHaveLength(1);
 
 // Don't ack - wait for deadline
-await new Promise(resolve => setTimeout(resolve, 1100));
+await new Promise(resolve => setTimeout(resolve, 10100));
 
 // Should be available for redelivery
 const pulled2 = queue.pull('test-sub', 10);
@@ -349,7 +404,7 @@ const queue = MessageQueue.getInstance();
 
 queue.registerTopic('test-topic');
 queue.registerSubscription('test-sub', 'test-topic', {
-  ackDeadline: 1  // 1 second
+  ackDeadline: 10  // 10 seconds (minimum valid)
 });
 
 const messages: InternalMessage[] = [
@@ -367,13 +422,13 @@ queue.publish('test-topic', messages);
 
 const pulled1 = queue.pull('test-sub', 10);
 
-// Extend deadline
-queue.modifyAckDeadline(pulled1[0].ackId, 5);
+// Extend deadline by 15 seconds
+queue.modifyAckDeadline(pulled1[0].ackId, 15);
 
 // Wait past original deadline but within extended
-await new Promise(resolve => setTimeout(resolve, 1500));
+await new Promise(resolve => setTimeout(resolve, 12000));
 
-// Should NOT be available (extended deadline)
+// Should NOT be available (extended deadline not expired yet)
 const pulled2 = queue.pull('test-sub', 10);
 expect(pulled2).toHaveLength(0);
 

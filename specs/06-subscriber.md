@@ -29,8 +29,7 @@ setOptions(options: SubscriberOptions): void
 ```typescript
 interface SubscriberOptions {
   flowControl?: FlowControlOptions;
-  ackDeadlineSeconds?: number;   // Seconds (10-600), default: 60
-  enableMessageOrdering?: boolean; // Default: false
+  ackDeadline?: number;          // Seconds (10-600), default: 10 (runtime override)
   streamingOptions?: StreamingOptions;
   batching?: BatchOptions;       // Acknowledgment batching
 }
@@ -44,7 +43,7 @@ interface FlowControlOptions {
 
 interface StreamingOptions {
   maxStreams?: number;           // Default: 5
-  highWaterMark?: number;        // Default: 0 (no buffering)
+  timeout?: number;              // Default: 300000 (5 minutes in milliseconds)
 }
 
 interface BatchOptions {
@@ -81,14 +80,14 @@ interface BatchOptions {
 **And** then pause until capacity available
 
 ### BR-005: Ack Deadline Tracking
-**Given** ackDeadlineSeconds is set to N seconds
+**Given** ackDeadline is set to N seconds (or subscription default)
 **When** a message is delivered
 **Then** start lease timer for N seconds
 **And** if not acked within N seconds, make available for redelivery
 **And** emit 'message' event again with same message
 
 ### BR-006: Message Ordering
-**Given** enableMessageOrdering is enabled
+**Given** enableMessageOrdering is enabled on the subscription (at creation time)
 **When** messages with same orderingKey arrive
 **Then** deliver them sequentially in order
 **And** wait for ack before delivering next message with same key
@@ -231,7 +230,7 @@ expect(receivedMessages.length).toBe(3);
 ### AC-004: Ack Deadline Redelivery
 ```typescript
 const subscription = pubsub.subscription('my-sub', {
-  ackDeadlineSeconds: 1  // 1 second
+  ackDeadlineSeconds: 10  // 10 seconds (minimum valid)
 });
 await subscription.create();
 
@@ -253,7 +252,7 @@ await new Promise(resolve => setTimeout(resolve, 50));
 expect(deliveryCount).toBe(1);
 
 // Wait for ack deadline
-await new Promise(resolve => setTimeout(resolve, 1100));
+await new Promise(resolve => setTimeout(resolve, 10100));
 
 // Should be redelivered
 expect(deliveryCount).toBe(2);
@@ -493,13 +492,13 @@ expect(receivedMessages.length).toBeGreaterThanOrEqual(5);
 
 ### Default Values
 
-**IMPORTANT**: The default ackDeadlineSeconds is 60 seconds, not 10.
+**IMPORTANT**: The default ackDeadlineSeconds is 10 seconds.
 
-- **Default**: 60 seconds
+- **Default**: 10 seconds
 - **Range**: 10-600 seconds
 - **Google API Behavior**: Matches `@google-cloud/pubsub` v5.2.0+
 
-This ensures proper API compatibility and prevents premature message redelivery.
+This ensures proper API compatibility with Google's default behavior.
 
 ## Examples
 
