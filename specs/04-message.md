@@ -15,7 +15,7 @@ class Message {
     ackId: string,
     data: Buffer,
     attributes: Attributes,
-    publishTime: Date,
+    publishTime: PreciseDate,
     subscription: Subscription,
     orderingKey?: string
   )
@@ -29,7 +29,7 @@ readonly id: string;                      // Unique message ID
 readonly ackId: string;                   // Acknowledgment ID (unique per delivery)
 readonly data: Buffer;                    // Message payload as Buffer
 readonly attributes: Attributes;          // Key-value pairs
-readonly publishTime: Date;               // When message was published
+readonly publishTime: PreciseDate;        // When message was published (high-precision timestamp)
 readonly received: number;                // Timestamp when subscription received message
 readonly orderingKey?: string;            // Optional ordering key
 readonly deliveryAttempt?: number;        // Number of delivery attempts (only with deadLetterPolicy)

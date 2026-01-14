@@ -46,7 +46,7 @@ interface CreateTopicOptions {
   labels?: { [key: string]: string };
   messageStoragePolicy?: { allowedPersistenceRegions?: string[] };
   kmsKeyName?: string;
-  schemaSettings?: { schema?: string; encoding?: 'JSON' | 'BINARY' };
+  schemaSettings?: SchemaSettings;
   messageRetentionDuration?: Duration;
   gaxOpts?: CallOptions;
 }
@@ -70,10 +70,19 @@ interface CreateSchemaOptions {
   gaxOpts?: CallOptions;
 }
 
+interface SchemaSettings {
+  schema?: string;
+  encoding?: Encoding;
+}
+
 enum SchemaType {
   AVRO = 'AVRO',
-  PROTOCOL_BUFFER = 'PROTOCOL_BUFFER',
-  JSON = 'JSON'
+  PROTOCOL_BUFFER = 'PROTOCOL_BUFFER'
+}
+
+enum Encoding {
+  JSON = 'JSON',
+  BINARY = 'BINARY'
 }
 
 // Supporting types

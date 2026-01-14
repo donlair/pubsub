@@ -30,6 +30,8 @@ interface PublishOptions {
   batching?: BatchingOptions;
   messageOrdering?: boolean;     // Default: false
   flowControlOptions?: FlowControlOptions;
+  gaxOpts?: CallOptions;         // gRPC and retry configuration
+  enableOpenTelemetryTracing?: boolean; // Default: false
 }
 
 interface BatchingOptions {

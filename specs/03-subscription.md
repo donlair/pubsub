@@ -21,6 +21,7 @@ name: string;                    // Fully-qualified subscription name
 topic?: Topic | string;          // Associated topic
 metadata?: SubscriptionMetadata;
 isOpen: boolean;                 // Whether subscription is actively listening
+detached: boolean;               // Whether subscription is detached from its topic
 ```
 
 ### Events
@@ -29,6 +30,7 @@ isOpen: boolean;                 // Whether subscription is actively listening
 on(event: 'message', listener: (message: Message) => void): this
 on(event: 'error', listener: (error: Error) => void): this
 on(event: 'close', listener: () => void): this
+on(event: 'debug', listener: (msg: string) => void): this
 ```
 
 ### Methods
@@ -37,10 +39,10 @@ on(event: 'close', listener: () => void): this
 
 ```typescript
 create(options?: CreateSubscriptionOptions): Promise<[Subscription, any]>
-delete(): Promise<[any]>
-exists(): Promise<[boolean]>
+delete(gaxOptions?: CallOptions): Promise<[any]>
+exists(options?: CallOptions): Promise<[boolean]>
 get(options?: GetOptions): Promise<[Subscription, any]>
-getMetadata(): Promise<[SubscriptionMetadata]>
+getMetadata(options?: CallOptions): Promise<[SubscriptionMetadata, GetSubscriptionResponse]>
 setMetadata(metadata: SubscriptionMetadata): Promise<[any]>
 ```
 
@@ -62,7 +64,9 @@ setOptions(options: SubscriptionOptions): void
 ```typescript
 seek(snapshot: string | Date): Promise<[any]>
 createSnapshot(name: string): Promise<[Snapshot, any]>
-modifyPushConfig(config: PushConfig): Promise<[any]>
+modifyPushConfig(config: PushConfig, options?: CallOptions): Promise<[any]>
+snapshot(name: string): Snapshot
+pull(options?: PullOptions): Promise<[Message[], any]>
 ```
 
 ### Type Definitions
@@ -73,11 +77,13 @@ interface SubscriptionOptions {
     maxMessages?: number;        // Default: 1000
     maxBytes?: number;           // Default: 100 * 1024 * 1024 (100MB)
     allowExcessMessages?: boolean; // Default: false
+    maxExtension?: number;       // Default: 3600 seconds (max time to extend ack deadline)
   };
-  ackDeadline?: number;          // Seconds, default: 60
-  messageOrdering?: boolean;     // Default: false
+  ackDeadlineSeconds?: number;   // Seconds (10-600), default: 10
+  enableMessageOrdering?: boolean; // Default: false
   streamingOptions?: {
     maxStreams?: number;         // Default: 5
+    timeout?: number;            // Default: 300000 (5 minutes in milliseconds)
   };
 }
 
@@ -87,11 +93,29 @@ interface CreateSubscriptionOptions extends SubscriptionOptions {
   deadLetterPolicy?: DeadLetterPolicy;
   retryPolicy?: RetryPolicy;
   filter?: string;
+  enableExactlyOnceDelivery?: boolean; // Default: false
+  expirationPolicy?: ExpirationPolicy;
+  labels?: { [key: string]: string };
+  messageRetentionDuration?: Duration;
 }
 
 interface DeadLetterPolicy {
   deadLetterTopic?: string;
   maxDeliveryAttempts?: number;  // Default: 5
+}
+
+interface RetryPolicy {
+  minimumBackoff?: Duration;     // Default: 10s
+  maximumBackoff?: Duration;     // Default: 600s
+}
+
+interface ExpirationPolicy {
+  ttl?: Duration;                // Time-to-live before auto-deletion
+}
+
+interface Duration {
+  seconds?: number;
+  nanos?: number;
 }
 ```
 
@@ -124,13 +148,13 @@ interface DeadLetterPolicy {
 **Until** enough messages are acked to reduce bytes below threshold
 
 ### BR-005: Ack Deadline
-**Given** ackDeadline is set to N seconds
+**Given** ackDeadlineSeconds is set to N seconds
 **When** a message is delivered
 **Then** if not acked within N seconds, it is redelivered
 **And** the message can extend deadline with modifyAckDeadline()
 
 ### BR-006: Message Ordering
-**Given** messageOrdering is enabled on subscription
+**Given** enableMessageOrdering is enabled on subscription
 **When** messages with same orderingKey are received
 **Then** they are delivered in order
 **And** next message with same key waits for previous to be acked
@@ -234,7 +258,7 @@ expect(receivedMessages.length).toBeGreaterThan(2);
 ### AC-003: Ack Deadline Redelivery
 ```typescript
 const subscription = pubsub.subscription('my-sub', {
-  ackDeadline: 1  // 1 second
+  ackDeadlineSeconds: 1  // 1 second
 });
 await subscription.create();
 
@@ -262,7 +286,7 @@ expect(deliveryCount).toBeGreaterThan(1);
 ### AC-004: Message Ordering
 ```typescript
 const subscription = pubsub.subscription('my-sub', {
-  messageOrdering: true
+  enableMessageOrdering: true
 });
 await subscription.create();
 
@@ -354,7 +378,7 @@ subscription.setOptions({
   flowControl: {
     maxMessages: 500
   },
-  ackDeadline: 30
+  ackDeadlineSeconds: 30
 });
 
 subscription.open();
@@ -464,7 +488,7 @@ const subscription = pubsub.subscription('high-volume', {
     maxMessages: 5000,
     maxBytes: 500 * 1024 * 1024  // 500MB
   },
-  ackDeadline: 120  // 2 minutes
+  ackDeadlineSeconds: 120  // 2 minutes
 });
 
 await subscription.create();
@@ -485,7 +509,7 @@ subscription.open();
 ### Ordered Message Processing
 ```typescript
 const subscription = pubsub.subscription('user-events', {
-  messageOrdering: true
+  enableMessageOrdering: true
 });
 
 await subscription.create();

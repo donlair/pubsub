@@ -31,7 +31,10 @@ publish(data: Buffer, attributes?: Attributes): Promise<string>
 publishMessage(message: PubSubMessage): Promise<string>
 publishJSON(json: object, attributes?: Attributes): Promise<string>
 setPublishOptions(options: PublishOptions): void
+getPublishOptionDefaults(): PublishOptions
 flush(): Promise<void>
+flowControlled(): FlowControlledPublisher
+resumePublishing(orderingKey: string): void
 ```
 
 #### Lifecycle Methods
@@ -77,6 +80,29 @@ interface PublishOptions {
     maxOutstandingMessages?: number;
     maxOutstandingBytes?: number;
   };
+  gaxOpts?: CallOptions;         // gRPC and retry configuration
+  enableOpenTelemetryTracing?: boolean; // Default: false
+}
+
+interface CreateTopicOptions {
+  messageStoragePolicy?: MessageStoragePolicy;
+  schemaSettings?: SchemaSettings;
+  labels?: { [key: string]: string };
+  messageRetentionDuration?: Duration;
+}
+
+interface MessageStoragePolicy {
+  allowedPersistenceRegions?: string[];
+}
+
+interface SchemaSettings {
+  schema?: string;
+  encoding?: 'JSON' | 'BINARY';
+}
+
+interface Duration {
+  seconds?: number;
+  nanos?: number;
 }
 ```
 
