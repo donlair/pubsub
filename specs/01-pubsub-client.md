@@ -18,13 +18,14 @@ interface PubSubOptions {
   apiEndpoint?: string;
   keyFilename?: string;
   credentials?: object;
-  port?: number;
+  port?: string | number;
   servicePath?: string;
   sslCreds?: any;
   clientConfig?: any;
   fallback?: boolean | 'rest' | 'proto';
   grpc?: any;
   gaxOpts?: GaxOptions;
+  autoRetry?: boolean;                   // Default: true
   enableOpenTelemetryTracing?: boolean;  // Default: false
   emulatorMode?: boolean;                // Explicit emulator control
 }
@@ -69,6 +70,11 @@ interface CreateSubscriptionOptions {
 
 interface CreateSchemaOptions {
   gaxOpts?: CallOptions;
+}
+
+interface SchemaDefinition {
+  type: SchemaType;
+  definition: string;
 }
 
 interface SchemaSettings {
@@ -164,10 +170,10 @@ getSubscriptionsStream(options?: GetSubscriptionsOptions): NodeJS.ReadableStream
 #### Schema Management
 
 ```typescript
-createSchema(schemaId: string, type: SchemaType, definition: string, options?: CreateSchemaOptions): Promise<[Schema, any]>
+createSchema(schemaId: string, type: SchemaType, definition: string, options?: CreateSchemaOptions): Promise<[Schema, google.pubsub.v1.ISchema]>
 schema(id: string): Schema
 listSchemas(view?: 'BASIC' | 'FULL', options?: PageOptions): AsyncIterable<Schema>
-validateSchema(schema: { type: SchemaType; definition: string }, options?: any): Promise<void>
+validateSchema(schema: SchemaDefinition, options?: CallOptions): Promise<void>
 getSchemaClient(): Promise<SchemaServiceClient>
 ```
 

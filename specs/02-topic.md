@@ -18,9 +18,9 @@ class Topic {
 
 ```typescript
 name: string;                    // Fully-qualified topic name
-publisher: Publisher;            // Associated publisher instance
+pubsub: PubSub;                  // Reference to parent PubSub client instance
 iam: IAM;                        // IAM policy manager for this topic
-metadata?: TopicMetadata;
+publisher: Publisher;            // Associated publisher instance
 ```
 
 ### Methods
@@ -82,7 +82,6 @@ interface PublishOptions {
     maxOutstandingBytes?: number;
   };
   gaxOpts?: CallOptions;         // gRPC and retry configuration
-  enableOpenTelemetryTracing?: boolean; // Default: false
 }
 
 interface CreateTopicOptions {
@@ -90,6 +89,9 @@ interface CreateTopicOptions {
   schemaSettings?: SchemaSettings;
   labels?: { [key: string]: string };
   messageRetentionDuration?: Duration;
+  kmsKeyName?: string;           // Cloud KMS key for encryption
+  satisfiesPzs?: boolean;        // Reserved for future use
+  // Note: Extends CallOptions (includes gaxOpts, timeout, retry, autoPaginate)
 }
 
 interface MessageStoragePolicy {

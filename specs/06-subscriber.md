@@ -30,13 +30,18 @@ setOptions(options: SubscriberOptions): void
 interface SubscriberOptions {
   minAckDeadline?: number | Duration;      // Seconds, default: 10
   maxAckDeadline?: number | Duration;      // Seconds, default: 600
-  maxExtensionTime?: number | Duration;    // Seconds, default: 3600 (1 hour)
+  maxExtensionTime?: number | Duration;    // Seconds, typical: 3600 (1 hour), no explicit default
   batching?: BatchOptions;
   flowControl?: SubscriberFlowControlOptions;
   useLegacyFlowControl?: boolean;          // Default: false
   streamingOptions?: MessageStreamOptions;
   closeOptions?: SubscriberCloseOptions;
 }
+
+**Note on ackDeadline vs minAckDeadline/maxAckDeadline:**
+- `ackDeadlineSeconds`: Subscription metadata property (see `specs/03-subscription.md`)
+- `minAckDeadline`/`maxAckDeadline`: Subscriber client-side options for automatic deadline extension
+- These are different properties serving different purposes
 
 interface SubscriberFlowControlOptions {
   maxMessages?: number;          // Default: 1000
@@ -59,7 +64,17 @@ interface SubscriberCloseOptions {
   timeout?: number | Duration;   // Timeout for waiting
 }
 
-type Duration = number | { seconds?: number; nanos?: number };
+type Duration = number | google.protobuf.IDuration;
+
+// Where google.protobuf.IDuration is:
+// interface IDuration {
+//   seconds?: number;
+//   nanos?: number;
+// }
+//
+// Can be specified as:
+// - number (seconds): 60
+// - object: { seconds: 60, nanos: 0 }
 ```
 
 ## Behavior Requirements
@@ -499,16 +514,6 @@ expect(receivedMessages.length).toBeGreaterThanOrEqual(5);
 - Use setTimeout for ack deadline tracking (per message)
 - Ordering requires queuing messages per orderingKey
 - Pause should stop pulling but not stop ack deadline timers
-
-### Default Values
-
-**IMPORTANT**: The default ackDeadlineSeconds is 10 seconds.
-
-- **Default**: 10 seconds
-- **Range**: 10-600 seconds
-- **Google API Behavior**: Matches `@google-cloud/pubsub` v5.2.0+
-
-This ensures proper API compatibility with Google's default behavior.
 
 ## Examples
 
