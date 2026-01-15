@@ -9,7 +9,7 @@ This implementation plan reflects a comprehensive analysis of the codebase condu
 
 ✅ **Core Functionality**: 100% complete (Phases 1-8)
 - All 81 core acceptance criteria passing
-- 336 tests passing, 0 failures
+- 346 tests passing, 0 failures
 - Basic pub/sub operations functional
 
 ⚠️ **API Compatibility Issues Found**: Several minor compatibility issues identified
@@ -27,12 +27,13 @@ This implementation plan reflects a comprehensive analysis of the codebase condu
 - Subscription, Message compatibility tests pending
 
 **Recent Completions**:
-1. ✅ **LeaseManager integration** - Messages now auto-extend ack deadlines
-2. ✅ **Subscription close behavior** - Default 'WAIT' preserves in-flight messages
-3. ✅ **Attribute validation** - Full attribute key/value validation implemented
-4. ✅ **pull() Method** - Synchronous message pulling from MessageQueue
+1. ✅ **Subscription batch methods** - pause(), resume(), acknowledge(), modifyAckDeadline()
+2. ✅ **LeaseManager integration** - Messages now auto-extend ack deadlines
+3. ✅ **Subscription close behavior** - Default 'WAIT' preserves in-flight messages
+4. ✅ **Attribute validation** - Full attribute key/value validation implemented
+5. ✅ **pull() Method** - Synchronous message pulling from MessageQueue
 
-**Priority Work Items**: 12 total (0 P0, 1 P1, 4 P2, 5 P3)
+**Priority Work Items**: 11 total (0 P0, 0 P1, 4 P2, 5 P3)
 
 See "PRIORITIZED REMAINING WORK" section below for detailed implementation plan.
 
@@ -732,7 +733,7 @@ Test all 13 acceptance criteria from spec 01-pubsub-client.md.
 
 This section contains the prioritized list of remaining implementation items based on comprehensive code analysis conducted 2026-01-15.
 
-**Test Status**: All 336 tests passing, 0 failures
+**Test Status**: All 346 tests passing, 0 failures
 
 ---
 
@@ -744,21 +745,11 @@ These issues break API compatibility or cause incorrect behavior.
 
 ---
 
-### P1: HIGH - API Compatibility Issues (1 item)
+### P1: HIGH - API Compatibility Issues (0 items)
 
 These issues affect API compatibility but don't break core functionality.
 
-#### P1-1. Missing Subscription Methods
-**Status**: MISSING
-**File**: `src/subscription.ts`
-
-**Missing Methods**:
-- `pause()` - Exists in MessageStream but not exposed on Subscription
-- `resume()` - Exists in MessageStream but not exposed on Subscription
-- `acknowledge(ackIds: string[])` - Batch acknowledge multiple messages
-- `modifyAckDeadline(ackIds: string[], deadline: number)` - Batch modify
-
-**Fix**: Add wrapper methods that delegate to MessageStream/MessageQueue
+**All P1 items completed!** See "Previously Completed Items" section below.
 
 ---
 
@@ -874,7 +865,27 @@ Optional enhancements and known limitations.
 
 ### Previously Completed Items (Reference)
 
-#### ✅ Subscription Caching Options (was P1-1)
+#### ✅ Missing Subscription Methods (was P1-1)
+**Status**: COMPLETE
+**Date Completed**: 2026-01-15
+**Files Modified**:
+- `src/subscription.ts` - Added pause(), resume(), acknowledge(), modifyAckDeadline() methods
+- `tests/unit/subscription.test.ts` - Added 9 new tests for batch operations
+
+**What was implemented**:
+- pause() method - Delegates to MessageStream.pause() to stop message delivery
+- resume() method - Delegates to MessageStream.resume() to restart message delivery
+- acknowledge({ ackIds: string[] }) method - Batch acknowledges multiple messages in a single call
+- modifyAckDeadline({ ackIds: string[], ackDeadlineSeconds: number }) method - Batch modifies ack deadlines for multiple messages
+
+**Bug fixes**:
+- N/A
+
+**Spec References**: Google Pub/Sub API compatibility
+**Tests**: All 346 tests passing (9 new tests added)
+**Impact**: Full API compatibility with Google Pub/Sub batch operations. Users can now pause/resume subscriptions and perform batch ack/modAck operations exactly as they would with @google-cloud/pubsub.
+
+#### ✅ Subscription Caching Options (was P1-2)
 **Status**: COMPLETE
 **Date Completed**: 2026-01-15
 **Files Modified**:
