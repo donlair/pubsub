@@ -1,6 +1,6 @@
 # Implementation Plan
 
-**Last Updated**: 2026-01-15 (Message ordering integration tests complete)
+**Last Updated**: 2026-01-15 (Flow control integration tests complete)
 **Analysis Type**: Comprehensive code review with parallel agent analysis
 
 ## Executive Summary
@@ -9,7 +9,7 @@ This implementation plan reflects a comprehensive analysis of the codebase condu
 
 ✅ **Core Functionality**: 100% complete (Phases 1-8)
 - All 81 core acceptance criteria passing
-- 181 unit tests passing, 0 failures
+- 198 unit tests passing, 0 failures
 - Production-ready for basic pub/sub operations
 
 ⚠️ **Advanced Features**: Partially complete (Phase 10)
@@ -19,7 +19,8 @@ This implementation plan reflects a comprehensive analysis of the codebase condu
 ⚠️ **Testing Gaps**: Partial integration tests, no compatibility tests (Phase 9)
 - Publish-subscribe integration tests complete (10 scenarios)
 - Message ordering integration tests complete (5 scenarios)
-- Missing: flow control, schema validation integration tests
+- Flow control integration tests complete (13 scenarios)
+- Missing: schema validation integration tests
 - Zero compatibility tests to verify API matches Google's
 
 **Critical Gaps Identified**:
@@ -27,7 +28,7 @@ This implementation plan reflects a comprehensive analysis of the codebase condu
 2. **Schema JSON type** - ✅ COMPLETE (AC-004, AC-008, AC-010) - JSON schema validation with ajv
 3. **Schema registry integration** - ✅ COMPLETE (AC-005, AC-006, AC-007, AC-011) - Schema lifecycle operations working
 
-**Priority Work Items**: 13 total (0 P0, 0 P1, 8 P2, 5 P3)
+**Priority Work Items**: 12 total (0 P0, 0 P1, 7 P2, 5 P3)
 
 See "PRIORITIZED REMAINING WORK" section below for detailed implementation plan.
 
@@ -45,7 +46,7 @@ See "PRIORITIZED REMAINING WORK" section below for detailed implementation plan.
 | 6 | Topic class | 100% complete | All 10 AC passing |
 | 7 | Subscription class | 100% complete | All 9 AC passing |
 | 8 | PubSub client | 100% complete | All 13 AC passing |
-| 9 | Integration tests | 40% complete | Publish-subscribe and ordering complete |
+| 9 | Integration tests | 70% complete | Publish-subscribe, ordering, and flow control complete |
 | 10a | Message ordering | 100% complete | All 12 AC passing |
 | 10b | Schema validation | 100% complete | All 11 AC passing |
 
@@ -843,14 +844,27 @@ if (message.orderingKey !== undefined) {
 
 ---
 
-#### 6. Integration Tests: Flow Control
-**Status**: MISSING
-**Files**: Create `tests/integration/flow-control.test.ts`
+#### 6. Integration Tests: Flow Control ✅
+**Status**: COMPLETE
+**Completed**: 2026-01-15
+**Files**: `tests/integration/flow-control.test.ts`
 
-**Test Scenarios**:
-- Publisher blocks when max outstanding reached
-- Subscriber limits in-flight messages
-- Flow control releases on ack/nack
+**Test Scenarios Implemented** (13 scenarios):
+1. Publisher flow control with maxOutstandingMessages limit
+2. Publisher flow control with maxOutstandingBytes limit
+3. Publisher flow control releases on successful publish
+4. Subscriber flow control with maxMessages limit
+5. Subscriber flow control with maxBytes limit
+6. Subscriber flow control releases on ack
+7. Subscriber flow control releases on nack
+8. Combined publisher and subscriber flow control
+9. Flow control with message ordering enabled
+10. High throughput with flow control
+11. Zero maxMessages blocks all messages
+12. Varying message sizes with byte limits
+13. Error handling with flow control
+
+**Tests**: 198 total tests passing (up from 185)
 
 ---
 
@@ -895,7 +909,7 @@ if (message.orderingKey !== undefined) {
 
 ## Priority 8: Phase 9 - Integration Tests
 
-**Current Status**: Partially Complete (25% complete)
+**Current Status**: Partially Complete (70% complete)
 
 ### Test Structure
 
@@ -940,10 +954,24 @@ tests/
 - Ordering keys end-to-end
 - Error handling
 
-#### 9.2 Flow Control
-- Publisher flow control blocks on max outstanding
-- Subscriber flow control limits in-flight messages
-- Flow control releases on ack
+#### 9.2 Flow Control ✅
+**Status**: COMPLETE (13 test scenarios)
+**File**: `tests/integration/flow-control.test.ts`
+
+**Implemented**:
+- Publisher flow control with maxOutstandingMessages limit
+- Publisher flow control with maxOutstandingBytes limit
+- Publisher flow control releases on successful publish
+- Subscriber flow control with maxMessages limit
+- Subscriber flow control with maxBytes limit
+- Subscriber flow control releases on ack
+- Subscriber flow control releases on nack
+- Combined publisher and subscriber flow control
+- Flow control with message ordering enabled
+- High throughput with flow control
+- Zero maxMessages blocks all messages
+- Varying message sizes with byte limits
+- Error handling with flow control
 
 #### 9.3 Ack Deadline
 - Message redelivered after deadline
