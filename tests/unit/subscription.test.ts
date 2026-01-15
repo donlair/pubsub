@@ -317,3 +317,128 @@ test('AC-009: Multiple Subscriptions Same Topic', async () => {
 	await sub1.close();
 	await sub2.close();
 });
+
+test('pull(): Pulls messages synchronously', async () => {
+	const topic = new Topic(pubsub, 'projects/test-project/topics/test-topic');
+	await topic.create();
+
+	const subscription = topic.subscription('test-sub');
+	await subscription.create();
+
+	await topic.publishMessage({ data: Buffer.from('Message 1') });
+	await topic.publishMessage({ data: Buffer.from('Message 2') });
+	await topic.publishMessage({ data: Buffer.from('Message 3') });
+
+	const [messages, metadata] = await subscription.pull({ maxMessages: 10 });
+
+	expect(messages).toHaveLength(3);
+	expect(messages[0]!.data.toString()).toBe('Message 1');
+	expect(messages[1]!.data.toString()).toBe('Message 2');
+	expect(messages[2]!.data.toString()).toBe('Message 3');
+	expect(metadata).toBeDefined();
+
+	for (const m of messages) {
+		m.ack();
+	}
+});
+
+test('pull(): Respects maxMessages limit', async () => {
+	const topic = new Topic(pubsub, 'projects/test-project/topics/test-topic');
+	await topic.create();
+
+	const subscription = topic.subscription('test-sub');
+	await subscription.create();
+
+	for (let i = 0; i < 10; i++) {
+		await topic.publishMessage({ data: Buffer.from(`Message ${i}`) });
+	}
+
+	const [messages] = await subscription.pull({ maxMessages: 3 });
+
+	expect(messages).toHaveLength(3);
+	for (const m of messages) {
+		m.ack();
+	}
+});
+
+test('pull(): Uses default maxMessages when not specified', async () => {
+	const topic = new Topic(pubsub, 'projects/test-project/topics/test-topic');
+	await topic.create();
+
+	const subscription = topic.subscription('test-sub');
+	await subscription.create();
+
+	for (let i = 0; i < 5; i++) {
+		await topic.publishMessage({ data: Buffer.from(`Message ${i}`) });
+	}
+
+	const [messages] = await subscription.pull();
+
+	expect(messages).toHaveLength(5);
+	for (const m of messages) {
+		m.ack();
+	}
+});
+
+test('pull(): Returns empty array when no messages available', async () => {
+	const topic = new Topic(pubsub, 'projects/test-project/topics/test-topic');
+	await topic.create();
+
+	const subscription = topic.subscription('test-sub');
+	await subscription.create();
+
+	const [messages] = await subscription.pull({ maxMessages: 10 });
+
+	expect(messages).toHaveLength(0);
+});
+
+test('pull(): Throws NotFoundError for non-existent subscription', async () => {
+	const topic = new Topic(pubsub, 'projects/test-project/topics/test-topic');
+	await topic.create();
+
+	const subscription = topic.subscription('non-existent-sub');
+
+	await expect(subscription.pull()).rejects.toThrow('Subscription not found');
+});
+
+test('pull(): Messages can be acked individually', async () => {
+	const topic = new Topic(pubsub, 'projects/test-project/topics/test-topic');
+	await topic.create();
+
+	const subscription = topic.subscription('test-sub');
+	await subscription.create();
+
+	await topic.publishMessage({ data: Buffer.from('Message 1') });
+	await topic.publishMessage({ data: Buffer.from('Message 2') });
+
+	const [messages1] = await subscription.pull({ maxMessages: 10 });
+	expect(messages1).toHaveLength(2);
+
+	messages1[0]!.ack();
+
+	const [messages2] = await subscription.pull({ maxMessages: 10 });
+	expect(messages2).toHaveLength(0);
+});
+
+test('pull(): Messages can be nacked and redelivered', async () => {
+	const topic = new Topic(pubsub, 'projects/test-project/topics/test-topic');
+	await topic.create();
+
+	const subscription = topic.subscription('test-sub');
+	await subscription.create();
+
+	await topic.publishMessage({ data: Buffer.from('Test message') });
+
+	const [messages1] = await subscription.pull({ maxMessages: 1 });
+	expect(messages1).toHaveLength(1);
+	expect(messages1[0]!.deliveryAttempt).toBe(1);
+
+	messages1[0]!.nack();
+
+	const [messages2] = await subscription.pull({ maxMessages: 1 });
+	expect(messages2).toHaveLength(1);
+	expect(messages2[0]!.deliveryAttempt).toBe(2);
+	expect(messages2[0]!.data.toString()).toBe('Test message');
+
+	messages2[0]!.ack();
+});

@@ -4,7 +4,7 @@
  */
 
 import { EventEmitter } from 'node:events';
-import type { Message } from './message';
+import { Message } from './message';
 import type {
 	SubscriptionOptions,
 	SubscriptionMetadata,
@@ -275,7 +275,40 @@ export class Subscription extends EventEmitter {
 		return { name };
 	}
 
-	async pull(_options?: PullOptions): Promise<[Message[], unknown]> {
-		return [[], {}];
+	async pull(options?: PullOptions): Promise<[Message[], unknown]> {
+		const [exists] = await this.exists();
+		if (!exists) {
+			throw new NotFoundError(`Subscription not found: ${this.name}`);
+		}
+
+		const maxMessages = options?.maxMessages ?? 100;
+		const internalMessages = this.queue.pull(this.name, maxMessages);
+
+		const messages = internalMessages.map((internalMsg) =>
+			this.createMessage(internalMsg)
+		);
+
+		return [messages, {}];
+	}
+
+	private createMessage(internalMsg: {
+		id: string;
+		ackId?: string;
+		data: Buffer;
+		attributes: Record<string, string>;
+		publishTime: import('./types/common').PreciseDate;
+		orderingKey?: string;
+		deliveryAttempt: number;
+	}): Message {
+		return new Message(
+			internalMsg.id,
+			internalMsg.ackId!,
+			internalMsg.data,
+			internalMsg.attributes,
+			internalMsg.publishTime,
+			this,
+			internalMsg.orderingKey,
+			internalMsg.deliveryAttempt
+		);
 	}
 }

@@ -299,7 +299,7 @@ export class Publisher {
 				attributes: msg.attributes ?? {},
 				publishTime: new PreciseDate(),
 				orderingKey: msg.orderingKey,
-				deliveryAttempt: 0,
+				deliveryAttempt: 1,
 				length:
 					data.length +
 					(msg.attributes

@@ -154,7 +154,7 @@ describe('Integration: Message Ordering', () => {
 				const msgData = message.data.toString();
 				receivedMessages.push(msgData);
 
-				if (msgData === 'first' && message.deliveryAttempt === 0) {
+				if (msgData === 'first' && message.deliveryAttempt === 1) {
 					return;
 				}
 
