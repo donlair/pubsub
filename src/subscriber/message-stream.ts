@@ -92,11 +92,19 @@ export class MessageStream {
 
 		if (closeBehavior === 'NACK') {
 			for (const message of this.inFlightMessages.values()) {
-				message.nack();
+				try {
+					message.nack();
+				} catch {
+					// Ignore errors for already-expired leases during cleanup
+				}
 			}
 			for (const pendingMsg of this.pendingMessages) {
 				if (pendingMsg.ackId) {
-					this.messageQueue.nack(pendingMsg.ackId);
+					try {
+						this.messageQueue.nack(pendingMsg.ackId);
+					} catch {
+						// Ignore errors for already-expired leases during cleanup
+					}
 				}
 			}
 		} else {

@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto';
 import type { InternalMessage, MessageLease } from './types';
 import type { TopicMetadata } from '../types/topic';
 import type { SubscriptionMetadata } from '../types/subscription';
+import { NotFoundError, InvalidArgumentError } from '../types/errors';
 
 interface SubscriptionQueue {
   messages: InternalMessage[];
@@ -199,8 +200,13 @@ export class MessageQueue {
 
   /**
    * Publish messages to a topic.
+   * @throws {NotFoundError} If topic does not exist
    */
   publish(topicName: string, messages: InternalMessage[]): string[] {
+    if (!this.topics.has(topicName)) {
+      throw new NotFoundError(topicName, 'Topic');
+    }
+
     const messageIds: string[] = [];
 
     for (const msg of messages) {
@@ -244,8 +250,13 @@ export class MessageQueue {
 
   /**
    * Pull messages from a subscription.
+   * @throws {NotFoundError} If subscription does not exist
    */
   pull(subscriptionName: string, maxMessages: number): InternalMessage[] {
+    if (!this.subscriptions.has(subscriptionName)) {
+      throw new NotFoundError(subscriptionName, 'Subscription');
+    }
+
     const queue = this.queues.get(subscriptionName);
     if (!queue) {
       return [];
@@ -360,10 +371,13 @@ export class MessageQueue {
 
   /**
    * Acknowledge a message.
+   * @throws {InvalidArgumentError} If ackId is invalid or expired
    */
   ack(ackId: string): void {
     const lease = this.leases.get(ackId);
-    if (!lease) return;
+    if (!lease) {
+      throw new InvalidArgumentError(`Invalid ack ID: ${ackId}`);
+    }
 
     // Cancel timer
     if (lease.timer) {
@@ -387,10 +401,13 @@ export class MessageQueue {
 
   /**
    * Negative acknowledge (return message to queue).
+   * @throws {InvalidArgumentError} If ackId is invalid or expired
    */
   nack(ackId: string): void {
     const lease = this.leases.get(ackId);
-    if (!lease) return;
+    if (!lease) {
+      throw new InvalidArgumentError(`Invalid ack ID: ${ackId}`);
+    }
 
     // Cancel timer
     if (lease.timer) {
@@ -434,10 +451,13 @@ export class MessageQueue {
 
   /**
    * Modify ack deadline for a message.
+   * @throws {InvalidArgumentError} If ackId is invalid or expired
    */
   modifyAckDeadline(ackId: string, seconds: number): void {
     const lease = this.leases.get(ackId);
-    if (!lease) return;
+    if (!lease) {
+      throw new InvalidArgumentError(`Invalid ack ID: ${ackId}`);
+    }
 
     // Cancel existing timer
     if (lease.timer) {

@@ -312,6 +312,26 @@ export class Publisher {
 		});
 
 		try {
+			// Check if topic exists before publishing (avoids errors during cleanup)
+			if (!this.queue.topicExists(this.topicName)) {
+				// Topic was deleted, silently discard batch
+				for (const promise of batch.promises) {
+					promise.resolve('');
+				}
+				for (const msg of internalMessages) {
+					this.flowControl.release(msg.length);
+				}
+				batch.messages = [];
+				batch.totalBytes = 0;
+				batch.promises = [];
+				if (orderingKey) {
+					this.orderingBatches.delete(orderingKey);
+				} else {
+					this.defaultBatch = undefined;
+				}
+				return;
+			}
+
 			// Publish to MessageQueue
 			const messageIds = this.queue.publish(this.topicName, internalMessages);
 

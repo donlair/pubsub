@@ -366,4 +366,109 @@ describe('MessageQueue', () => {
     expect(pulled[1]!.data.toString()).toBe('B');
     expect(pulled[2]!.data.toString()).toBe('C');
   });
+
+  // Error Handling Tests
+
+  describe('Error Handling', () => {
+    test('publish() throws NotFoundError when topic does not exist', () => {
+      const messages: InternalMessage[] = [
+        {
+          id: 'msg-1',
+          data: Buffer.from('test'),
+          attributes: {},
+          publishTime: new Date() as any,
+          orderingKey: undefined,
+          deliveryAttempt: 1,
+          length: 4
+        }
+      ];
+
+      expect(() => {
+        queue.publish('non-existent-topic', messages);
+      }).toThrow('Topic not found: non-existent-topic');
+    });
+
+    test('pull() throws NotFoundError when subscription does not exist', () => {
+      expect(() => {
+        queue.pull('non-existent-sub', 10);
+      }).toThrow('Subscription not found: non-existent-sub');
+    });
+
+    test('ack() throws InvalidArgumentError when ackId is invalid', () => {
+      expect(() => {
+        queue.ack('invalid-ack-id');
+      }).toThrow('Invalid ack ID: invalid-ack-id');
+    });
+
+    test('nack() throws InvalidArgumentError when ackId is invalid', () => {
+      expect(() => {
+        queue.nack('invalid-ack-id');
+      }).toThrow('Invalid ack ID: invalid-ack-id');
+    });
+
+    test('modifyAckDeadline() throws InvalidArgumentError when ackId is invalid', () => {
+      expect(() => {
+        queue.modifyAckDeadline('invalid-ack-id', 30);
+      }).toThrow('Invalid ack ID: invalid-ack-id');
+    });
+
+    test('Error objects have correct error codes', () => {
+      queue.registerTopic('test-topic');
+      queue.registerSubscription('test-sub', 'test-topic');
+
+      const messages: InternalMessage[] = [
+        {
+          id: 'msg-1',
+          data: Buffer.from('test'),
+          attributes: {},
+          publishTime: new Date() as any,
+          orderingKey: undefined,
+          deliveryAttempt: 1,
+          length: 4
+        }
+      ];
+
+      try {
+        queue.publish('non-existent-topic', messages);
+      } catch (error: any) {
+        expect(error.code).toBe(5);
+      }
+
+      try {
+        queue.pull('non-existent-sub', 10);
+      } catch (error: any) {
+        expect(error.code).toBe(5);
+      }
+
+      try {
+        queue.ack('invalid-ack-id');
+      } catch (error: any) {
+        expect(error.code).toBe(3);
+      }
+    });
+
+    test('ack() succeeds with valid ackId', () => {
+      queue.registerTopic('test-topic');
+      queue.registerSubscription('test-sub', 'test-topic');
+
+      const messages: InternalMessage[] = [
+        {
+          id: 'msg-1',
+          data: Buffer.from('test'),
+          attributes: {},
+          publishTime: new Date() as any,
+          orderingKey: undefined,
+          deliveryAttempt: 1,
+          length: 4
+        }
+      ];
+
+      queue.publish('test-topic', messages);
+      const pulled = queue.pull('test-sub', 10);
+
+      expect(() => {
+        queue.ack(pulled[0]!.ackId!);
+      }).not.toThrow();
+    });
+  });
 });

@@ -212,13 +212,36 @@ describe('Message', () => {
 
 	// AC-006: Empty Data Message
 	test('AC-006: should handle empty data', () => {
-		const data = Buffer.alloc(0);
+		// Publish message with empty data
+		messageQueue.publish('projects/test/topics/test-topic', [
+			{
+				id: 'msg-1',
+				data: Buffer.alloc(0),
+				attributes: {},
+				publishTime: new PreciseDate(),
+				orderingKey: undefined,
+				deliveryAttempt: 1,
+				length: 0,
+			},
+		]);
+
+		// Pull the message to create a proper lease
+		const messages = messageQueue.pull(
+			'projects/test/subscriptions/test-sub',
+			1,
+		);
+		expect(messages).toHaveLength(1);
+
+		const internalMsg = messages[0];
+		if (!internalMsg) throw new Error('No message');
+
+		// Create Message instance
 		const message = new Message(
-			'msg-1',
-			'ack-1',
-			data,
-			{},
-			new PreciseDate(),
+			internalMsg.id,
+			internalMsg.ackId || 'ack-1',
+			internalMsg.data,
+			internalMsg.attributes,
+			internalMsg.publishTime,
 			{ name: 'test-sub' },
 		);
 
@@ -540,36 +563,145 @@ describe('Message', () => {
 		});
 
 		test('should validate ack deadline range', () => {
-			const message = new Message(
-				'msg-1',
-				'ack-1',
-				Buffer.from('test'),
-				{},
-				new PreciseDate(),
+			// Test valid values - need separate messages since modifyAckDeadline(0) removes lease
+
+			// Test 300 seconds
+			messageQueue.publish('projects/test/topics/test-topic', [
+				{
+					id: 'msg-1',
+					data: Buffer.from('test'),
+					attributes: {},
+					publishTime: new PreciseDate(),
+					orderingKey: undefined,
+					deliveryAttempt: 1,
+					length: 4,
+				},
+			]);
+			const messages1 = messageQueue.pull(
+				'projects/test/subscriptions/test-sub',
+				1,
+			);
+			const message1 = new Message(
+				messages1[0]!.id,
+				messages1[0]!.ackId || 'ack-1',
+				messages1[0]!.data,
+				messages1[0]!.attributes,
+				messages1[0]!.publishTime,
 				{ name: 'test-sub' },
 			);
+			expect(() => message1.modifyAckDeadline(300)).not.toThrow();
 
-			// Should accept valid range (0-600)
-			expect(() => message.modifyAckDeadline(0)).not.toThrow();
-			expect(() => message.modifyAckDeadline(300)).not.toThrow();
-			expect(() => message.modifyAckDeadline(600)).not.toThrow();
+			// Test 600 seconds
+			messageQueue.publish('projects/test/topics/test-topic', [
+				{
+					id: 'msg-2',
+					data: Buffer.from('test'),
+					attributes: {},
+					publishTime: new PreciseDate(),
+					orderingKey: undefined,
+					deliveryAttempt: 1,
+					length: 4,
+				},
+			]);
+			const messages2 = messageQueue.pull(
+				'projects/test/subscriptions/test-sub',
+				1,
+			);
+			const message2 = new Message(
+				messages2[0]!.id,
+				messages2[0]!.ackId || 'ack-2',
+				messages2[0]!.data,
+				messages2[0]!.attributes,
+				messages2[0]!.publishTime,
+				{ name: 'test-sub' },
+			);
+			expect(() => message2.modifyAckDeadline(600)).not.toThrow();
 
-			// Should reject invalid range
-			expect(() => message.modifyAckDeadline(-1)).toThrow(
+			// Test 0 seconds (acts as nack, so test last)
+			messageQueue.publish('projects/test/topics/test-topic', [
+				{
+					id: 'msg-3',
+					data: Buffer.from('test'),
+					attributes: {},
+					publishTime: new PreciseDate(),
+					orderingKey: undefined,
+					deliveryAttempt: 1,
+					length: 4,
+				},
+			]);
+			const messages3 = messageQueue.pull(
+				'projects/test/subscriptions/test-sub',
+				1,
+			);
+			const message3 = new Message(
+				messages3[0]!.id,
+				messages3[0]!.ackId || 'ack-3',
+				messages3[0]!.data,
+				messages3[0]!.attributes,
+				messages3[0]!.publishTime,
+				{ name: 'test-sub' },
+			);
+			expect(() => message3.modifyAckDeadline(0)).not.toThrow();
+
+			// Test invalid range - use a new message
+			messageQueue.publish('projects/test/topics/test-topic', [
+				{
+					id: 'msg-4',
+					data: Buffer.from('test'),
+					attributes: {},
+					publishTime: new PreciseDate(),
+					orderingKey: undefined,
+					deliveryAttempt: 1,
+					length: 4,
+				},
+			]);
+			const messages4 = messageQueue.pull(
+				'projects/test/subscriptions/test-sub',
+				1,
+			);
+			const message4 = new Message(
+				messages4[0]!.id,
+				messages4[0]!.ackId || 'ack-4',
+				messages4[0]!.data,
+				messages4[0]!.attributes,
+				messages4[0]!.publishTime,
+				{ name: 'test-sub' },
+			);
+			expect(() => message4.modifyAckDeadline(-1)).toThrow(
 				'Ack deadline must be between 0 and 600 seconds',
 			);
-			expect(() => message.modifyAckDeadline(601)).toThrow(
+			expect(() => message4.modifyAckDeadline(601)).toThrow(
 				'Ack deadline must be between 0 and 600 seconds',
 			);
 		});
 
 		test('modAck should be alias for modifyAckDeadline', () => {
+			// Publish and pull to get a message with proper lease
+			messageQueue.publish('projects/test/topics/test-topic', [
+				{
+					id: 'msg-1',
+					data: Buffer.from('test'),
+					attributes: {},
+					publishTime: new PreciseDate(),
+					orderingKey: undefined,
+					deliveryAttempt: 1,
+					length: 4,
+				},
+			]);
+
+			const messages = messageQueue.pull(
+				'projects/test/subscriptions/test-sub',
+				1,
+			);
+			const internalMsg = messages[0];
+			if (!internalMsg) throw new Error('No message');
+
 			const message = new Message(
-				'msg-1',
-				'ack-1',
-				Buffer.from('test'),
-				{},
-				new PreciseDate(),
+				internalMsg.id,
+				internalMsg.ackId || 'ack-1',
+				internalMsg.data,
+				internalMsg.attributes,
+				internalMsg.publishTime,
 				{ name: 'test-sub' },
 			);
 
