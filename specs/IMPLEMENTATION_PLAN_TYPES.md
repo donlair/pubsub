@@ -875,7 +875,7 @@ export interface GetTopicSubscriptionsOptions {
 }
 ```
 
-#### 4.2 `src/types/subscription.ts`
+#### 4.2 `src/types/subscription.ts` ✅ COMPLETED
 
 ```typescript
 /**
