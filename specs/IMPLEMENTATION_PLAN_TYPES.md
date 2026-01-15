@@ -359,7 +359,7 @@ export class AckError extends Error {
 }
 ```
 
-#### 2.2 `src/types/schema.ts`
+#### 2.2 `src/types/schema.ts` ✅ COMPLETED
 
 ```typescript
 /**
