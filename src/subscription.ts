@@ -257,6 +257,30 @@ export class Subscription extends EventEmitter {
 		}
 	}
 
+	pause(): void {
+		if (this.messageStream) {
+			this.messageStream.pause();
+		}
+	}
+
+	resume(): void {
+		if (this.messageStream) {
+			this.messageStream.resume();
+		}
+	}
+
+	async acknowledge(options: { ackIds: string[] }): Promise<void> {
+		for (const ackId of options.ackIds) {
+			this.queue.ack(ackId);
+		}
+	}
+
+	async modifyAckDeadline(options: { ackIds: string[]; ackDeadlineSeconds: number }): Promise<void> {
+		for (const ackId of options.ackIds) {
+			this.queue.modifyAckDeadline(ackId, options.ackDeadlineSeconds);
+		}
+	}
+
 	async seek(_snapshot: string | Snapshot | Date, _options?: CallOptions): Promise<[unknown]> {
 		return [{}];
 	}

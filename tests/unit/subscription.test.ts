@@ -442,3 +442,172 @@ test('pull(): Messages can be nacked and redelivered', async () => {
 
 	messages2[0]!.ack();
 });
+
+test('pause(): Pauses message flow', async () => {
+	const topic = new Topic(pubsub, 'projects/test-project/topics/test-topic');
+	await topic.create();
+
+	const subscription = topic.subscription('test-sub');
+	await subscription.create();
+
+	const messages: Message[] = [];
+	subscription.on('message', (message) => {
+		messages.push(message);
+		message.ack();
+	});
+	subscription.on('error', () => {});
+
+	subscription.open();
+
+	await topic.publishMessage({ data: Buffer.from('Message 1') });
+	await new Promise(resolve => setTimeout(resolve, 50));
+	expect(messages).toHaveLength(1);
+
+	subscription.pause();
+
+	await topic.publishMessage({ data: Buffer.from('Message 2') });
+	await new Promise(resolve => setTimeout(resolve, 50));
+	expect(messages).toHaveLength(1);
+
+	await subscription.close();
+});
+
+test('resume(): Resumes message flow after pause', async () => {
+	const topic = new Topic(pubsub, 'projects/test-project/topics/test-topic');
+	await topic.create();
+
+	const subscription = topic.subscription('test-sub');
+	await subscription.create();
+
+	const messages: Message[] = [];
+	subscription.on('message', (message) => {
+		messages.push(message);
+		message.ack();
+	});
+	subscription.on('error', () => {});
+
+	subscription.open();
+
+	await topic.publishMessage({ data: Buffer.from('Message 1') });
+	await new Promise(resolve => setTimeout(resolve, 50));
+	expect(messages).toHaveLength(1);
+
+	subscription.pause();
+
+	await topic.publishMessage({ data: Buffer.from('Message 2') });
+	await new Promise(resolve => setTimeout(resolve, 50));
+	expect(messages).toHaveLength(1);
+
+	subscription.resume();
+
+	await new Promise(resolve => setTimeout(resolve, 50));
+	expect(messages).toHaveLength(2);
+
+	await subscription.close();
+});
+
+test('acknowledge(): Batch acknowledges multiple messages', async () => {
+	const topic = new Topic(pubsub, 'projects/test-project/topics/test-topic');
+	await topic.create();
+
+	const subscription = topic.subscription('test-sub');
+	await subscription.create();
+
+	await topic.publishMessage({ data: Buffer.from('Message 1') });
+	await topic.publishMessage({ data: Buffer.from('Message 2') });
+	await topic.publishMessage({ data: Buffer.from('Message 3') });
+
+	const [messages1] = await subscription.pull({ maxMessages: 3 });
+	expect(messages1).toHaveLength(3);
+
+	const ackIds = messages1.map(msg => msg.ackId);
+	await subscription.acknowledge({ ackIds });
+
+	const [messages2] = await subscription.pull({ maxMessages: 10 });
+	expect(messages2).toHaveLength(0);
+});
+
+test('acknowledge(): Works with empty array', async () => {
+	const topic = new Topic(pubsub, 'projects/test-project/topics/test-topic');
+	await topic.create();
+
+	const subscription = topic.subscription('test-sub');
+	await subscription.create();
+
+	await subscription.acknowledge({ ackIds: [] });
+});
+
+test('acknowledge(): Partial acknowledgment works', async () => {
+	const topic = new Topic(pubsub, 'projects/test-project/topics/test-topic');
+	await topic.create();
+
+	const subscription = topic.subscription('test-sub');
+	await subscription.create();
+
+	await topic.publishMessage({ data: Buffer.from('Message 1') });
+	await topic.publishMessage({ data: Buffer.from('Message 2') });
+	await topic.publishMessage({ data: Buffer.from('Message 3') });
+
+	const [messages1] = await subscription.pull({ maxMessages: 3 });
+	expect(messages1).toHaveLength(3);
+
+	await subscription.acknowledge({ ackIds: [messages1[0]!.ackId, messages1[2]!.ackId] });
+
+	const [messages2] = await subscription.pull({ maxMessages: 10 });
+	expect(messages2).toHaveLength(0);
+});
+
+test('modifyAckDeadline(): Batch modifies ack deadlines', async () => {
+	const topic = new Topic(pubsub, 'projects/test-project/topics/test-topic');
+	await topic.create();
+
+	const subscription = topic.subscription('test-sub');
+	await subscription.create();
+
+	await topic.publishMessage({ data: Buffer.from('Message 1') });
+	await topic.publishMessage({ data: Buffer.from('Message 2') });
+
+	const [messages1] = await subscription.pull({ maxMessages: 2 });
+	expect(messages1).toHaveLength(2);
+
+	const ackIds = messages1.map(msg => msg.ackId);
+	await subscription.modifyAckDeadline({ ackIds, ackDeadlineSeconds: 60 });
+
+	const [messages2] = await subscription.pull({ maxMessages: 10 });
+	expect(messages2).toHaveLength(0);
+});
+
+test('modifyAckDeadline(): Setting deadline to 0 causes immediate redelivery', async () => {
+	const topic = new Topic(pubsub, 'projects/test-project/topics/test-topic');
+	await topic.create();
+
+	const subscription = topic.subscription('test-sub');
+	await subscription.create();
+
+	await topic.publishMessage({ data: Buffer.from('Test message') });
+
+	const [messages1] = await subscription.pull({ maxMessages: 1 });
+	expect(messages1).toHaveLength(1);
+	expect(messages1[0]!.deliveryAttempt).toBe(1);
+
+	await subscription.modifyAckDeadline({
+		ackIds: [messages1[0]!.ackId],
+		ackDeadlineSeconds: 0
+	});
+
+	await new Promise(resolve => setTimeout(resolve, 10));
+
+	const [messages2] = await subscription.pull({ maxMessages: 1 });
+	expect(messages2).toHaveLength(1);
+	expect(messages2[0]!.deliveryAttempt).toBe(2);
+});
+
+test('modifyAckDeadline(): Works with empty array', async () => {
+	const topic = new Topic(pubsub, 'projects/test-project/topics/test-topic');
+	await topic.create();
+
+	const subscription = topic.subscription('test-sub');
+	await subscription.create();
+
+	await subscription.modifyAckDeadline({ ackIds: [], ackDeadlineSeconds: 60 });
+});
