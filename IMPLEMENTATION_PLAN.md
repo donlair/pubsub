@@ -9,13 +9,13 @@ This implementation plan reflects a comprehensive analysis of the codebase condu
 
 ✅ **Core Functionality**: 100% complete (Phases 1-8)
 - All 81 core acceptance criteria passing
-- 315 tests passing, 0 failures
+- 325 tests passing, 0 failures
 - Basic pub/sub operations functional
 
-⚠️ **API Compatibility Issues Found**: Several breaking compatibility issues identified
-- LeaseManager not integrated (no automatic ack deadline extension)
-- Missing validation for message/attribute sizes
-- Subscription close behavior differs from spec
+⚠️ **API Compatibility Issues Found**: Several minor compatibility issues identified
+- Missing 10MB message size validation
+- Subscription options caching behavior
+- Some stub methods need implementation
 
 ⚠️ **Testing Gaps**: Partial compatibility tests (Phase 9)
 - Publish-subscribe integration tests complete (10 scenarios)
@@ -26,12 +26,12 @@ This implementation plan reflects a comprehensive analysis of the codebase condu
 - Topic compatibility tests complete (55 tests)
 - Subscription, Message compatibility tests pending
 
-**Critical Gaps Identified**:
-1. **LeaseManager integration** - Messages won't auto-extend ack deadlines
-2. **Subscription close behavior** - Default 'NACK' will lose in-flight messages
-3. **Attribute/message validation** - Missing size limits per spec
+**Recent Completions**:
+1. ✅ **LeaseManager integration** - Messages now auto-extend ack deadlines
+2. ✅ **Subscription close behavior** - Default 'WAIT' preserves in-flight messages
+3. ✅ **Attribute validation** - Full attribute key/value validation implemented
 
-**Priority Work Items**: 16 total (0 P0, 5 P1, 4 P2, 5 P3)
+**Priority Work Items**: 15 total (0 P0, 4 P1, 4 P2, 5 P3)
 
 See "PRIORITIZED REMAINING WORK" section below for detailed implementation plan.
 
@@ -743,23 +743,9 @@ These issues break API compatibility or cause incorrect behavior.
 
 ---
 
-### P1: HIGH - API Compatibility Issues (5 items)
+### P1: HIGH - API Compatibility Issues (4 items)
 
 These issues affect API compatibility but don't break core functionality.
-
-#### P1-1. Missing Attribute Validation in Publisher
-**Status**: MISSING
-**File**: `src/publisher/publisher.ts`
-**Spec Reference**: BR-012, AC-015
-
-**Required Validation**:
-- Attribute key max 256 bytes
-- Attribute value max 1024 bytes
-- Reject reserved prefixes: `goog*`, `googclient_*`
-
-**Fix**: Add validation in `publishMessage()` before batching
-
----
 
 #### P1-2. Missing 10MB Message Size Validation
 **Status**: MISSING
@@ -768,8 +754,6 @@ These issues affect API compatibility but don't break core functionality.
 
 **Required**: Reject messages > 10MB with InvalidArgumentError
 **Fix**: Add size check in `publishMessage()`
-
----
 
 #### P1-3. Subscription Caching Ignores Options on Subsequent Calls
 **Status**: BUG
@@ -934,6 +918,22 @@ Optional enhancements and known limitations.
 ---
 
 ### Previously Completed Items (Reference)
+
+#### ✅ Missing Attribute Validation in Publisher (was P1-1)
+**Status**: COMPLETE
+**Date Completed**: 2026-01-15
+**Files Modified**:
+- `src/publisher/publisher.ts` - Added attribute validation in publishMessage()
+- `tests/unit/publisher.test.ts` - Added 11 new test cases for AC-015
+**What was implemented**:
+- Added validation for attribute keys (non-empty, max 256 bytes, no reserved prefixes)
+- Added validation for attribute values (max 1024 bytes)
+- Reserved prefixes rejected: `goog*` and `googclient_*`
+- Proper InvalidArgumentError thrown with descriptive messages
+- UTF-8 byte length validation implemented
+**Spec References**: BR-012, AC-015 from specs/05-publisher.md
+**Tests**: All 325 tests passing (10 new tests added for validation)
+**Impact**: Messages with invalid attributes now properly rejected before batching, ensuring compliance with Google Pub/Sub attribute constraints
 
 #### ✅ Message.modifyAckDeadline Error Handling (was P0-1)
 **Status**: COMPLETE

@@ -390,4 +390,172 @@ describe('Publisher', () => {
 		expect(messageId).toBeDefined();
 		expect(typeof messageId).toBe('string');
 	});
+
+	// AC-015 from specs/05-publisher.md: Attribute Validation
+	test('Rejects empty attribute key', async () => {
+		const topicName = 'projects/test-project/topics/my-topic';
+		queue.registerTopic(topicName);
+
+		const publisher = new Publisher(topicName);
+
+		await expect(
+			publisher.publishMessage({
+				data: Buffer.from('test'),
+				attributes: { '': 'value' },
+			})
+		).rejects.toThrow('Attribute keys cannot be empty');
+	});
+
+	test('Rejects attribute key exceeding 256 bytes', async () => {
+		const topicName = 'projects/test-project/topics/my-topic';
+		queue.registerTopic(topicName);
+
+		const publisher = new Publisher(topicName);
+
+		// Create a key that's exactly 257 bytes
+		const longKey = 'x'.repeat(257);
+
+		await expect(
+			publisher.publishMessage({
+				data: Buffer.from('test'),
+				attributes: { [longKey]: 'value' },
+			})
+		).rejects.toThrow('Attribute key exceeds maximum length of 256 bytes (got 257 bytes)');
+	});
+
+	test('Accepts attribute key at max size (256 bytes)', async () => {
+		const topicName = 'projects/test-project/topics/my-topic';
+		queue.registerTopic(topicName);
+
+		const publisher = new Publisher(topicName);
+
+		// Create a key that's exactly 256 bytes
+		const maxKey = 'x'.repeat(256);
+
+		const messageId = await publisher.publishMessage({
+			data: Buffer.from('test'),
+			attributes: { [maxKey]: 'value' },
+		});
+
+		expect(messageId).toBeDefined();
+		expect(typeof messageId).toBe('string');
+	});
+
+	test('Rejects attribute value exceeding 1024 bytes', async () => {
+		const topicName = 'projects/test-project/topics/my-topic';
+		queue.registerTopic(topicName);
+
+		const publisher = new Publisher(topicName);
+
+		// Create a value that's exactly 1025 bytes
+		const longValue = 'x'.repeat(1025);
+
+		await expect(
+			publisher.publishMessage({
+				data: Buffer.from('test'),
+				attributes: { key: longValue },
+			})
+		).rejects.toThrow('Attribute value for key "key" exceeds maximum length of 1024 bytes (got 1025 bytes)');
+	});
+
+	test('Accepts attribute value at max size (1024 bytes)', async () => {
+		const topicName = 'projects/test-project/topics/my-topic';
+		queue.registerTopic(topicName);
+
+		const publisher = new Publisher(topicName);
+
+		// Create a value that's exactly 1024 bytes
+		const maxValue = 'x'.repeat(1024);
+
+		const messageId = await publisher.publishMessage({
+			data: Buffer.from('test'),
+			attributes: { key: maxValue },
+		});
+
+		expect(messageId).toBeDefined();
+		expect(typeof messageId).toBe('string');
+	});
+
+	test('Rejects attribute key with reserved prefix "goog"', async () => {
+		const topicName = 'projects/test-project/topics/my-topic';
+		queue.registerTopic(topicName);
+
+		const publisher = new Publisher(topicName);
+
+		await expect(
+			publisher.publishMessage({
+				data: Buffer.from('test'),
+				attributes: { googTest: 'value' },
+			})
+		).rejects.toThrow('Attribute key "googTest" uses reserved prefix (goog* or googclient_*)');
+	});
+
+	test('Rejects attribute key with reserved prefix "googclient_"', async () => {
+		const topicName = 'projects/test-project/topics/my-topic';
+		queue.registerTopic(topicName);
+
+		const publisher = new Publisher(topicName);
+
+		await expect(
+			publisher.publishMessage({
+				data: Buffer.from('test'),
+				attributes: { googclient_test: 'value' },
+			})
+		).rejects.toThrow('Attribute key "googclient_test" uses reserved prefix (goog* or googclient_*)');
+	});
+
+	test('Accepts valid attributes with various keys', async () => {
+		const topicName = 'projects/test-project/topics/my-topic';
+		queue.registerTopic(topicName);
+
+		const publisher = new Publisher(topicName);
+
+		const messageId = await publisher.publishMessage({
+			data: Buffer.from('test'),
+			attributes: {
+				myKey: 'value',
+				another_key: 'another_value',
+				key123: 'numeric',
+			},
+		});
+
+		expect(messageId).toBeDefined();
+		expect(typeof messageId).toBe('string');
+	});
+
+	test('Validates UTF-8 byte length for attribute keys', async () => {
+		const topicName = 'projects/test-project/topics/my-topic';
+		queue.registerTopic(topicName);
+
+		const publisher = new Publisher(topicName);
+
+		// UTF-8 multi-byte characters: '你' is 3 bytes in UTF-8
+		// 86 characters * 3 bytes = 258 bytes (exceeds 256 byte limit)
+		const multiByteKey = '你'.repeat(86);
+
+		await expect(
+			publisher.publishMessage({
+				data: Buffer.from('test'),
+				attributes: { [multiByteKey]: 'value' },
+			})
+		).rejects.toThrow('Attribute key exceeds maximum length of 256 bytes');
+	});
+
+	test('Validates UTF-8 byte length for attribute values', async () => {
+		const topicName = 'projects/test-project/topics/my-topic';
+		queue.registerTopic(topicName);
+
+		const publisher = new Publisher(topicName);
+
+		// UTF-8 multi-byte characters: '你' is 3 bytes in UTF-8
+		// 342 characters * 3 bytes = 1026 bytes (exceeds 1024 byte limit)
+		const multiByteValue = '你'.repeat(342);
+
+		await expect(
+			publisher.publishMessage({
+				data: Buffer.from('test'),
+				attributes: { key: multiByteValue },
+			})
+		).rejects.toThrow('Attribute value for key "key" exceeds maximum length of 1024 bytes');
+	});
 });

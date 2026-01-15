@@ -77,6 +77,39 @@ export class Publisher {
 			}
 		}
 
+		// Validate attributes
+		if (message.attributes) {
+			for (const [key, value] of Object.entries(message.attributes)) {
+				// Validate key is not empty
+				if (key === '') {
+					throw new InvalidArgumentError('Attribute keys cannot be empty');
+				}
+
+				// Validate key length (max 256 bytes)
+				const keyBytes = Buffer.byteLength(key, 'utf8');
+				if (keyBytes > 256) {
+					throw new InvalidArgumentError(
+						`Attribute key exceeds maximum length of 256 bytes (got ${keyBytes} bytes)`
+					);
+				}
+
+				// Validate reserved prefixes
+				if (key.startsWith('goog') || key.startsWith('googclient_')) {
+					throw new InvalidArgumentError(
+						`Attribute key "${key}" uses reserved prefix (goog* or googclient_*)`
+					);
+				}
+
+				// Validate value length (max 1024 bytes)
+				const valueBytes = Buffer.byteLength(value, 'utf8');
+				if (valueBytes > 1024) {
+					throw new InvalidArgumentError(
+						`Attribute value for key "${key}" exceeds maximum length of 1024 bytes (got ${valueBytes} bytes)`
+					);
+				}
+			}
+		}
+
 		// Check if ordering key is paused
 		if (
 			message.orderingKey &&
