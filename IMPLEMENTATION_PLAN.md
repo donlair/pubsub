@@ -9,15 +9,16 @@ This implementation plan reflects a comprehensive analysis of the codebase condu
 
 ✅ **Core Functionality**: 100% complete (Phases 1-8)
 - All 81 core acceptance criteria passing
-- 171 unit tests passing, 0 failures
+- 181 unit tests passing, 0 failures
 - Production-ready for basic pub/sub operations
 
 ⚠️ **Advanced Features**: Partially complete (Phase 10)
 - Message ordering: 58% complete (7/12 AC), validation added
 - Schema validation: 100% complete (11/11 AC), JSON schema support
 
-❌ **Testing Gaps**: No integration or compatibility tests (Phase 9)
-- Zero integration tests for end-to-end workflows
+⚠️ **Testing Gaps**: Partial integration tests, no compatibility tests (Phase 9)
+- Publish-subscribe integration tests complete (10 scenarios)
+- Missing: ordering, flow control, schema validation integration tests
 - Zero compatibility tests to verify API matches Google's
 
 **Critical Gaps Identified**:
@@ -43,7 +44,7 @@ See "PRIORITIZED REMAINING WORK" section below for detailed implementation plan.
 | 6 | Topic class | 100% complete | All 10 AC passing |
 | 7 | Subscription class | 100% complete | All 9 AC passing |
 | 8 | PubSub client | 100% complete | All 13 AC passing |
-| 9 | Integration tests | 0% complete | No integration tests yet |
+| 9 | Integration tests | 25% complete | Publish-subscribe flow complete |
 | 10a | Message ordering | 58% complete | 7/12 AC done, validation added |
 | 10b | Schema validation | 100% complete | All 11 AC passing |
 
@@ -804,15 +805,24 @@ if (message.orderingKey !== undefined) {
 
 ### P2: Testing & Documentation (Required for Quality)
 
-#### 4. Integration Tests: Publish-Subscribe Flow
-**Status**: MISSING
-**Files**: Create `tests/integration/publish-subscribe.test.ts`
+#### 4. Integration Tests: Publish-Subscribe Flow ✅
+**Status**: COMPLETE
+**Completed**: 2026-01-15
+**Files**: `tests/integration/publish-subscribe.test.ts`
 
-**Test Scenarios**:
-- Create topic → create subscription → publish → receive → ack
-- Multiple subscriptions receive message copies
-- Messages with attributes
-- Message ordering end-to-end
+**Test Scenarios Implemented** (10 scenarios):
+1. Create topic → create subscription → publish → receive → ack
+2. Multiple subscriptions receive message copies
+3. Messages with attributes
+4. Multiple messages delivered in order
+5. Ack removes message from queue
+6. Nack causes immediate redelivery
+7. Messages persist until acknowledged
+8. Subscription filtering (messageRetentionDuration)
+9. Message ordering end-to-end with ordering keys
+10. Error handling for non-existent resources
+
+**Tests**: 181 total tests passing (up from 171)
 
 ---
 
@@ -881,7 +891,7 @@ if (message.orderingKey !== undefined) {
 
 ## Priority 8: Phase 9 - Integration Tests
 
-**Current Status**: Not Started (0% complete)
+**Current Status**: Partially Complete (25% complete)
 
 ### Test Structure
 
@@ -912,10 +922,19 @@ tests/
 
 ### Integration Test Scenarios
 
-#### 9.1 Publish-Subscribe Flow
+#### 9.1 Publish-Subscribe Flow ✅
+**Status**: COMPLETE (10 test scenarios)
+**File**: `tests/integration/publish-subscribe.test.ts`
+
+**Implemented**:
 - Create topic, create subscription, publish message, receive message, ack
 - Multiple subscriptions receive copies
 - Message with attributes
+- Multiple messages delivered in order
+- Ack/nack behavior
+- Message persistence
+- Ordering keys end-to-end
+- Error handling
 
 #### 9.2 Flow Control
 - Publisher flow control blocks on max outstanding
