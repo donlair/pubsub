@@ -200,7 +200,7 @@ describe('Publisher', () => {
 				data: Buffer.from('msg-1'),
 				orderingKey: 'user-1',
 			})
-		).rejects.toThrow('Publishing paused for ordering key: user-1');
+		).rejects.toThrow('Ordering key user-1 is paused');
 
 		// Other keys unaffected
 		await expect(

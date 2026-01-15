@@ -83,7 +83,7 @@ export class Publisher {
 			this.pausedOrderingKeys.has(message.orderingKey)
 		) {
 			throw new InvalidArgumentError(
-				`Publishing paused for ordering key: ${message.orderingKey}`
+				`Ordering key ${message.orderingKey} is paused`
 			);
 		}
 
