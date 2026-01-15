@@ -298,6 +298,15 @@ export class PubSub {
 			} catch (_error) {
 				throw new InvalidArgumentError('Invalid AVRO schema definition: must be valid JSON');
 			}
+		} else if (schema.type === 'JSON') {
+			try {
+				const schemaObj = JSON.parse(schema.definition);
+				const Ajv = require('ajv');
+				const ajv = new Ajv({ allErrors: true, strict: false });
+				ajv.compile(schemaObj);
+			} catch (error) {
+				throw new InvalidArgumentError(`Invalid JSON Schema definition: ${error instanceof Error ? error.message : 'Unknown error'}`);
+			}
 		}
 	}
 

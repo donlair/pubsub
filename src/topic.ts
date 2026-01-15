@@ -57,6 +57,16 @@ export class Topic {
 			throw new NotFoundError(`Topic not found: ${this.name}`);
 		}
 
+		const metadata = this.queue.getTopic(this.name);
+		if (metadata?.schemaSettings?.schema && message.data) {
+			const pubsub = this.pubsub as { schema: (id: string) => { validateMessage: (msg: string | Buffer, encoding: string) => Promise<void> } };
+			const schema = pubsub.schema(metadata.schemaSettings.schema);
+			await schema.validateMessage(
+				message.data,
+				metadata.schemaSettings.encoding || 'JSON'
+			);
+		}
+
 		return this.publisher.publishMessage(message);
 	}
 

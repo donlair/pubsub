@@ -19,6 +19,7 @@
     "typescript": "^5"
   },
   "dependencies": {
-    "@google-cloud/pubsub": "^5.2.1"
+    "@google-cloud/pubsub": "^5.2.1",
+    "ajv": "^8.17.1"
   }
 }

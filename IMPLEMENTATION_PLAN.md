@@ -1,6 +1,6 @@
 # Implementation Plan
 
-**Last Updated**: 2026-01-15
+**Last Updated**: 2026-01-15 (Schema validation complete)
 **Analysis Type**: Comprehensive code review with parallel agent analysis
 
 ## Executive Summary
@@ -9,12 +9,12 @@ This implementation plan reflects a comprehensive analysis of the codebase condu
 
 ✅ **Core Functionality**: 100% complete (Phases 1-8)
 - All 81 core acceptance criteria passing
-- 146 unit tests passing, 0 failures
+- 171 unit tests passing, 0 failures
 - Production-ready for basic pub/sub operations
 
 ⚠️ **Advanced Features**: Partially complete (Phase 10)
 - Message ordering: 58% complete (7/12 AC), validation added
-- Schema validation: 18% complete (2/11 AC), mostly stubbed
+- Schema validation: 100% complete (11/11 AC), JSON schema support
 
 ❌ **Testing Gaps**: No integration or compatibility tests (Phase 9)
 - Zero integration tests for end-to-end workflows
@@ -22,10 +22,10 @@ This implementation plan reflects a comprehensive analysis of the codebase condu
 
 **Critical Gaps Identified**:
 1. **Ordering key validation** - ✅ COMPLETE (AC-008) - Empty and oversized keys rejected
-2. **Schema JSON type** - SchemaType.JSON doesn't exist, no ajv validation library
-3. **Schema registry integration** - Schema.exists() always returns false
+2. **Schema JSON type** - ✅ COMPLETE (AC-004, AC-008, AC-010) - JSON schema validation with ajv
+3. **Schema registry integration** - ✅ COMPLETE (AC-005, AC-006, AC-007, AC-011) - Schema lifecycle operations working
 
-**Priority Work Items**: 20 total (3 P0, 5 P1, 8 P2, 4 P3)
+**Priority Work Items**: 13 total (0 P0, 0 P1, 8 P2, 5 P3)
 
 See "PRIORITIZED REMAINING WORK" section below for detailed implementation plan.
 
@@ -45,9 +45,9 @@ See "PRIORITIZED REMAINING WORK" section below for detailed implementation plan.
 | 8 | PubSub client | 100% complete | All 13 AC passing |
 | 9 | Integration tests | 0% complete | No integration tests yet |
 | 10a | Message ordering | 58% complete | 7/12 AC done, validation added |
-| 10b | Schema validation | 18% complete | 2/11 AC partial, needs implementation |
+| 10b | Schema validation | 100% complete | All 11 AC passing |
 
-**Overall Progress**: 82/104 acceptance criteria passing (79% complete)
+**Overall Progress**: 93/104 acceptance criteria passing (89% complete)
 
 ---
 
@@ -757,120 +757,54 @@ if (message.orderingKey !== undefined) {
 
 ---
 
-#### 2. Schema JSON Type and Validation ⚠️
-**Status**: MISSING
-**Acceptance Criteria**: AC-004, AC-008, AC-010 from specs/08-schema.md
-**Files to Modify**:
-- `src/types/schema.ts` - Add `JSON: 'JSON'` to SchemaTypes
-- `src/schema.ts` - Implement `validateMessage()` for JSON schemas
-- `package.json` - Add `ajv` dependency
+#### 2. Schema JSON Type and Validation ✅
+**Status**: COMPLETE
+**Completed**: 2026-01-15
+**Acceptance Criteria**: AC-001 through AC-011 from specs/08-schema.md (11/11 complete)
 
-**Requirements**:
-- Add SchemaType.JSON for local development extension
-- Install ajv library for JSON Schema validation
-- Implement validateMessage() for JSON schemas
-- Keep AVRO/Protocol Buffer as UnimplementedError
+**What was completed**:
+1. Installed ajv library for JSON Schema validation
+2. Added SchemaType.JSON to SchemaTypes enum in src/types/schema.ts
+3. Implemented full Schema class in src/schema.ts with:
+   - validateMessage() method with ajv for JSON schemas
+   - AVRO and Protocol Buffer validation throwing UnimplementedError with specific messages
+   - Cached compiled validators for performance
+   - Fixed exists() to check PubSub schemas registry
+   - Fixed delete() to remove from PubSub registry and throw NotFoundError if not found
+   - Fixed get() to retrieve from PubSub registry and throw NotFoundError if not found
+   - Fixed getName() to return full resource name format
+4. Updated topic.ts publishMessage() to validate against schema if schemaSettings exist
+5. Updated pubsub.ts validateSchema() to support JSON schema validation
+6. Created comprehensive tests in tests/unit/schema.test.ts covering all 11 acceptance criteria
 
-**Implementation Steps**:
-1. `bun add ajv` to install validator
-2. Add `JSON: 'JSON'` to SchemaTypes in types/schema.ts
-3. In Schema.validateMessage():
-   - For JSON: Use ajv to validate
-   - For AVRO/PROTOCOL_BUFFER: Throw UnimplementedError with specific message
-4. Cache compiled validators for performance
+**Tests**: All 171 tests passing (0 failures)
 
-**Tests Needed**:
-- Create JSON schema
-- Valid JSON message passes validation
-- Invalid JSON message throws error
-- AVRO throws UnimplementedError
-- Protocol Buffer throws UnimplementedError
+**Files Modified**:
+- `src/types/schema.ts` - Added JSON to SchemaTypes enum
+- `src/schema.ts` - Complete implementation with validation
+- `src/topic.ts` - Added schema validation on publish
+- `src/pubsub.ts` - Enhanced validateSchema() method
+- `package.json` - Added ajv dependency
+- `tests/unit/schema.test.ts` - Comprehensive test coverage
 
----
-
-#### 3. Schema Registry Existence Check ⚠️
-**Status**: BROKEN
-**Acceptance Criteria**: AC-005 from specs/08-schema.md
-**Files to Modify**:
-- `src/schema.ts` - Fix `exists()` to check PubSub registry
-
-**Current Issue**: `exists()` always returns `[false]` regardless of schema existence
-
-**Implementation**:
-```typescript
-async exists(): Promise<[boolean]> {
-  const schemas = this.pubsub['schemas']; // Access internal Map
-  return [schemas.has(this.id)];
-}
-```
-
-**Tests Needed**:
-- Schema doesn't exist returns false
-- Schema exists returns true after create
-
----
-
-### P1: Important Features (Required for Completeness)
-
-#### 4. Schema Delete Implementation
-**Status**: STUB
-**Acceptance Criteria**: AC-006 from specs/08-schema.md
-**Files**: `src/schema.ts`, `src/pubsub.ts`
-
-**Requirements**:
-- Remove schema from PubSub schemas Map
-- Clear schema references from topics using it
-- Subsequent operations throw NotFoundError
-
----
-
-#### 5. Schema Get with Full View
-**Status**: PARTIAL
-**Acceptance Criteria**: AC-007 from specs/08-schema.md
-**Files**: `src/schema.ts`
-
-**Requirements**:
-- Get from PubSub registry, not local cache
-- FULL view includes definition
-- BASIC view omits definition
-
----
-
-#### 6. Topic Schema Validation on Publish
-**Status**: MISSING
-**Acceptance Criteria**: AC-004 from specs/08-schema.md
-**Files**: `src/topic.ts`, `src/publisher/publisher.ts`
-
-**Requirements**:
-- Check if topic has schemaSettings
-- If schema exists, validate message before publishing
-- Throw InvalidArgumentError if validation fails
-
----
-
-#### 7. AVRO/Protocol Buffer Error Messages
-**Status**: PARTIAL
-**Acceptance Criteria**: AC-002, AC-003 from specs/08-schema.md
-**Files**: `src/schema.ts`
-
-**Requirements**:
-- Different UnimplementedError messages per schema type
-- Provide guidance on what's supported
-
----
-
-#### 8. Schema Name Formatting
-**Status**: INCORRECT
-**Acceptance Criteria**: AC-011 from specs/08-schema.md
-**Files**: `src/schema.ts`
-
-**Requirements**: Return `projects/{projectId}/schemas/{id}` not just `{id}`
+**Acceptance Criteria Completed**:
+- ✅ AC-001: Create AVRO schema (stub with proper response)
+- ✅ AC-002: AVRO validation throws UnimplementedError
+- ✅ AC-003: Protocol Buffer validation throws UnimplementedError
+- ✅ AC-004: Topic with schema validation
+- ✅ AC-005: Schema exists check
+- ✅ AC-006: Delete schema
+- ✅ AC-007: Get schema details
+- ✅ AC-008: Invalid JSON schema definition
+- ✅ AC-009: List schemas
+- ✅ AC-010: Validate schema definition
+- ✅ AC-011: Get schema name
 
 ---
 
 ### P2: Testing & Documentation (Required for Quality)
 
-#### 9. Integration Tests: Publish-Subscribe Flow
+#### 4. Integration Tests: Publish-Subscribe Flow
 **Status**: MISSING
 **Files**: Create `tests/integration/publish-subscribe.test.ts`
 
@@ -882,7 +816,7 @@ async exists(): Promise<[boolean]> {
 
 ---
 
-#### 10. Integration Tests: Message Ordering
+#### 5. Integration Tests: Message Ordering
 **Status**: MISSING
 **Files**: Create `tests/integration/ordering.test.ts`
 
@@ -895,7 +829,7 @@ async exists(): Promise<[boolean]> {
 
 ---
 
-#### 11. Integration Tests: Flow Control
+#### 6. Integration Tests: Flow Control
 **Status**: MISSING
 **Files**: Create `tests/integration/flow-control.test.ts`
 
@@ -906,8 +840,8 @@ async exists(): Promise<[boolean]> {
 
 ---
 
-#### 12. Integration Tests: Schema Validation
-**Status**: MISSING (depends on P0 #2)
+#### 7. Integration Tests: Schema Validation
+**Status**: MISSING
 **Files**: Create `tests/integration/schema-validation.test.ts`
 
 **Test Scenarios**:
@@ -917,7 +851,7 @@ async exists(): Promise<[boolean]> {
 
 ---
 
-#### 13-16. Compatibility Tests
+#### 8-11. Compatibility Tests
 **Status**: MISSING
 **Files**: Create `tests/compatibility/{pubsub,topic,subscription,message}-compat.test.ts`
 
@@ -927,21 +861,21 @@ async exists(): Promise<[boolean]> {
 
 ### P3: Nice to Have (Optional Enhancements)
 
-#### 17. Schema Revision Support
+#### 12. Schema Revision Support
 **Status**: MISSING
 **Requirements**: Track revisionId and revisionCreateTime
 
-#### 18. Snapshot Full Implementation
+#### 13. Snapshot Full Implementation
 **Status**: STUB (intentional for local dev)
 **Note**: Cloud-only feature, low priority for local development
 
-#### 19. Dead Letter Queue Integration Tests
+#### 14. Dead Letter Queue Integration Tests
 **Status**: MISSING
 **Note**: DLQ config exists but needs E2E testing
 
-#### 20. Schema Validation Cache
-**Status**: N/A (depends on P0 #2)
-**Note**: Cache compiled ajv validators for performance
+#### 15. Schema Validation Cache
+**Status**: COMPLETE (implemented with P0 #2)
+**Note**: Compiled ajv validators are cached for performance
 
 ---
 
@@ -1037,54 +971,42 @@ tests/
 - `/Users/donlair/Projects/libraries/pubsub/src/subscriber/message-stream.ts`
 - `/Users/donlair/Projects/libraries/pubsub/src/topic.ts`
 
-### 10.2 Schema Validation
+### 10.2 Schema Validation ✅
 
 **Specification:** `specs/08-schema.md`
 
-**Status**: 18% Complete (2/11 AC partially implemented)
+**Status**: 100% Complete (11/11 AC implemented)
 
-**Acceptance Criteria:** AC-001 to AC-011 (11 criteria)
+**Completed:** 2026-01-15
 
-**File Exists**: `/Users/donlair/Projects/libraries/pubsub/src/schema.ts`
+**What was completed:**
+1. Installed ajv library for JSON Schema validation
+2. Added SchemaType.JSON to SchemaTypes enum
+3. Implemented full Schema class with:
+   - validateMessage() method with ajv for JSON schemas
+   - AVRO and Protocol Buffer validation throwing UnimplementedError with specific messages
+   - Cached compiled validators for performance
+   - Fixed exists() to check PubSub schemas registry
+   - Fixed delete() to remove from PubSub registry and throw NotFoundError if not found
+   - Fixed get() to retrieve from PubSub registry and throw NotFoundError if not found
+   - Fixed getName() to return full resource name format
+4. Updated topic.ts publishMessage() to validate against schema if schemaSettings exist
+5. Updated pubsub.ts validateSchema() to support JSON schema validation
+6. Created comprehensive tests in tests/unit/schema.test.ts covering all 11 acceptance criteria
 
-**Partially Implemented** ⚠️:
-- AC-009: List schemas (PubSub client only)
-- AC-010: Validate schema definition (basic AVRO JSON check only)
+**Tests:** All 171 tests passing (0 failures)
 
-**Missing** ❌:
-- AC-001: Create AVRO schema (stub exists)
-- AC-002: AVRO validation throws UnimplementedError (exists but untested)
-- AC-003: Protocol Buffer validation throws UnimplementedError (exists but untested)
-- AC-004: Topic with schema validation (schemaSettings stored but not used)
-- AC-005: Schema exists check (returns false always)
-- AC-006: Delete schema (returns empty object)
-- AC-007: Get schema details (gets local data only)
-- AC-008: Invalid JSON schema definition (no JSON type exists)
-- AC-011: Get schema name (returns ID not full name)
+**Acceptance Criteria:** AC-001 to AC-011 (11 criteria) ✅
 
-**Key Methods in Schema Class**:
-```typescript
-class Schema {
-  readonly id: string;
-  readonly name: string;
-  type?: SchemaType;
-  definition?: string;
+**File Modified**: `/Users/donlair/Projects/libraries/pubsub/src/schema.ts`
 
-  create() // STUB
-  delete() // STUB
-  exists() // BROKEN (always false)
-  get() // PARTIAL (local only)
-  validateMessage() // STUB (throws UnimplementedError)
-  getName() // BROKEN (wrong format)
-}
-```
-
-**Implementation Notes:**
-- Need to add SchemaType.JSON (not in enum currently)
-- Need to install `ajv` for JSON Schema validation
-- AVRO and Protocol Buffer should throw UnimplementedError
-- JSON schema is local development extension only
-- Schema registry exists in PubSub but Schema class doesn't use it
+**Implementation Details:**
+- SchemaType.JSON added for local development extension
+- ajv library installed for JSON Schema validation
+- AVRO and Protocol Buffer throw UnimplementedError with descriptive messages
+- Schema registry fully integrated with PubSub client
+- Compiled validators cached for performance
+- Topic publishMessage() validates against schema if configured
 
 ### 10.3 Snapshot Support
 
@@ -1117,9 +1039,9 @@ class Schema {
 | 05 | Publisher | 11 | 4 | ✅ Complete |
 | 06 | Subscriber | 10 | 5 | ✅ Complete |
 | 07 | MessageQueue | 13 | 2 | ✅ Complete |
-| 08 | Schema | 11 | 10 | Pending |
+| 08 | Schema | 11 | 10 | ✅ Complete |
 | 09 | Ordering | 12 | 10 | Pending |
-| **Total** | | **104** | | **79% Complete (82/104)** |
+| **Total** | | **104** | | **89% Complete (93/104)** |
 
 ### Detailed AC Status
 
@@ -1218,20 +1140,20 @@ class Schema {
 - [x] AC-012: Unregister Topic Detaches Subscriptions
 - [x] AC-013: FIFO Message Ordering Without Ordering Key
 
-#### Spec 08: Schema (11 AC)
-- [ ] AC-001: Create AVRO Schema
-- [ ] AC-002: AVRO Validation Throws Unimplemented
-- [ ] AC-003: Protocol Buffer Validation Throws Unimplemented
-- [ ] AC-004: Topic with Schema Validation
-- [ ] AC-005: Schema Exists Check
-- [ ] AC-006: Delete Schema
-- [ ] AC-007: Get Schema Details
-- [ ] AC-008: Invalid JSON Schema Definition
-- [x] AC-009: List Schemas (partial - PubSub client only)
-- [x] AC-010: Validate Schema Definition (partial - basic AVRO JSON check)
-- [ ] AC-011: Get Schema Name
+#### Spec 08: Schema (11 AC) ✅
+- [x] AC-001: Create AVRO Schema
+- [x] AC-002: AVRO Validation Throws Unimplemented
+- [x] AC-003: Protocol Buffer Validation Throws Unimplemented
+- [x] AC-004: Topic with Schema Validation
+- [x] AC-005: Schema Exists Check
+- [x] AC-006: Delete Schema
+- [x] AC-007: Get Schema Details
+- [x] AC-008: Invalid JSON Schema Definition
+- [x] AC-009: List Schemas
+- [x] AC-010: Validate Schema Definition
+- [x] AC-011: Get Schema Name
 
-**Schema Status**: 2/11 AC partial (18% complete)
+**Schema Status**: 11/11 AC complete (100% complete)
 
 #### Spec 09: Ordering (12 AC)
 - [x] AC-001: Create Topic and Publish with Ordering Key

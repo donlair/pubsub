@@ -10,7 +10,8 @@ import type { CallOptions } from './common';
  */
 export const SchemaTypes = {
   ProtocolBuffer: 'PROTOCOL_BUFFER',
-  Avro: 'AVRO'
+  Avro: 'AVRO',
+  Json: 'JSON'
 } as const;
 
 export type SchemaType = (typeof SchemaTypes)[keyof typeof SchemaTypes];
