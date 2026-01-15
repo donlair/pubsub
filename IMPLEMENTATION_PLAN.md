@@ -9,12 +9,11 @@ This implementation plan reflects a comprehensive analysis of the codebase condu
 
 ✅ **Core Functionality**: 100% complete (Phases 1-10)
 - All 104 basic acceptance criteria passing (100%)
-- 346 tests passing, 0 failures
+- 348 tests passing, 0 failures
 - Basic pub/sub operations fully functional
 
-⚠️ **P1 Issues Found**: 2 high-priority issues identified
+⚠️ **P1 Issues Found**: 1 high-priority issue identified
 - Environment variable detection for projectId missing
-- Publisher message size calculation bug (UTF-8)
 
 ⚠️ **P2 Issues Found**: 6 medium-priority issues
 - MessageQueue missing advanced features (BR-013 through BR-022)
@@ -32,7 +31,7 @@ This implementation plan reflects a comprehensive analysis of the codebase condu
 - Publisher missing validation (messageOrdering check)
 - 7 tests with weak assertions
 
-**Priority Work Items**: 14 total (0 P0, 2 P1, 6 P2, 6 P3)
+**Priority Work Items**: 13 total (0 P0, 1 P1, 6 P2, 6 P3)
 
 See "PRIORITIZED REMAINING WORK" section below for detailed implementation plan.
 
@@ -62,7 +61,7 @@ See "PRIORITIZED REMAINING WORK" section below for detailed implementation plan.
 
 This section contains the prioritized list of remaining implementation items based on comprehensive code analysis conducted 2026-01-15.
 
-**Test Status**: All 346 tests passing, 0 failures
+**Test Status**: All 348 tests passing, 0 failures
 
 ---
 
@@ -74,7 +73,7 @@ These issues break API compatibility or cause incorrect behavior.
 
 ---
 
-### P1: HIGH - API Compatibility Issues (2 items)
+### P1: HIGH - API Compatibility Issues (1 item)
 
 These issues affect API compatibility or cause incorrect runtime behavior.
 
@@ -104,33 +103,6 @@ const projectId = options?.projectId
 ```
 
 **Impact**: Users migrating from Google Cloud won't have automatic project detection.
-
----
-
-#### P1-2. Publisher Message Size Calculation Bug
-**Status**: BUG
-**File**: `/Users/donlair/Projects/libraries/pubsub/src/publisher/publisher.ts` (lines 124-131, 304-309)
-**Spec Reference**: BR-011 from specs/05-publisher.md
-
-**Issue**: Uses `string.length` instead of `Buffer.byteLength()` for UTF-8 strings when calculating message size.
-
-**Current Code** (approximate):
-```typescript
-const size = data.length + attributesSize;
-```
-
-**Expected Code**:
-```typescript
-const size = Buffer.isBuffer(data) ? data.length : Buffer.byteLength(data, 'utf-8');
-```
-
-**Impact**: Multi-byte UTF-8 characters are undercounted. A message with emoji or CJK characters could exceed the 10MB limit while appearing to be under it.
-
-**Example**:
-- String "你好" has `.length` of 2 but byte length of 6
-- Could allow messages exceeding 10MB to be published
-
-**Fix Required**: Replace all `string.length` with `Buffer.byteLength()` for size calculations.
 
 ---
 
@@ -348,6 +320,25 @@ test('something works', () => {
 ## Previously Completed Items (Reference)
 
 ### Recent Completions (2026-01-15)
+
+#### ✅ P1-2: Publisher Message Size Calculation Bug - FIXED
+**Status**: COMPLETE
+**Date Completed**: 2026-01-15
+**Files Modified**:
+- `src/publisher/publisher.ts` (lines 127, 307) - Changed from `.length` to `Buffer.byteLength()` for UTF-8 attribute size calculations
+- `tests/unit/publisher.test.ts` - Added 2 new tests for UTF-8 multi-byte character handling at 10MB limit
+
+**Issue**: Used `string.length` instead of `Buffer.byteLength()` for UTF-8 strings when calculating message size, causing multi-byte UTF-8 characters to be undercounted.
+
+**What was fixed**:
+- Line 127: Changed attribute size calculation to use `Buffer.byteLength(k, 'utf8') + Buffer.byteLength(v, 'utf8')`
+- Line 307: Changed message length calculation to use `Buffer.byteLength(k, 'utf8') + Buffer.byteLength(v, 'utf8')`
+- Added test: "Rejects message exceeding 10MB with UTF-8 multi-byte characters in attributes"
+- Added test: "Accepts message at 10MB limit with UTF-8 multi-byte characters in attributes"
+
+**Impact**: Messages with UTF-8 multi-byte characters in attributes now correctly calculate byte size. Prevents messages exceeding 10MB from being published when using emoji or CJK characters.
+
+---
 
 #### ✅ P1-2: LeaseManager Infinite Auto-Extension Loop - FIXED
 **Status**: COMPLETE
@@ -681,7 +672,7 @@ test('something works', () => {
 | Subscription | `tests/compatibility/subscription-compat.test.ts` | ⬜ Missing |
 | Message | `tests/compatibility/message-compat.test.ts` | ⬜ Missing |
 
-**Total**: 346 tests passing, 0 failures
+**Total**: 348 tests passing, 0 failures
 
 ---
 
@@ -689,7 +680,6 @@ test('something works', () => {
 
 ### Immediate (P1) - Fix These First
 1. **P1-1**: Add environment variable detection for projectId in `src/pubsub.ts`
-2. **P1-2**: Fix Publisher message size calculation to use `Buffer.byteLength()`
 
 ### Next Sprint (P2) - Feature Completeness
 1. **P2-1**: Implement MessageQueue advanced features (flow control, DLQ, backoff)

@@ -641,4 +641,49 @@ describe('Publisher', () => {
 		expect(messageId).toBeDefined();
 		expect(typeof messageId).toBe('string');
 	});
+
+	test('Rejects message exceeding 10MB with UTF-8 multi-byte characters in attributes', async () => {
+		const topicName = 'projects/test-project/topics/my-topic';
+		queue.registerTopic(topicName);
+
+		const publisher = new Publisher(topicName, {
+			flowControlOptions: {
+				maxOutstandingMessages: 10,
+				maxOutstandingBytes: 20 * 1024 * 1024,
+			},
+		});
+
+		const dataSize = 10485745;
+		const data = Buffer.alloc(dataSize);
+
+		await expect(
+			publisher.publishMessage({
+				data,
+				attributes: { key: '你好世界👋' },
+			})
+		).rejects.toThrow('Message size exceeds maximum of 10MB');
+	});
+
+	test('Accepts message at 10MB limit with UTF-8 multi-byte characters in attributes', async () => {
+		const topicName = 'projects/test-project/topics/my-topic';
+		queue.registerTopic(topicName);
+
+		const publisher = new Publisher(topicName, {
+			flowControlOptions: {
+				maxOutstandingMessages: 10,
+				maxOutstandingBytes: 20 * 1024 * 1024,
+			},
+		});
+
+		const dataSize = 10485751;
+		const data = Buffer.alloc(dataSize);
+
+		const messageId = await publisher.publishMessage({
+			data,
+			attributes: { key: '你好' },
+		});
+
+		expect(messageId).toBeDefined();
+		expect(typeof messageId).toBe('string');
+	});
 });

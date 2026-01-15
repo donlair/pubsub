@@ -124,7 +124,7 @@ export class Publisher {
 		const dataSize = message.data?.length ?? 0;
 		const attrSize = message.attributes
 			? Object.entries(message.attributes).reduce(
-					(sum, [k, v]) => sum + k.length + v.length,
+					(sum, [k, v]) => sum + Buffer.byteLength(k, 'utf8') + Buffer.byteLength(v, 'utf8'),
 					0
 			  )
 			: 0;
@@ -304,7 +304,7 @@ export class Publisher {
 					data.length +
 					(msg.attributes
 						? Object.entries(msg.attributes).reduce(
-								(sum, [k, v]) => sum + k.length + v.length,
+								(sum, [k, v]) => sum + Buffer.byteLength(k, 'utf8') + Buffer.byteLength(v, 'utf8'),
 								0
 						  )
 						: 0),
