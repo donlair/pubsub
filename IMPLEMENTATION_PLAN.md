@@ -10,7 +10,7 @@
 | 4 | Publisher components | 100% complete | All 11 AC passing |
 | 5 | Subscriber components | 100% complete | All 10 AC passing |
 | 6 | Topic class | 100% complete | All 10 AC passing |
-| 7 | Subscription class | Not started | EventEmitter for messages |
+| 7 | Subscription class | 100% complete | All 9 AC passing |
 | 8 | PubSub client | Not started | Main entry point |
 | 9 | Integration tests | Not started | End-to-end testing |
 | 10 | Advanced features | Not started | Ordering, schemas |
@@ -487,13 +487,28 @@ Test all 10 acceptance criteria from spec 02-topic.md.
 
 ---
 
-## Priority 6: Phase 7 - Subscription Class
+## Priority 6: Phase 7 - Subscription Class ✅
+
+**Status:** 100% Complete
+
+**Completed:** 2026-01-15
+
+**What was completed:**
+- Subscription class with EventEmitter interface
+- Type-safe event overloads for message, error, close, debug events
+- Lifecycle methods (create, delete, exists, get, getMetadata, setMetadata)
+- Message reception via open/close methods
+- Flow control and options management
+- Integration with Topic class for subscription management
+- Message streaming with pause/resume functionality
+
+**Tests:** All 9 acceptance criteria from `specs/03-subscription.md` passing
 
 ### Core Component: Subscription (extends EventEmitter)
 
 **Specification:** `specs/03-subscription.md`
 
-**Acceptance Criteria:** AC-001 to AC-009 (9 criteria)
+**Acceptance Criteria:** AC-001 to AC-009 (9 criteria) ✅
 
 ### Files to Create
 
@@ -785,14 +800,14 @@ class IAM {
 |------|-----------|----------|-------|--------|
 | 01 | PubSub Client | 13 | 8 | Pending |
 | 02 | Topic | 10 | 6 | ✅ Complete |
-| 03 | Subscription | 9 | 7 | Pending |
+| 03 | Subscription | 9 | 7 | ✅ Complete |
 | 04 | Message | 15 | 3 | ✅ Complete |
 | 05 | Publisher | 11 | 4 | ✅ Complete |
 | 06 | Subscriber | 10 | 5 | ✅ Complete |
 | 07 | MessageQueue | 13 | 2 | ✅ Complete |
 | 08 | Schema | 11 | 10 | Pending |
 | 09 | Ordering | 12 | 10 | Pending |
-| **Total** | | **104** | | **57% Complete (59/104)** |
+| **Total** | | **104** | | **65% Complete (68/104)** |
 
 ### Detailed AC Status
 
@@ -823,16 +838,16 @@ class IAM {
 - [x] AC-009: Publish to Non-Existent Topic Throws
 - [x] AC-010: Deprecated publish() Method
 
-#### Spec 03: Subscription (9 AC)
-- [ ] AC-001: Create and Receive Messages
-- [ ] AC-002: Flow Control Max Messages
-- [ ] AC-003: Ack Deadline Redelivery
-- [ ] AC-004: Message Ordering
-- [ ] AC-005: Error Event Emission
-- [ ] AC-006: Close Stops Message Flow
-- [ ] AC-007: Set Options After Creation
-- [ ] AC-008: Subscription Exists Check
-- [ ] AC-009: Multiple Subscriptions Same Topic
+#### Spec 03: Subscription (9 AC) ✅
+- [x] AC-001: Create and Receive Messages
+- [x] AC-002: Flow Control Max Messages
+- [x] AC-003: Ack Deadline Redelivery
+- [x] AC-004: Message Ordering
+- [x] AC-005: Error Event Emission
+- [x] AC-006: Close Stops Message Flow
+- [x] AC-007: Set Options After Creation
+- [x] AC-008: Subscription Exists Check
+- [x] AC-009: Multiple Subscriptions Same Topic
 
 #### Spec 04: Message (15 AC) ✅
 - [x] AC-001: Basic Message Properties
