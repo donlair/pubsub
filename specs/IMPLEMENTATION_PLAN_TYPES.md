@@ -574,7 +574,7 @@ export const DEFAULT_PUBLISHER_FLOW_CONTROL: Required<PublisherFlowControlOption
 };
 ```
 
-#### 3.2 `src/types/subscriber.ts`
+#### 3.2 `src/types/subscriber.ts` ✅ COMPLETED
 
 ```typescript
 /**
