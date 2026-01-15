@@ -14,9 +14,8 @@ This implementation plan reflects a comprehensive analysis of the codebase condu
 
 ✅ **P1 Issues Found**: 0 high-priority issues (all resolved!)
 
-⚠️ **P2 Issues Found**: 5 medium-priority issues
+⚠️ **P2 Issues Found**: 4 medium-priority issues
 - MessageQueue missing advanced features (BR-013 through BR-022)
-- MessageQueue missing error handling (NotFoundError)
 - Subscription stub methods (cloud-specific)
 - Missing compatibility tests (2 files)
 - Missing integration tests (2 files)
@@ -29,7 +28,7 @@ This implementation plan reflects a comprehensive analysis of the codebase condu
 - Publisher missing validation (messageOrdering check)
 - 7 tests with weak assertions
 
-**Priority Work Items**: 11 total (0 P0, 0 P1, 5 P2, 6 P3)
+**Priority Work Items**: 10 total (0 P0, 0 P1, 4 P2, 6 P3)
 
 See "PRIORITIZED REMAINING WORK" section below for detailed implementation plan.
 
@@ -79,7 +78,7 @@ These issues affect API compatibility or cause incorrect runtime behavior.
 
 ---
 
-### P2: MEDIUM - Feature Completeness (5 items)
+### P2: MEDIUM - Feature Completeness (4 items)
 
 Missing features that don't break existing functionality.
 
@@ -102,20 +101,7 @@ Missing features that don't break existing functionality.
 
 ---
 
-#### P2-2. MessageQueue Missing Error Handling
-**Status**: INCOMPLETE
-**File**: `/Users/donlair/Projects/libraries/pubsub/src/internal/message-queue.ts`
-
-**Issues**:
-1. `publish()` doesn't throw `NotFoundError` for non-existent topic
-2. `pull()` doesn't throw `NotFoundError` for non-existent subscription
-3. `ack()` and `nack()` silently ignore invalid ackIds instead of throwing errors
-
-**Expected Behavior**: Should throw appropriate errors matching Google Pub/Sub API behavior.
-
----
-
-#### P2-3. Subscription Stub Methods
+#### P2-2. Subscription Stub Methods
 **Status**: STUB
 **File**: `/Users/donlair/Projects/libraries/pubsub/src/subscription.ts`
 
@@ -130,7 +116,7 @@ Missing features that don't break existing functionality.
 
 ---
 
-#### P2-4. Missing Compatibility Tests
+#### P2-3. Missing Compatibility Tests
 **Status**: MISSING
 **Files to Create**:
 - `/Users/donlair/Projects/libraries/pubsub/tests/compatibility/subscription-compat.test.ts`
@@ -144,7 +130,7 @@ Missing features that don't break existing functionality.
 
 ---
 
-#### P2-5. Missing Integration Tests
+#### P2-4. Missing Integration Tests
 **Status**: MISSING
 **Files to Create**:
 - `/Users/donlair/Projects/libraries/pubsub/tests/integration/dead-letter.test.ts` - DLQ routing after max attempts
@@ -272,6 +258,43 @@ test('something works', () => {
 ## Previously Completed Items (Reference)
 
 ### Recent Completions (2026-01-15)
+
+#### ✅ P2-2: MessageQueue Missing Error Handling - FIXED
+**Status**: COMPLETE
+**Date Completed**: 2026-01-15
+**Files Modified**:
+- `src/internal/message-queue.ts` - Added error handling to publish(), pull(), ack(), nack(), and modifyAckDeadline()
+- `tests/unit/message-queue.test.ts` - Added 7 new error handling tests
+- `src/subscriber/message-stream.ts` - Fixed cleanup code to handle expired leases gracefully
+- `src/publisher/publisher.ts` - Added topic existence check before publishing to prevent timer-triggered errors
+- `tests/unit/message.test.ts` - Fixed Message unit tests to properly set up leases via publish/pull flow
+
+**Issue**: MessageQueue methods were silently ignoring errors instead of throwing appropriate exceptions matching Google Pub/Sub API behavior.
+
+**What was fixed**:
+1. **publish()** - Now throws `NotFoundError` (code 5) when topic doesn't exist
+2. **pull()** - Now throws `NotFoundError` (code 5) when subscription doesn't exist
+3. **ack()** - Now throws `InvalidArgumentError` (code 3) when ackId is invalid
+4. **nack()** - Now throws `InvalidArgumentError` (code 3) when ackId is invalid
+5. **modifyAckDeadline()** - Now throws `InvalidArgumentError` (code 3) when ackId is invalid
+6. Added JSDoc `@throws` annotations to document all error conditions
+7. Added 7 comprehensive error handling tests:
+   - publish() throws NotFoundError for non-existent topic
+   - pull() throws NotFoundError for non-existent subscription
+   - ack() throws InvalidArgumentError for invalid ackId
+   - nack() throws InvalidArgumentError for invalid ackId
+   - modifyAckDeadline() throws InvalidArgumentError for invalid ackId
+   - Verified error messages include helpful context
+   - Verified correct gRPC error codes
+
+**Additional Fixes**:
+- **MessageStream cleanup**: Fixed to gracefully handle expired leases during cleanup without throwing errors
+- **Publisher topic check**: Added existence check before publishing to prevent timer-triggered errors during cleanup
+- **Message unit tests**: Fixed to properly set up leases via publish/pull flow instead of directly manipulating internal state
+
+**Impact**: Error handling now matches Google Cloud Pub/Sub API behavior. Invalid operations throw appropriate errors with correct gRPC codes and helpful messages. Makes debugging easier and ensures API compatibility.
+
+---
 
 #### ✅ P2-3: MessageQueue ackDeadline Default Mismatch - FIXED
 **Status**: COMPLETE
@@ -680,10 +703,9 @@ test('something works', () => {
 
 ### Next Sprint (P2) - Feature Completeness
 1. **P2-1**: Implement MessageQueue advanced features (flow control, DLQ, backoff)
-2. **P2-2**: Add proper error handling to MessageQueue
-3. **P2-3**: Document subscription stub methods
-4. **P2-4**: Create subscription-compat.test.ts and message-compat.test.ts
-5. **P2-5**: Create dead-letter.test.ts and ack-deadline.test.ts
+2. **P2-2**: Document subscription stub methods
+3. **P2-3**: Create subscription-compat.test.ts and message-compat.test.ts
+4. **P2-4**: Create dead-letter.test.ts and ack-deadline.test.ts
 
 ### Future (P3) - Nice to Have
 1. **P3-1**: Update spec documentation for AckResponse values
