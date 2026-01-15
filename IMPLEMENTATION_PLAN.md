@@ -8,7 +8,7 @@
 | 2 | Internal infrastructure | 100% complete | All 13 AC passing |
 | 3 | Message class | 100% complete | All 15 AC passing |
 | 4 | Publisher components | 100% complete | All 11 AC passing |
-| 5 | Subscriber components | Not started | MessageStream, flow control |
+| 5 | Subscriber components | 100% complete | All 10 AC passing |
 | 6 | Topic class | Not started | Publishing interface |
 | 7 | Subscription class | Not started | EventEmitter for messages |
 | 8 | PubSub client | Not started | Main entry point |
@@ -314,13 +314,27 @@ Test all 11 acceptance criteria from spec 05-publisher.md.
 
 ---
 
-## Priority 4: Phase 5 - Subscriber Components
+## Priority 4: Phase 5 - Subscriber Components ✅
+
+**Status:** 100% Complete
+
+**Completed:** 2026-01-15
+
+**What was completed:**
+- MessageStream class with continuous streaming pull
+- LeaseManager for automatic ack deadline extension
+- SubscriberFlowControl for message and byte limits
+- Message ordering support per orderingKey
+- Pause/resume functionality
+- Graceful stop with in-flight message handling
+
+**Tests:** All 10 acceptance criteria from `specs/06-subscriber.md` passing
 
 ### Core Components: MessageStream, LeaseManager, FlowControl
 
 **Specification:** `specs/06-subscriber.md`
 
-**Acceptance Criteria:** AC-001 to AC-010 (10 criteria)
+**Acceptance Criteria:** AC-001 to AC-010 (10 criteria) ✅
 
 ### Files to Create
 
@@ -758,11 +772,11 @@ class IAM {
 | 03 | Subscription | 9 | 7 | Pending |
 | 04 | Message | 15 | 3 | ✅ Complete |
 | 05 | Publisher | 11 | 4 | ✅ Complete |
-| 06 | Subscriber | 10 | 5 | Pending |
+| 06 | Subscriber | 10 | 5 | ✅ Complete |
 | 07 | MessageQueue | 13 | 2 | ✅ Complete |
 | 08 | Schema | 11 | 10 | Pending |
 | 09 | Ordering | 12 | 10 | Pending |
-| **Total** | | **104** | | **38% Complete (39/104)** |
+| **Total** | | **104** | | **47% Complete (49/104)** |
 
 ### Detailed AC Status
 
@@ -834,17 +848,17 @@ class IAM {
 - [x] AC-010: Unique Message IDs
 - [x] AC-011: Empty Message Batch
 
-#### Spec 06: Subscriber (10 AC)
-- [ ] AC-001: Basic Streaming Pull
-- [ ] AC-002: Flow Control Max Messages
-- [ ] AC-003: Flow Control Max Bytes
-- [ ] AC-004: Ack Deadline Redelivery
-- [ ] AC-005: Message Ordering Sequential Delivery
-- [ ] AC-006: Pause and Resume
-- [ ] AC-007: Stop Waits for In-Flight
-- [ ] AC-008: Error Event on Failure
-- [ ] AC-009: Multiple Concurrent Messages
-- [ ] AC-010: Allow Excess Messages
+#### Spec 06: Subscriber (10 AC) ✅
+- [x] AC-001: Basic Streaming Pull
+- [x] AC-002: Flow Control Max Messages
+- [x] AC-003: Flow Control Max Bytes
+- [x] AC-004: Ack Deadline Redelivery
+- [x] AC-005: Message Ordering Sequential Delivery
+- [x] AC-006: Pause and Resume
+- [x] AC-007: Stop Waits for In-Flight
+- [x] AC-008: Error Event on Failure
+- [x] AC-009: Multiple Concurrent Messages
+- [x] AC-010: Allow Excess Messages
 
 #### Spec 07: MessageQueue (13 AC) ✅
 - [x] AC-001: Singleton Pattern
