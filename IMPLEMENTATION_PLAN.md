@@ -6,7 +6,7 @@
 |-------|-----------|--------|-------|
 | 1 | Type definitions | 100% complete | All types implemented |
 | 2 | Internal infrastructure | 100% complete | All 13 AC passing |
-| 3 | Message class | Not started | Received message with ack/nack |
+| 3 | Message class | 100% complete | All 15 AC passing |
 | 4 | Publisher components | Not started | Batching and flow control |
 | 5 | Subscriber components | Not started | MessageStream, flow control |
 | 6 | Topic class | Not started | Publishing interface |
@@ -134,13 +134,27 @@ Test all 13 acceptance criteria from spec 07-message-queue.md.
 
 ---
 
-## Priority 2: Phase 3 - Message Class
+## Priority 2: Phase 3 - Message Class ✅
+
+**Status:** 100% Complete
+
+**Completed:** 2026-01-15
+
+**What was completed:**
+- Message class with ack/nack functionality
+- PreciseDate utility for high-precision timestamps
+- Immutable message properties
+- Ack state tracking to prevent double-ack
+- Ack deadline validation (0-600 seconds)
+- Response methods (ackWithResponse, nackWithResponse, modAckWithResponse)
+
+**Tests:** All 15 acceptance criteria from `specs/04-message.md` passing
 
 ### Core Component: Message
 
 **Specification:** `specs/04-message.md`
 
-**Acceptance Criteria:** AC-001 to AC-015 (15 criteria)
+**Acceptance Criteria:** AC-001 to AC-015 (15 criteria) ✅
 
 ### Files to Create
 
@@ -728,13 +742,13 @@ class IAM {
 | 01 | PubSub Client | 13 | 8 | Pending |
 | 02 | Topic | 10 | 6 | Pending |
 | 03 | Subscription | 9 | 7 | Pending |
-| 04 | Message | 15 | 3 | Pending |
+| 04 | Message | 15 | 3 | ✅ Complete |
 | 05 | Publisher | 11 | 4 | Pending |
 | 06 | Subscriber | 10 | 5 | Pending |
 | 07 | MessageQueue | 13 | 2 | ✅ Complete |
 | 08 | Schema | 11 | 10 | Pending |
 | 09 | Ordering | 12 | 10 | Pending |
-| **Total** | | **104** | | **13% Complete (13/104)** |
+| **Total** | | **104** | | **27% Complete (28/104)** |
 
 ### Detailed AC Status
 
@@ -776,22 +790,22 @@ class IAM {
 - [ ] AC-008: Subscription Exists Check
 - [ ] AC-009: Multiple Subscriptions Same Topic
 
-#### Spec 04: Message (15 AC)
-- [ ] AC-001: Basic Message Properties
-- [ ] AC-002: Ack Removes Message
-- [ ] AC-003: Nack Causes Immediate Redelivery
-- [ ] AC-004: Modify Ack Deadline
-- [ ] AC-005: Message Length Property
-- [ ] AC-006: Empty Data Message
-- [ ] AC-007: Ordering Key Present
-- [ ] AC-008: Multiple Acks Are Idempotent
-- [ ] AC-009: Ack After Nack Has No Effect
-- [ ] AC-010: Delivery Attempt Counter
-- [ ] AC-011: Ack With Response Returns Success
-- [ ] AC-012: Nack With Response Returns Success
-- [ ] AC-013: Ack With Response Handles Invalid Ack ID
-- [ ] AC-014: Response Methods Work Without Exactly-Once
-- [ ] AC-015: Attribute Validation
+#### Spec 04: Message (15 AC) ✅
+- [x] AC-001: Basic Message Properties
+- [x] AC-002: Ack Removes Message
+- [x] AC-003: Nack Causes Immediate Redelivery
+- [x] AC-004: Modify Ack Deadline
+- [x] AC-005: Message Length Property
+- [x] AC-006: Empty Data Message
+- [x] AC-007: Ordering Key Present
+- [x] AC-008: Multiple Acks Are Idempotent
+- [x] AC-009: Ack After Nack Has No Effect
+- [x] AC-010: Delivery Attempt Counter
+- [x] AC-011: Ack With Response Returns Success
+- [x] AC-012: Nack With Response Returns Success
+- [x] AC-013: Ack With Response Handles Invalid Ack ID
+- [x] AC-014: Response Methods Work Without Exactly-Once
+- [x] AC-015: Attribute Validation
 
 #### Spec 05: Publisher (11 AC)
 - [ ] AC-001: Default Batching Behavior
