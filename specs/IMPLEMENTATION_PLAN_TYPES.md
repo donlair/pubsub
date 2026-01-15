@@ -1194,7 +1194,7 @@ export interface CreateSnapshotOptions {
 
 ### Layer 5: Client Types
 
-#### 5.1 `src/types/pubsub.ts`
+#### 5.1 `src/types/pubsub.ts` ✅ COMPLETED
 
 ```typescript
 /**
@@ -1295,7 +1295,7 @@ export const DEFAULT_PUBSUB_OPTIONS: Partial<PubSubOptions> = {
 };
 ```
 
-#### 5.2 `src/types/iam.ts`
+#### 5.2 `src/types/iam.ts` ✅ COMPLETED
 
 ```typescript
 /**
@@ -1408,7 +1408,7 @@ export const PubSubPermissions = {
 } as const;
 ```
 
-#### 5.3 `src/types/callbacks.ts`
+#### 5.3 `src/types/callbacks.ts` ✅ COMPLETED
 
 ```typescript
 /**
