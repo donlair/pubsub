@@ -11,9 +11,7 @@ Automatically create git commits after each significant change to create a clear
 - Implementing a complete component class
 - Fixing a bug or adding a feature that works
 
-## Commit Message Format
-
-Use Conventional Commits format:
+## Format
 
 ```
 <type>(<scope>): <subject>
@@ -23,38 +21,16 @@ Use Conventional Commits format:
 Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
 ```
 
-### Types
+**Types**: `feat` | `fix` | `test` | `refactor` | `docs` | `chore`
 
-`feat` | `fix` | `test` | `refactor` | `docs` | `chore`
+**Scopes**: `pubsub` | `topic` | `subscription` | `message` | `publisher` | `subscriber` | `queue` | `schema` | `types`
 
-### Scope
+**Subject**: Imperative mood, 50 chars max, no period
 
-`pubsub` | `topic` | `subscription` | `message` | `publisher` | `subscriber` | `queue` | `schema` | `types`
-
-### Subject
-
-Short description (50 chars max)
-
-### Body
-
+**Body**:
 - What was implemented
 - Which spec/acceptance criteria it satisfies
 - Key technical decisions
-
-## Example
-
-```
-feat(topic): implement publishMessage with batching
-
-Implemented Topic.publishMessage() method with batching support.
-Satisfies specs/02-topic.md AC-001, AC-002, AC-004.
-
-- Added Publisher instance to Topic
-- Configured default batching (100 msgs, 10ms, 1MB)
-- Returns Promise<string> with message ID
-
-Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
-```
 
 ## Best Practices
 
@@ -62,3 +38,7 @@ Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
 2. **Buildable commits**: Code compiles and tests pass after each commit
 3. **Reference specs**: Link commits to acceptance criteria they satisfy
 4. **Co-author attribution**: Always include the Co-Authored-By line
+
+## Reference
+
+See `docs/git-workflow.md` for detailed examples and explanations.
