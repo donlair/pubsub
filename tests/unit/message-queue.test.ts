@@ -471,4 +471,580 @@ describe('MessageQueue', () => {
       }).not.toThrow();
     });
   });
+
+  // Advanced Features Tests (BR-013 through BR-022)
+  describe('Advanced Features', () => {
+    // BR-017: Message Size Validation
+    describe('BR-017: Message Size Validation', () => {
+      test('Rejects message exceeding 10MB', () => {
+        queue.registerTopic('test-topic');
+        queue.registerSubscription('test-sub', 'test-topic');
+
+        const largeData = Buffer.alloc(10 * 1024 * 1024 + 1);
+        const messages: InternalMessage[] = [
+          {
+            id: 'msg-1',
+            data: largeData,
+            attributes: {},
+            publishTime: new Date() as any,
+            orderingKey: undefined,
+            deliveryAttempt: 1,
+            length: 0
+          }
+        ];
+
+        expect(() => {
+          queue.publish('test-topic', messages);
+        }).toThrow('Message size exceeds 10MB limit');
+      });
+
+      test('Rejects attribute key exceeding 256 bytes', () => {
+        queue.registerTopic('test-topic');
+        queue.registerSubscription('test-sub', 'test-topic');
+
+        const longKey = 'a'.repeat(257);
+        const messages: InternalMessage[] = [
+          {
+            id: 'msg-1',
+            data: Buffer.from('test'),
+            attributes: { [longKey]: 'value' },
+            publishTime: new Date() as any,
+            orderingKey: undefined,
+            deliveryAttempt: 1,
+            length: 0
+          }
+        ];
+
+        expect(() => {
+          queue.publish('test-topic', messages);
+        }).toThrow('Attribute key exceeds 256 bytes');
+      });
+
+      test('Rejects attribute value exceeding 1024 bytes', () => {
+        queue.registerTopic('test-topic');
+        queue.registerSubscription('test-sub', 'test-topic');
+
+        const longValue = 'a'.repeat(1025);
+        const messages: InternalMessage[] = [
+          {
+            id: 'msg-1',
+            data: Buffer.from('test'),
+            attributes: { key: longValue },
+            publishTime: new Date() as any,
+            orderingKey: undefined,
+            deliveryAttempt: 1,
+            length: 0
+          }
+        ];
+
+        expect(() => {
+          queue.publish('test-topic', messages);
+        }).toThrow('Attribute value exceeds 1024 bytes');
+      });
+
+      test('Rejects empty attribute key', () => {
+        queue.registerTopic('test-topic');
+        queue.registerSubscription('test-sub', 'test-topic');
+
+        const messages: InternalMessage[] = [
+          {
+            id: 'msg-1',
+            data: Buffer.from('test'),
+            attributes: { '': 'value' },
+            publishTime: new Date() as any,
+            orderingKey: undefined,
+            deliveryAttempt: 1,
+            length: 0
+          }
+        ];
+
+        expect(() => {
+          queue.publish('test-topic', messages);
+        }).toThrow('Attribute keys must be non-empty');
+      });
+
+      test('Rejects attribute key with reserved prefix "goog"', () => {
+        queue.registerTopic('test-topic');
+        queue.registerSubscription('test-sub', 'test-topic');
+
+        const messages: InternalMessage[] = [
+          {
+            id: 'msg-1',
+            data: Buffer.from('test'),
+            attributes: { 'googTest': 'value' },
+            publishTime: new Date() as any,
+            orderingKey: undefined,
+            deliveryAttempt: 1,
+            length: 0
+          }
+        ];
+
+        expect(() => {
+          queue.publish('test-topic', messages);
+        }).toThrow('Attribute keys cannot start with reserved prefix');
+      });
+
+      test('Rejects attribute key with reserved prefix "googclient_"', () => {
+        queue.registerTopic('test-topic');
+        queue.registerSubscription('test-sub', 'test-topic');
+
+        const messages: InternalMessage[] = [
+          {
+            id: 'msg-1',
+            data: Buffer.from('test'),
+            attributes: { 'googclient_test': 'value' },
+            publishTime: new Date() as any,
+            orderingKey: undefined,
+            deliveryAttempt: 1,
+            length: 0
+          }
+        ];
+
+        expect(() => {
+          queue.publish('test-topic', messages);
+        }).toThrow('Attribute keys cannot start with reserved prefix');
+      });
+
+      test('Accepts message at 10MB limit', () => {
+        queue.registerTopic('test-topic');
+        queue.registerSubscription('test-sub', 'test-topic');
+
+        const maxData = Buffer.alloc(10 * 1024 * 1024);
+        const messages: InternalMessage[] = [
+          {
+            id: 'msg-1',
+            data: maxData,
+            attributes: {},
+            publishTime: new Date() as any,
+            orderingKey: undefined,
+            deliveryAttempt: 1,
+            length: 0
+          }
+        ];
+
+        expect(() => {
+          queue.publish('test-topic', messages);
+        }).not.toThrow();
+      });
+    });
+
+    // BR-014 & BR-013: In-Flight Metrics and Flow Control
+    describe('BR-013 & BR-014: Flow Control with In-Flight Metrics', () => {
+      test('Blocks pull when maxMessages flow control limit is reached', () => {
+        queue.registerTopic('test-topic');
+        queue.registerSubscription('test-sub', 'test-topic', {
+          flowControl: {
+            maxMessages: 2
+          }
+        } as any);
+
+        const messages: InternalMessage[] = [
+          {
+            id: 'msg-1',
+            data: Buffer.from('test1'),
+            attributes: {},
+            publishTime: new Date() as any,
+            orderingKey: undefined,
+            deliveryAttempt: 1,
+            length: 5
+          },
+          {
+            id: 'msg-2',
+            data: Buffer.from('test2'),
+            attributes: {},
+            publishTime: new Date() as any,
+            orderingKey: undefined,
+            deliveryAttempt: 1,
+            length: 5
+          },
+          {
+            id: 'msg-3',
+            data: Buffer.from('test3'),
+            attributes: {},
+            publishTime: new Date() as any,
+            orderingKey: undefined,
+            deliveryAttempt: 1,
+            length: 5
+          }
+        ];
+
+        queue.publish('test-topic', messages);
+
+        const pulled1 = queue.pull('test-sub', 10);
+        expect(pulled1).toHaveLength(2);
+
+        const pulled2 = queue.pull('test-sub', 10);
+        expect(pulled2).toHaveLength(0);
+
+        queue.ack(pulled1[0]!.ackId!);
+
+        const pulled3 = queue.pull('test-sub', 10);
+        expect(pulled3).toHaveLength(1);
+      });
+
+      test('Blocks pull when maxBytes flow control limit is reached', () => {
+        queue.registerTopic('test-topic');
+        queue.registerSubscription('test-sub', 'test-topic', {
+          flowControl: {
+            maxBytes: 100
+          }
+        } as any);
+
+        const messages: InternalMessage[] = [
+          {
+            id: 'msg-1',
+            data: Buffer.alloc(60),
+            attributes: {},
+            publishTime: new Date() as any,
+            orderingKey: undefined,
+            deliveryAttempt: 1,
+            length: 60
+          },
+          {
+            id: 'msg-2',
+            data: Buffer.alloc(60),
+            attributes: {},
+            publishTime: new Date() as any,
+            orderingKey: undefined,
+            deliveryAttempt: 1,
+            length: 60
+          }
+        ];
+
+        queue.publish('test-topic', messages);
+
+        const pulled1 = queue.pull('test-sub', 10);
+        expect(pulled1).toHaveLength(1);
+
+        const pulled2 = queue.pull('test-sub', 10);
+        expect(pulled2).toHaveLength(0);
+
+        queue.ack(pulled1[0]!.ackId!);
+
+        const pulled3 = queue.pull('test-sub', 10);
+        expect(pulled3).toHaveLength(1);
+      });
+
+      test('Tracks in-flight bytes correctly', () => {
+        queue.registerTopic('test-topic');
+        queue.registerSubscription('test-sub', 'test-topic', {
+          flowControl: {
+            maxBytes: 1000
+          }
+        } as any);
+
+        const messages: InternalMessage[] = [
+          {
+            id: 'msg-1',
+            data: Buffer.alloc(500),
+            attributes: {},
+            publishTime: new Date() as any,
+            orderingKey: undefined,
+            deliveryAttempt: 1,
+            length: 500
+          }
+        ];
+
+        queue.publish('test-topic', messages);
+        const pulled = queue.pull('test-sub', 10);
+
+        queue.nack(pulled[0]!.ackId!);
+
+        const pulled2 = queue.pull('test-sub', 10);
+        expect(pulled2).toHaveLength(1);
+      });
+    });
+
+    // BR-022: Queue Size Limits
+    describe('BR-022: Queue Size Limits', () => {
+      test('Rejects messages when queue reaches 10,000 message limit', () => {
+        queue.registerTopic('test-topic');
+        queue.registerSubscription('test-sub', 'test-topic');
+
+        const publishBatch = () => {
+          const batch: InternalMessage[] = [];
+          for (let i = 0; i < 1000; i++) {
+            batch.push({
+              id: `msg-${i}`,
+              data: Buffer.from('test'),
+              attributes: {},
+              publishTime: new Date() as any,
+              orderingKey: undefined,
+              deliveryAttempt: 1,
+              length: 4
+            });
+          }
+          return batch;
+        };
+
+        for (let i = 0; i < 10; i++) {
+          queue.publish('test-topic', publishBatch());
+        }
+
+        const oneMore: InternalMessage[] = [{
+          id: 'msg-10001',
+          data: Buffer.from('test'),
+          attributes: {},
+          publishTime: new Date() as any,
+          orderingKey: undefined,
+          deliveryAttempt: 1,
+          length: 4
+        }];
+
+        queue.publish('test-topic', oneMore);
+
+        const pulled = queue.pull('test-sub', 10001);
+        expect(pulled.length).toBeLessThanOrEqual(10000);
+      });
+
+      test('Accepts messages after queue size drops below limit', () => {
+        queue.registerTopic('test-topic');
+        queue.registerSubscription('test-sub', 'test-topic');
+
+        const publishBatch = () => {
+          const batch: InternalMessage[] = [];
+          for (let i = 0; i < 1000; i++) {
+            batch.push({
+              id: `msg-${i}`,
+              data: Buffer.from('test'),
+              attributes: {},
+              publishTime: new Date() as any,
+              orderingKey: undefined,
+              deliveryAttempt: 1,
+              length: 4
+            });
+          }
+          return batch;
+        };
+
+        for (let i = 0; i < 10; i++) {
+          queue.publish('test-topic', publishBatch());
+        }
+
+        const pulled = queue.pull('test-sub', 5000);
+        for (const msg of pulled) {
+          queue.ack(msg.ackId!);
+        }
+
+        const newMessages: InternalMessage[] = [{
+          id: 'new-msg',
+          data: Buffer.from('test'),
+          attributes: {},
+          publishTime: new Date() as any,
+          orderingKey: undefined,
+          deliveryAttempt: 1,
+          length: 4
+        }];
+
+        queue.publish('test-topic', newMessages);
+
+        const pulled2 = queue.pull('test-sub', 10000);
+        expect(pulled2.some(m => m.id === 'new-msg')).toBe(true);
+      });
+    });
+
+    // BR-015: Retry Backoff
+    describe('BR-015: Retry Backoff', () => {
+      test('Applies exponential backoff on nack with retryPolicy', async () => {
+        queue.registerTopic('test-topic');
+        queue.registerSubscription('test-sub', 'test-topic', {
+          retryPolicy: {
+            minimumBackoff: { seconds: 1 },
+            maximumBackoff: { seconds: 10 }
+          }
+        } as any);
+
+        const messages: InternalMessage[] = [{
+          id: 'msg-1',
+          data: Buffer.from('test'),
+          attributes: {},
+          publishTime: new Date() as any,
+          orderingKey: undefined,
+          deliveryAttempt: 1,
+          length: 4
+        }];
+
+        queue.publish('test-topic', messages);
+        const pulled1 = queue.pull('test-sub', 10);
+        queue.nack(pulled1[0]!.ackId!);
+
+        const pulled2 = queue.pull('test-sub', 10);
+        expect(pulled2).toHaveLength(0);
+
+        await new Promise(resolve => setTimeout(resolve, 1100));
+
+        const pulled3 = queue.pull('test-sub', 10);
+        expect(pulled3).toHaveLength(1);
+        expect(pulled3[0]!.deliveryAttempt).toBe(2);
+      });
+
+      test('No backoff when no retryPolicy specified', () => {
+        queue.registerTopic('test-topic');
+        queue.registerSubscription('test-sub', 'test-topic');
+
+        const messages: InternalMessage[] = [{
+          id: 'msg-1',
+          data: Buffer.from('test'),
+          attributes: {},
+          publishTime: new Date() as any,
+          orderingKey: undefined,
+          deliveryAttempt: 1,
+          length: 4
+        }];
+
+        queue.publish('test-topic', messages);
+        const pulled1 = queue.pull('test-sub', 10);
+        queue.nack(pulled1[0]!.ackId!);
+
+        const pulled2 = queue.pull('test-sub', 10);
+        expect(pulled2).toHaveLength(1);
+        expect(pulled2[0]!.deliveryAttempt).toBe(2);
+      });
+
+      test('Caps backoff at maximumBackoff', async () => {
+        queue.registerTopic('test-topic');
+        queue.registerSubscription('test-sub', 'test-topic', {
+          retryPolicy: {
+            minimumBackoff: { seconds: 1 },
+            maximumBackoff: { seconds: 2 }
+          }
+        } as any);
+
+        const messages: InternalMessage[] = [{
+          id: 'msg-1',
+          data: Buffer.from('test'),
+          attributes: {},
+          publishTime: new Date() as any,
+          orderingKey: undefined,
+          deliveryAttempt: 5,
+          length: 4
+        }];
+
+        queue.publish('test-topic', messages);
+        const pulled1 = queue.pull('test-sub', 10);
+        queue.nack(pulled1[0]!.ackId!);
+
+        const pulled2 = queue.pull('test-sub', 10);
+        expect(pulled2).toHaveLength(0);
+
+        await new Promise(resolve => setTimeout(resolve, 2100));
+
+        const pulled3 = queue.pull('test-sub', 10);
+        expect(pulled3).toHaveLength(1);
+      });
+    });
+
+    // BR-016: Dead Letter Queue
+    describe('BR-016: Dead Letter Queue', () => {
+      test('Routes message to DLQ after maxDeliveryAttempts', () => {
+        queue.registerTopic('test-topic');
+        queue.registerTopic('dlq-topic');
+        queue.registerSubscription('dlq-sub', 'dlq-topic');
+        queue.registerSubscription('test-sub', 'test-topic', {
+          deadLetterPolicy: {
+            deadLetterTopic: 'dlq-topic',
+            maxDeliveryAttempts: 3
+          }
+        } as any);
+
+        const messages: InternalMessage[] = [{
+          id: 'msg-1',
+          data: Buffer.from('test'),
+          attributes: { foo: 'bar' },
+          publishTime: new Date() as any,
+          orderingKey: 'key-1',
+          deliveryAttempt: 1,
+          length: 4
+        }];
+
+        queue.publish('test-topic', messages);
+
+        const pulled1 = queue.pull('test-sub', 10);
+        queue.nack(pulled1[0]!.ackId!);
+
+        const pulled2 = queue.pull('test-sub', 10);
+        queue.nack(pulled2[0]!.ackId!);
+
+        const pulled3 = queue.pull('test-sub', 10);
+        queue.nack(pulled3[0]!.ackId!);
+
+        const pulled4 = queue.pull('test-sub', 10);
+        expect(pulled4).toHaveLength(0);
+
+        const dlqMessages = queue.pull('dlq-sub', 10);
+        expect(dlqMessages).toHaveLength(1);
+        expect(dlqMessages[0]!.attributes.foo).toBe('bar');
+        expect(dlqMessages[0]!.orderingKey).toBe('key-1');
+      });
+
+      test('Removes message from original subscription after DLQ routing', () => {
+        queue.registerTopic('test-topic');
+        queue.registerTopic('dlq-topic');
+        queue.registerSubscription('dlq-sub', 'dlq-topic');
+        queue.registerSubscription('test-sub', 'test-topic', {
+          deadLetterPolicy: {
+            deadLetterTopic: 'dlq-topic',
+            maxDeliveryAttempts: 2
+          }
+        } as any);
+
+        const messages: InternalMessage[] = [{
+          id: 'msg-1',
+          data: Buffer.from('test'),
+          attributes: {},
+          publishTime: new Date() as any,
+          orderingKey: undefined,
+          deliveryAttempt: 1,
+          length: 4
+        }];
+
+        queue.publish('test-topic', messages);
+
+        const pulled1 = queue.pull('test-sub', 10);
+        queue.nack(pulled1[0]!.ackId!);
+
+        const pulled2 = queue.pull('test-sub', 10);
+        queue.nack(pulled2[0]!.ackId!);
+
+        const pulled3 = queue.pull('test-sub', 10);
+        expect(pulled3).toHaveLength(0);
+      });
+
+      test('Preserves original message metadata in DLQ', () => {
+        queue.registerTopic('test-topic');
+        queue.registerTopic('dlq-topic');
+        queue.registerSubscription('dlq-sub', 'dlq-topic');
+        queue.registerSubscription('test-sub', 'test-topic', {
+          deadLetterPolicy: {
+            deadLetterTopic: 'dlq-topic',
+            maxDeliveryAttempts: 2
+          }
+        } as any);
+
+        const originalPublishTime = new Date();
+        const messages: InternalMessage[] = [{
+          id: 'msg-1',
+          data: Buffer.from('test'),
+          attributes: { key: 'value' },
+          publishTime: originalPublishTime as any,
+          orderingKey: 'order-key',
+          deliveryAttempt: 1,
+          length: 4
+        }];
+
+        queue.publish('test-topic', messages);
+
+        const pulled1 = queue.pull('test-sub', 10);
+        queue.nack(pulled1[0]!.ackId!);
+
+        const pulled2 = queue.pull('test-sub', 10);
+        queue.nack(pulled2[0]!.ackId!);
+
+        const dlqMessages = queue.pull('dlq-sub', 10);
+        expect(dlqMessages[0]!.attributes.key).toBe('value');
+        expect(dlqMessages[0]!.orderingKey).toBe('order-key');
+        expect(dlqMessages[0]!.publishTime).toBeDefined();
+      });
+    });
+  });
 });

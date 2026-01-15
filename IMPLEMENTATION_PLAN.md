@@ -9,13 +9,12 @@ This implementation plan reflects a comprehensive analysis of the codebase condu
 
 ✅ **Core Functionality**: 100% complete (Phases 1-10)
 - All 104 basic acceptance criteria passing (100%)
-- 348 tests passing, 0 failures
+- 379 tests passing, 0 failures
 - Basic pub/sub operations fully functional
 
 ✅ **P1 Issues Found**: 0 high-priority issues (all resolved!)
 
-⚠️ **P2 Issues Found**: 4 medium-priority issues
-- MessageQueue missing advanced features (BR-013 through BR-022)
+⚠️ **P2 Issues Found**: 3 medium-priority issues
 - Subscription stub methods (cloud-specific)
 - Missing compatibility tests (2 files)
 - Missing integration tests (2 files)
@@ -28,7 +27,7 @@ This implementation plan reflects a comprehensive analysis of the codebase condu
 - Publisher missing validation (messageOrdering check)
 - 7 tests with weak assertions
 
-**Priority Work Items**: 10 total (0 P0, 0 P1, 4 P2, 6 P3)
+**Priority Work Items**: 9 total (0 P0, 0 P1, 3 P2, 6 P3)
 
 See "PRIORITIZED REMAINING WORK" section below for detailed implementation plan.
 
@@ -58,7 +57,7 @@ See "PRIORITIZED REMAINING WORK" section below for detailed implementation plan.
 
 This section contains the prioritized list of remaining implementation items based on comprehensive code analysis conducted 2026-01-15.
 
-**Test Status**: All 348 tests passing, 0 failures
+**Test Status**: All 379 tests passing, 0 failures
 
 ---
 
@@ -78,28 +77,9 @@ These issues affect API compatibility or cause incorrect runtime behavior.
 
 ---
 
-### P2: MEDIUM - Feature Completeness (4 items)
+### P2: MEDIUM - Feature Completeness (3 items)
 
 Missing features that don't break existing functionality.
-
-#### P2-1. MessageQueue Missing Advanced Features
-**Status**: PARTIAL
-**File**: `/Users/donlair/Projects/libraries/pubsub/src/internal/message-queue.ts`
-**Spec Reference**: BR-013 through BR-022 from specs/07-message-queue.md
-
-**Missing Features**:
-| BR | Feature | Status |
-|----|---------|--------|
-| BR-013 | Flow control enforcement on pull (maxMessages) | Missing |
-| BR-014 | Flow control enforcement on pull (maxBytes) | Missing |
-| BR-015 | Retry backoff on nack (exponential backoff) | Missing - immediate redelivery |
-| BR-016 | Dead letter queue routing after maxDeliveryAttempts | Missing |
-| BR-017 | Message/attribute validation before storing | Missing |
-| BR-022 | Queue size limits (10,000 msgs or 100MB per subscription) | Missing |
-
-**Impact**: Advanced reliability features not available for local development testing.
-
----
 
 #### P2-2. Subscription Stub Methods
 **Status**: STUB
@@ -258,6 +238,35 @@ test('something works', () => {
 ## Previously Completed Items (Reference)
 
 ### Recent Completions (2026-01-15)
+
+#### ✅ P2-1: MessageQueue Missing Advanced Features - COMPLETE
+**Status**: COMPLETE
+**Date Completed**: 2026-01-15
+**File**: `/Users/donlair/Projects/libraries/pubsub/src/internal/message-queue.ts`
+**Spec Reference**: BR-013 through BR-022 from specs/07-message-queue.md
+
+**What was completed**:
+All advanced MessageQueue features now implemented with proper validation, metrics tracking, flow control, backoff, and DLQ routing.
+
+**Features Implemented**:
+| BR | Feature | Status |
+|----|---------|--------|
+| BR-013 | Flow control enforcement on pull (maxMessages) | ✅ COMPLETE |
+| BR-014 | Flow control enforcement on pull (maxBytes) | ✅ COMPLETE |
+| BR-015 | Retry backoff on nack (exponential backoff) | ✅ COMPLETE |
+| BR-016 | Dead letter queue routing after maxDeliveryAttempts | ✅ COMPLETE |
+| BR-017 | Message/attribute validation before storing | ✅ COMPLETE |
+| BR-022 | Queue size limits (10,000 msgs or 100MB per subscription) | ✅ COMPLETE |
+
+**Files Modified**:
+- `src/internal/message-queue.ts` - Added all missing advanced features with comprehensive error handling
+- `tests/unit/message-queue.test.ts` - Added 31 new tests covering all advanced features (BR-013 through BR-022)
+
+**Test Results**: All 379 tests passing, 0 failures
+
+**Impact**: Advanced reliability features (flow control, DLQ routing, exponential backoff, queue limits, validation) now fully available for local development testing. MessageQueue now implements all behavioral requirements from spec.
+
+---
 
 #### ✅ P2-2: MessageQueue Missing Error Handling - FIXED
 **Status**: COMPLETE
@@ -692,7 +701,7 @@ test('something works', () => {
 | Subscription | `tests/compatibility/subscription-compat.test.ts` | ⬜ Missing |
 | Message | `tests/compatibility/message-compat.test.ts` | ⬜ Missing |
 
-**Total**: 348 tests passing, 0 failures
+**Total**: 379 tests passing, 0 failures
 
 ---
 
@@ -702,10 +711,9 @@ test('something works', () => {
 **All P1 items completed!** 🎉
 
 ### Next Sprint (P2) - Feature Completeness
-1. **P2-1**: Implement MessageQueue advanced features (flow control, DLQ, backoff)
-2. **P2-2**: Document subscription stub methods
-3. **P2-3**: Create subscription-compat.test.ts and message-compat.test.ts
-4. **P2-4**: Create dead-letter.test.ts and ack-deadline.test.ts
+1. **P2-2**: Document subscription stub methods
+2. **P2-3**: Create subscription-compat.test.ts and message-compat.test.ts
+3. **P2-4**: Create dead-letter.test.ts and ack-deadline.test.ts
 
 ### Future (P3) - Nice to Have
 1. **P3-1**: Update spec documentation for AckResponse values
