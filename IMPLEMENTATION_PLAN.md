@@ -11,7 +11,7 @@
 | 5 | Subscriber components | 100% complete | All 10 AC passing |
 | 6 | Topic class | 100% complete | All 10 AC passing |
 | 7 | Subscription class | 100% complete | All 9 AC passing |
-| 8 | PubSub client | Not started | Main entry point |
+| 8 | PubSub client | 100% complete | All 13 AC passing |
 | 9 | Integration tests | Not started | End-to-end testing |
 | 10 | Advanced features | Not started | Ordering, schemas |
 
@@ -572,13 +572,34 @@ Test all 9 acceptance criteria from spec 03-subscription.md.
 
 ---
 
-## Priority 7: Phase 8 - PubSub Client
+## Priority 7: Phase 8 - PubSub Client ✅
+
+**Status:** 100% Complete
+
+**Completed:** 2026-01-15
+
+**What was completed:**
+- PubSub client class as main entry point
+- Topic factory method with instance caching
+- Subscription factory method with instance caching
+- Topic lifecycle methods (create, get, list)
+- Subscription lifecycle methods (create, get, list)
+- Schema management stub methods
+- Project ID resolution with default to 'local-project'
+- Emulator detection from PUBSUB_EMULATOR_HOST
+- Resource name formatting for topics, subscriptions, schemas
+- Tuple returns for admin operations matching Google API
+- Stream methods for topics and subscriptions
+
+**Tests:** All 13 acceptance criteria from `specs/01-pubsub-client.md` passing
+
+**Git tag:** v0.0.6
 
 ### Core Component: PubSub
 
 **Specification:** `specs/01-pubsub-client.md`
 
-**Acceptance Criteria:** AC-001 to AC-013 (13 criteria)
+**Acceptance Criteria:** AC-001 to AC-013 (13 criteria) ✅
 
 ### Files to Create
 
@@ -798,7 +819,7 @@ class IAM {
 
 | Spec | Component | Total AC | Phase | Status |
 |------|-----------|----------|-------|--------|
-| 01 | PubSub Client | 13 | 8 | Pending |
+| 01 | PubSub Client | 13 | 8 | ✅ Complete |
 | 02 | Topic | 10 | 6 | ✅ Complete |
 | 03 | Subscription | 9 | 7 | ✅ Complete |
 | 04 | Message | 15 | 3 | ✅ Complete |
@@ -807,24 +828,24 @@ class IAM {
 | 07 | MessageQueue | 13 | 2 | ✅ Complete |
 | 08 | Schema | 11 | 10 | Pending |
 | 09 | Ordering | 12 | 10 | Pending |
-| **Total** | | **104** | | **65% Complete (68/104)** |
+| **Total** | | **104** | | **78% Complete (81/104)** |
 
 ### Detailed AC Status
 
-#### Spec 01: PubSub Client (13 AC)
-- [ ] AC-001: Basic Instantiation
-- [ ] AC-002: Default Project ID
-- [ ] AC-003: Topic Factory Returns Same Instance
-- [ ] AC-004: Create and Get Topic
-- [ ] AC-005: Create Topic Twice Throws Error
-- [ ] AC-006: Create Subscription
-- [ ] AC-007: Subscription Factory Returns Same Instance
-- [ ] AC-008: Get Topics Stream
-- [ ] AC-009: Get Subscriptions Stream
-- [ ] AC-010: Create and Validate Schema
-- [ ] AC-011: List Schemas
-- [ ] AC-012: Get Project ID
-- [ ] AC-013: Close Client
+#### Spec 01: PubSub Client (13 AC) ✅
+- [x] AC-001: Basic Instantiation
+- [x] AC-002: Default Project ID
+- [x] AC-003: Topic Factory Returns Same Instance
+- [x] AC-004: Create and Get Topic
+- [x] AC-005: Create Topic Twice Throws Error
+- [x] AC-006: Create Subscription
+- [x] AC-007: Subscription Factory Returns Same Instance
+- [x] AC-008: Get Topics Stream
+- [x] AC-009: Get Subscriptions Stream
+- [x] AC-010: Create and Validate Schema
+- [x] AC-011: List Schemas
+- [x] AC-012: Get Project ID
+- [x] AC-013: Close Client
 
 #### Spec 02: Topic (10 AC) ✅
 - [x] AC-001: Create and Publish

@@ -259,6 +259,9 @@ export interface GetSubscriptionOptions {
  * Options for listing subscriptions.
  */
 export interface GetSubscriptionsOptions {
+  /** Filter by topic. */
+  topic?: string | unknown;
+
   /** Page size. */
   pageSize?: number;
 
