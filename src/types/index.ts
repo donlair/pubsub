@@ -13,7 +13,8 @@ export type {
   Long,
   BackoffSettings,
   RetryOptions,
-  CallOptions
+  CallOptions,
+  PageOptions
 } from './common';
 
 // Error types
@@ -44,6 +45,7 @@ export type {
   SchemaView,
   SchemaEncoding,
   ISchema,
+  SchemaDefinition,
   SchemaSettings,
   SchemaMessageMetadata,
   CreateSchemaOptions,
@@ -56,7 +58,8 @@ export type {
   BatchPublishOptions,
   PublisherFlowControlOptions,
   PublishOptions,
-  PublishCallback
+  PublishCallback,
+  FlowControlledPublisher
 } from './publisher';
 export {
   DEFAULT_BATCH_OPTIONS,
@@ -109,7 +112,8 @@ export type {
   GetSubscriptionsOptions,
   SeekOptions,
   SnapshotMetadata,
-  CreateSnapshotOptions
+  CreateSnapshotOptions,
+  PullOptions
 } from './subscription';
 
 // PubSub client types

@@ -308,3 +308,16 @@ export interface CreateSnapshotOptions {
   /** gRPC call options. */
   gaxOpts?: CallOptions;
 }
+
+/**
+ * Options for pull() method to fetch messages.
+ * Reference: specs/03-subscription.md
+ */
+export interface PullOptions {
+  /** Maximum messages to pull. */
+  maxMessages?: number;
+  /** Return immediately if no messages (deprecated, always false). */
+  returnImmediately?: boolean;
+  /** gRPC call options. */
+  gaxOpts?: CallOptions;
+}

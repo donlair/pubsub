@@ -53,6 +53,17 @@ export interface ISchema {
 }
 
 /**
+ * Schema definition for validation.
+ * Reference: specs/01-pubsub-client.md
+ */
+export interface SchemaDefinition {
+  /** Schema type (AVRO or PROTOCOL_BUFFER). */
+  type: SchemaType;
+  /** Schema definition string. */
+  definition: string;
+}
+
+/**
  * Schema settings for a topic.
  * Reference: research/11-typescript-types.md#schemasettings
  */

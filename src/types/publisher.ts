@@ -4,6 +4,7 @@
  */
 
 import type { CallOptions } from './common';
+import type { Attributes, PubsubMessage } from './message';
 
 /**
  * Batch publishing configuration.
@@ -101,3 +102,14 @@ export const DEFAULT_PUBLISHER_FLOW_CONTROL: Required<PublisherFlowControlOption
   maxOutstandingMessages: 100,
   maxOutstandingBytes: 1024 * 1024 // 1 MB
 };
+
+/**
+ * Flow-controlled publisher interface returned by Topic.flowControlled().
+ * Reference: specs/02-topic.md
+ */
+export interface FlowControlledPublisher {
+  /** Publish data with optional attributes. */
+  publish(data: Buffer, attributes?: Attributes): Promise<string>;
+  /** Publish a complete message object. */
+  publishMessage(message: PubsubMessage): Promise<string>;
+}

@@ -54,7 +54,7 @@ while true; do
     #               Can use 'sonnet' in build mode for speed if plan is clear and tasks well-defined
     # --verbose: Detailed execution logging
     cat "$PROMPT_FILE" | claude \
-        --model opus \
+        --model sonnet \
 
     # Push changes after each iteration
     git push origin "$CURRENT_BRANCH" || {
