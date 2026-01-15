@@ -5,7 +5,7 @@
 | Phase | Component | Status | Notes |
 |-------|-----------|--------|-------|
 | 1 | Type definitions | 100% complete | All types implemented |
-| 2 | Internal infrastructure | Not started | MessageQueue singleton |
+| 2 | Internal infrastructure | 100% complete | All 13 AC passing |
 | 3 | Message class | Not started | Received message with ack/nack |
 | 4 | Publisher components | Not started | Batching and flow control |
 | 5 | Subscriber components | Not started | MessageStream, flow control |
@@ -17,13 +17,28 @@
 
 ---
 
-## Priority 1: Phase 2 - Internal Infrastructure
+## Priority 1: Phase 2 - Internal Infrastructure ✅
+
+**Status:** 100% Complete
+
+**Completed:** 2026-01-15
+
+**What was completed:**
+- MessageQueue singleton with topic/subscription management
+- Message publish/pull/ack/nack operations
+- Ack deadline tracking with automatic redelivery
+- Message ordering support per orderingKey
+- All internal types and data structures
+
+**Tests:** All 13 acceptance criteria from `specs/07-message-queue.md` passing
+
+**Git tag:** v0.0.0
 
 ### Core Component: MessageQueue Singleton
 
 **Specification:** `specs/07-message-queue.md`
 
-**Acceptance Criteria:** AC-001 to AC-013 (13 criteria)
+**Acceptance Criteria:** AC-001 to AC-013 (13 criteria) ✅
 
 ### Files to Create
 
@@ -716,10 +731,10 @@ class IAM {
 | 04 | Message | 15 | 3 | Pending |
 | 05 | Publisher | 11 | 4 | Pending |
 | 06 | Subscriber | 10 | 5 | Pending |
-| 07 | MessageQueue | 13 | 2 | Pending |
+| 07 | MessageQueue | 13 | 2 | ✅ Complete |
 | 08 | Schema | 11 | 10 | Pending |
 | 09 | Ordering | 12 | 10 | Pending |
-| **Total** | | **104** | | **0% Complete** |
+| **Total** | | **104** | | **13% Complete (13/104)** |
 
 ### Detailed AC Status
 
@@ -803,20 +818,20 @@ class IAM {
 - [ ] AC-009: Multiple Concurrent Messages
 - [ ] AC-010: Allow Excess Messages
 
-#### Spec 07: MessageQueue (13 AC)
-- [ ] AC-001: Singleton Pattern
-- [ ] AC-002: Register and Check Topic
-- [ ] AC-003: Publish and Pull Messages
-- [ ] AC-004: Multiple Subscriptions Receive Copies
-- [ ] AC-005: Ack Removes Message
-- [ ] AC-006: Nack Redelivers Immediately
-- [ ] AC-007: Ack Deadline Expiry Redelivers
-- [ ] AC-008: Modify Ack Deadline
-- [ ] AC-009: Message Ordering
-- [ ] AC-010: Publish Without Subscriptions
-- [ ] AC-011: Get Subscriptions for Topic
-- [ ] AC-012: Unregister Topic Detaches Subscriptions
-- [ ] AC-013: FIFO Message Ordering Without Ordering Key
+#### Spec 07: MessageQueue (13 AC) ✅
+- [x] AC-001: Singleton Pattern
+- [x] AC-002: Register and Check Topic
+- [x] AC-003: Publish and Pull Messages
+- [x] AC-004: Multiple Subscriptions Receive Copies
+- [x] AC-005: Ack Removes Message
+- [x] AC-006: Nack Redelivers Immediately
+- [x] AC-007: Ack Deadline Expiry Redelivers
+- [x] AC-008: Modify Ack Deadline
+- [x] AC-009: Message Ordering
+- [x] AC-010: Publish Without Subscriptions
+- [x] AC-011: Get Subscriptions for Topic
+- [x] AC-012: Unregister Topic Detaches Subscriptions
+- [x] AC-013: FIFO Message Ordering Without Ordering Key
 
 #### Spec 08: Schema (11 AC)
 - [ ] AC-001: Create AVRO Schema
@@ -934,4 +949,5 @@ bun test --watch
 
 | Date | Version | Author | Changes |
 |------|---------|--------|---------|
+| 2026-01-15 | 1.1 | Claude | Phase 2 (MessageQueue) complete - all 13 AC passing |
 | 2026-01-15 | 1.0 | Claude | Initial implementation plan |
