@@ -340,4 +340,54 @@ describe('Publisher', () => {
 
 		expect(duration).toBeLessThan(20); // Triggers immediately
 	});
+
+	// AC-008 from specs/09-ordering.md: Ordering Key Validation
+	test('Rejects empty ordering key', async () => {
+		const topicName = 'projects/test-project/topics/my-topic';
+		queue.registerTopic(topicName);
+
+		const publisher = new Publisher(topicName);
+
+		await expect(
+			publisher.publishMessage({
+				data: Buffer.from('test'),
+				orderingKey: '',
+			})
+		).rejects.toThrow('Ordering key cannot be empty');
+	});
+
+	test('Rejects ordering key exceeding 1024 bytes', async () => {
+		const topicName = 'projects/test-project/topics/my-topic';
+		queue.registerTopic(topicName);
+
+		const publisher = new Publisher(topicName);
+
+		// Create a key that's exactly 1025 bytes
+		const longKey = 'x'.repeat(1025);
+
+		await expect(
+			publisher.publishMessage({
+				data: Buffer.from('test'),
+				orderingKey: longKey,
+			})
+		).rejects.toThrow('Ordering key exceeds maximum length of 1024 bytes');
+	});
+
+	test('Accepts valid ordering key at max size', async () => {
+		const topicName = 'projects/test-project/topics/my-topic';
+		queue.registerTopic(topicName);
+
+		const publisher = new Publisher(topicName);
+
+		// Create a key that's exactly 1024 bytes
+		const maxKey = 'x'.repeat(1024);
+
+		const messageId = await publisher.publishMessage({
+			data: Buffer.from('test'),
+			orderingKey: maxKey,
+		});
+
+		expect(messageId).toBeDefined();
+		expect(typeof messageId).toBe('string');
+	});
 });

@@ -13,7 +13,7 @@ This implementation plan reflects a comprehensive analysis of the codebase condu
 - Production-ready for basic pub/sub operations
 
 ⚠️ **Advanced Features**: Partially complete (Phase 10)
-- Message ordering: 50% complete (6/12 AC), missing validation
+- Message ordering: 58% complete (7/12 AC), validation added
 - Schema validation: 18% complete (2/11 AC), mostly stubbed
 
 ❌ **Testing Gaps**: No integration or compatibility tests (Phase 9)
@@ -21,7 +21,7 @@ This implementation plan reflects a comprehensive analysis of the codebase condu
 - Zero compatibility tests to verify API matches Google's
 
 **Critical Gaps Identified**:
-1. **Ordering key validation** - No validation for empty strings or max 1024 bytes (AC-008)
+1. **Ordering key validation** - ✅ COMPLETE (AC-008) - Empty and oversized keys rejected
 2. **Schema JSON type** - SchemaType.JSON doesn't exist, no ajv validation library
 3. **Schema registry integration** - Schema.exists() always returns false
 
@@ -44,10 +44,10 @@ See "PRIORITIZED REMAINING WORK" section below for detailed implementation plan.
 | 7 | Subscription class | 100% complete | All 9 AC passing |
 | 8 | PubSub client | 100% complete | All 13 AC passing |
 | 9 | Integration tests | 0% complete | No integration tests yet |
-| 10a | Message ordering | 50% complete | 6/12 AC done, missing validation |
+| 10a | Message ordering | 58% complete | 7/12 AC done, validation added |
 | 10b | Schema validation | 18% complete | 2/11 AC partial, needs implementation |
 
-**Overall Progress**: 81/104 acceptance criteria passing (78% complete)
+**Overall Progress**: 82/104 acceptance criteria passing (79% complete)
 
 ---
 
@@ -727,16 +727,16 @@ This section contains the prioritized list of remaining implementation items bas
 
 ### P0: Critical Gaps (Blocking for Production Use)
 
-#### 1. Ordering Key Validation ⚠️
-**Status**: MISSING
+#### 1. Ordering Key Validation ✅
+**Status**: COMPLETE
 **Acceptance Criteria**: AC-008 from specs/09-ordering.md
-**Files to Modify**:
-- `src/publisher/publisher.ts` - Add validation in `publishMessage()`
+**Files Modified**:
+- `src/publisher/publisher.ts` - Added validation in `publishMessage()`
 
-**Requirements**:
-- Reject empty ordering keys with InvalidArgumentError
-- Reject ordering keys > 1024 bytes with InvalidArgumentError
-- Error messages: "Ordering key cannot be empty" and "Ordering key exceeds maximum length"
+**Completed Requirements**:
+- ✅ Reject empty ordering keys with InvalidArgumentError
+- ✅ Reject ordering keys > 1024 bytes with InvalidArgumentError
+- ✅ Error messages: "Ordering key cannot be empty" and "Ordering key exceeds maximum length"
 
 **Implementation**:
 ```typescript
@@ -750,10 +750,10 @@ if (message.orderingKey !== undefined) {
 }
 ```
 
-**Tests Needed**:
-- Empty string throws InvalidArgumentError
-- String > 1024 bytes throws InvalidArgumentError
-- Valid ordering key accepted
+**Tests Added**:
+- ✅ Empty string throws InvalidArgumentError
+- ✅ String > 1024 bytes throws InvalidArgumentError
+- ✅ Valid ordering key (1024 bytes) accepted
 
 ---
 
@@ -1005,7 +1005,7 @@ tests/
 
 **Specification:** `specs/09-ordering.md`
 
-**Status**: 50% Complete (6/12 AC implemented)
+**Status**: 58% Complete (7/12 AC implemented)
 
 **Acceptance Criteria:** AC-001 to AC-012 (12 criteria)
 
@@ -1013,6 +1013,7 @@ tests/
 - AC-001: Topic with resumePublishing()
 - AC-002: Same key delivered in order
 - AC-006: No ordering key not blocked
+- AC-008: Ordering key validation (empty and oversized rejected)
 - AC-009: Ordering key accepted without explicit enable
 - AC-010: Batching with ordering keys (separate batches per key)
 - AC-012: resumePublishing() clears paused state
@@ -1022,7 +1023,6 @@ tests/
 - AC-004: Different keys concurrent test
 - AC-005: Ordering preserved on redelivery test
 - AC-007: Multiple subscriptions ordered independently test
-- AC-008: **Ordering key validation (CRITICAL)**
 - AC-011: Error message format and pause behavior
 
 **Key Components Already Implemented:**
@@ -1119,7 +1119,7 @@ class Schema {
 | 07 | MessageQueue | 13 | 2 | ✅ Complete |
 | 08 | Schema | 11 | 10 | Pending |
 | 09 | Ordering | 12 | 10 | Pending |
-| **Total** | | **104** | | **78% Complete (81/104)** |
+| **Total** | | **104** | | **79% Complete (82/104)** |
 
 ### Detailed AC Status
 
@@ -1241,13 +1241,13 @@ class Schema {
 - [ ] AC-005: Ordering Preserved on Redelivery (implementation exists, test missing)
 - [x] AC-006: No Ordering Key Not Blocked
 - [ ] AC-007: Multiple Subscriptions Ordered Independently (implementation exists, test missing)
-- [ ] AC-008: Ordering Key Validation ⚠️ CRITICAL GAP
+- [x] AC-008: Ordering Key Validation
 - [x] AC-009: Ordering Key Accepted Without Explicit Enable
 - [x] AC-010: Batching with Ordering Keys
 - [ ] AC-011: Ordering Key Paused on Error (partial - error message format wrong)
 - [x] AC-012: Resume Publishing After Error
 
-**Ordering Status**: 6/12 AC complete (50% complete)
+**Ordering Status**: 7/12 AC complete (58% complete)
 
 ---
 

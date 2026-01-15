@@ -67,6 +67,16 @@ export class Publisher {
 			throw new InvalidArgumentError('Message data must be a Buffer');
 		}
 
+		// Validate ordering key format
+		if (message.orderingKey !== undefined) {
+			if (message.orderingKey === '') {
+				throw new InvalidArgumentError('Ordering key cannot be empty');
+			}
+			if (Buffer.byteLength(message.orderingKey, 'utf8') > 1024) {
+				throw new InvalidArgumentError('Ordering key exceeds maximum length of 1024 bytes');
+			}
+		}
+
 		// Check if ordering key is paused
 		if (
 			message.orderingKey &&
