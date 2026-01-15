@@ -31,7 +31,7 @@ This implementation plan reflects a comprehensive analysis of the codebase condu
 2. **Subscription close behavior** - Default 'NACK' will lose in-flight messages
 3. **Attribute/message validation** - Missing size limits per spec
 
-**Priority Work Items**: 17 total (3 P0, 5 P1, 4 P2, 5 P3)
+**Priority Work Items**: 16 total (0 P0, 5 P1, 4 P2, 5 P3)
 
 See "PRIORITIZED REMAINING WORK" section below for detailed implementation plan.
 
@@ -735,27 +735,11 @@ This section contains the prioritized list of remaining implementation items bas
 
 ---
 
-### P0: CRITICAL - Must Fix for Production (1 item)
+### P0: CRITICAL - Must Fix for Production (0 items)
 
 These issues break API compatibility or cause incorrect behavior.
 
-#### P0-1. Message.modifyAckDeadline Uses Generic Error
-**Status**: BLOCKING
-**File**: `src/message.ts:89`
-**Issue**: Throws generic `Error` instead of `InvalidArgumentError` with gRPC code 3
-
-**Current (WRONG)**:
-```typescript
-throw new Error('Ack deadline must be between 0 and 600 seconds');
-```
-
-**Required**:
-```typescript
-throw new InvalidArgumentError('Ack deadline must be between 0 and 600 seconds');
-```
-
-**Impact**: Error handling based on error codes will fail
-**Fix**: Import and use InvalidArgumentError
+**All P0 items completed!** See "Previously Completed Items" section below.
 
 ---
 
@@ -950,6 +934,14 @@ Optional enhancements and known limitations.
 ---
 
 ### Previously Completed Items (Reference)
+
+#### ✅ Message.modifyAckDeadline Error Handling (was P0-1)
+**Status**: COMPLETE
+**Completed**: 2026-01-15
+**File Modified**: `src/message.ts`
+**What was changed**: Changed generic Error to InvalidArgumentError with gRPC code 3 for ack deadline validation (0-600 seconds)
+**Tests**: All 315 tests passing
+**Impact**: Error handling based on error codes now works correctly - callers can properly catch and handle InvalidArgumentError
 
 #### ✅ LeaseManager Integration (was P0-3)
 **Status**: COMPLETE

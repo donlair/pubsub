@@ -10,6 +10,7 @@ import type { Attributes, AckResponse, MessageProperties } from './types/message
 import type { PreciseDate } from './types/common';
 import { AckResponses } from './types/message';
 import { MessageQueue } from './internal/message-queue';
+import { InvalidArgumentError } from './types/errors';
 
 /**
  * Minimal Subscription interface for Message class.
@@ -86,7 +87,7 @@ export class Message implements MessageProperties {
 	 */
 	modifyAckDeadline(seconds: number): void {
 		if (seconds < 0 || seconds > 600) {
-			throw new Error('Ack deadline must be between 0 and 600 seconds');
+			throw new InvalidArgumentError('Ack deadline must be between 0 and 600 seconds');
 		}
 
 		const queue = MessageQueue.getInstance();
