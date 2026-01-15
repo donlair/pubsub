@@ -13,7 +13,7 @@ This implementation plan reflects a comprehensive analysis of the codebase condu
 - Production-ready for basic pub/sub operations
 
 ⚠️ **Advanced Features**: Partially complete (Phase 10)
-- Message ordering: 58% complete (7/12 AC), validation added
+- Message ordering: 67% complete (8/12 AC), validation and error handling complete
 - Schema validation: 100% complete (11/11 AC), JSON schema support
 
 ⚠️ **Testing Gaps**: Partial integration tests, no compatibility tests (Phase 9)
@@ -45,10 +45,10 @@ See "PRIORITIZED REMAINING WORK" section below for detailed implementation plan.
 | 7 | Subscription class | 100% complete | All 9 AC passing |
 | 8 | PubSub client | 100% complete | All 13 AC passing |
 | 9 | Integration tests | 25% complete | Publish-subscribe flow complete |
-| 10a | Message ordering | 58% complete | 7/12 AC done, validation added |
+| 10a | Message ordering | 67% complete | 8/12 AC done, validation and error handling |
 | 10b | Schema validation | 100% complete | All 11 AC passing |
 
-**Overall Progress**: 93/104 acceptance criteria passing (89% complete)
+**Overall Progress**: 94/104 acceptance criteria passing (90% complete)
 
 ---
 
@@ -628,7 +628,7 @@ Test all 9 acceptance criteria from spec 03-subscription.md.
 
 **Tests:** All 13 acceptance criteria from `specs/01-pubsub-client.md` passing
 
-**Git tag:** v0.0.6
+**Git tag:** v0.0.10
 
 ### Core Component: PubSub
 
@@ -958,7 +958,7 @@ tests/
 
 **Specification:** `specs/09-ordering.md`
 
-**Status**: 58% Complete (7/12 AC implemented)
+**Status**: 67% Complete (8/12 AC implemented)
 
 **Acceptance Criteria:** AC-001 to AC-012 (12 criteria)
 
@@ -969,6 +969,7 @@ tests/
 - AC-008: Ordering key validation (empty and oversized rejected)
 - AC-009: Ordering key accepted without explicit enable
 - AC-010: Batching with ordering keys (separate batches per key)
+- AC-011: Ordering key paused on error (error message format fixed 2026-01-15)
 - AC-012: resumePublishing() clears paused state
 
 **Missing** ⚠️:
@@ -976,7 +977,6 @@ tests/
 - AC-004: Different keys concurrent test
 - AC-005: Ordering preserved on redelivery test
 - AC-007: Multiple subscriptions ordered independently test
-- AC-011: Error message format and pause behavior
 
 **Key Components Already Implemented:**
 - Publisher: Separate batches per ordering key ✅
@@ -1060,7 +1060,7 @@ tests/
 | 07 | MessageQueue | 13 | 2 | ✅ Complete |
 | 08 | Schema | 11 | 10 | ✅ Complete |
 | 09 | Ordering | 12 | 10 | Pending |
-| **Total** | | **104** | | **89% Complete (93/104)** |
+| **Total** | | **104** | | **90% Complete (94/104)** |
 
 ### Detailed AC Status
 
@@ -1185,10 +1185,10 @@ tests/
 - [x] AC-008: Ordering Key Validation
 - [x] AC-009: Ordering Key Accepted Without Explicit Enable
 - [x] AC-010: Batching with Ordering Keys
-- [ ] AC-011: Ordering Key Paused on Error (partial - error message format wrong)
+- [x] AC-011: Ordering Key Paused on Error (error message format fixed 2026-01-15)
 - [x] AC-012: Resume Publishing After Error
 
-**Ordering Status**: 7/12 AC complete (58% complete)
+**Ordering Status**: 8/12 AC complete (67% complete)
 
 ---
 
