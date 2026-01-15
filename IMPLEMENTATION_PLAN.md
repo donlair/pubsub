@@ -9,7 +9,7 @@
 | 3 | Message class | 100% complete | All 15 AC passing |
 | 4 | Publisher components | 100% complete | All 11 AC passing |
 | 5 | Subscriber components | 100% complete | All 10 AC passing |
-| 6 | Topic class | Not started | Publishing interface |
+| 6 | Topic class | 100% complete | All 10 AC passing |
 | 7 | Subscription class | Not started | EventEmitter for messages |
 | 8 | PubSub client | Not started | Main entry point |
 | 9 | Integration tests | Not started | End-to-end testing |
@@ -407,13 +407,29 @@ Test all 10 acceptance criteria from spec 06-subscriber.md.
 
 ---
 
-## Priority 5: Phase 6 - Topic Class
+## Priority 5: Phase 6 - Topic Class ✅
+
+**Status:** 100% Complete
+
+**Completed:** 2026-01-15
+
+**What was completed:**
+- Topic class with publishing interface
+- IAM stub class for API compatibility
+- Resource name formatting (projects/{projectId}/topics/{topicName})
+- Publishing methods (publish, publishMessage, publishJSON)
+- Publisher integration with batching and flow control
+- Lifecycle methods (create, delete, exists, get, getMetadata)
+- Subscription management (createSubscription, subscription, getSubscriptions)
+- Message ordering support with resumePublishing
+
+**Tests:** All 10 acceptance criteria from `specs/02-topic.md` passing
 
 ### Core Component: Topic
 
 **Specification:** `specs/02-topic.md`
 
-**Acceptance Criteria:** AC-001 to AC-010 (10 criteria)
+**Acceptance Criteria:** AC-001 to AC-010 (10 criteria) ✅
 
 ### Files to Create
 
@@ -768,7 +784,7 @@ class IAM {
 | Spec | Component | Total AC | Phase | Status |
 |------|-----------|----------|-------|--------|
 | 01 | PubSub Client | 13 | 8 | Pending |
-| 02 | Topic | 10 | 6 | Pending |
+| 02 | Topic | 10 | 6 | ✅ Complete |
 | 03 | Subscription | 9 | 7 | Pending |
 | 04 | Message | 15 | 3 | ✅ Complete |
 | 05 | Publisher | 11 | 4 | ✅ Complete |
@@ -776,7 +792,7 @@ class IAM {
 | 07 | MessageQueue | 13 | 2 | ✅ Complete |
 | 08 | Schema | 11 | 10 | Pending |
 | 09 | Ordering | 12 | 10 | Pending |
-| **Total** | | **104** | | **47% Complete (49/104)** |
+| **Total** | | **104** | | **57% Complete (59/104)** |
 
 ### Detailed AC Status
 
@@ -795,17 +811,17 @@ class IAM {
 - [ ] AC-012: Get Project ID
 - [ ] AC-013: Close Client
 
-#### Spec 02: Topic (10 AC)
-- [ ] AC-001: Create and Publish
-- [ ] AC-002: Publish with Attributes
-- [ ] AC-003: Publish JSON
-- [ ] AC-004: Batching Accumulates Messages
-- [ ] AC-005: Flush Publishes Immediately
-- [ ] AC-006: Message Ordering
-- [ ] AC-007: Topic Exists Check
-- [ ] AC-008: Get Topic Subscriptions
-- [ ] AC-009: Publish to Non-Existent Topic Throws
-- [ ] AC-010: Deprecated publish() Method
+#### Spec 02: Topic (10 AC) ✅
+- [x] AC-001: Create and Publish
+- [x] AC-002: Publish with Attributes
+- [x] AC-003: Publish JSON
+- [x] AC-004: Batching Accumulates Messages
+- [x] AC-005: Flush Publishes Immediately
+- [x] AC-006: Message Ordering
+- [x] AC-007: Topic Exists Check
+- [x] AC-008: Get Topic Subscriptions
+- [x] AC-009: Publish to Non-Existent Topic Throws
+- [x] AC-010: Deprecated publish() Method
 
 #### Spec 03: Subscription (9 AC)
 - [ ] AC-001: Create and Receive Messages
