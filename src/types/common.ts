@@ -1,0 +1,105 @@
+/**
+ * Common utility types used throughout the library.
+ * Reference: research/11-typescript-types.md#utility-types
+ */
+
+/**
+ * Represents a duration that can be specified in various units.
+ * Compatible with google.protobuf.IDuration.
+ */
+export interface DurationLike {
+  seconds?: number;
+  nanos?: number;
+  minutes?: number;
+  hours?: number;
+  days?: number;
+}
+
+/**
+ * Duration type accepting number (seconds) or Duration object.
+ */
+export type Duration = number | DurationLike;
+
+/**
+ * Protobuf timestamp interface for compatibility.
+ */
+export interface ITimestamp {
+  seconds?: number | Long | string | null;
+  nanos?: number | null;
+}
+
+/**
+ * High-precision date extending Date with nanosecond precision.
+ *
+ * NOTE: Phase 1 - Type definition only
+ * Phase 3 - Runtime implementation in src/message.ts or src/utils/precise-date.ts
+ *
+ * Implementation must match @google-cloud/pubsub PreciseDate behavior exactly.
+ * This interface provides type safety for message publishTime properties.
+ */
+export interface PreciseDate extends Date {
+  getNanoseconds(): number;
+  getMicroseconds(): number;
+  getFullTimeString(): string;
+}
+
+/**
+ * Generic service error from gRPC.
+ */
+export interface ServiceError extends Error {
+  code: number;
+  details?: string;
+  metadata?: Record<string, string>;
+}
+
+/**
+ * Long integer type for protobuf compatibility.
+ */
+export type Long = string | number;
+
+/**
+ * Backoff settings for retries.
+ */
+export interface BackoffSettings {
+  /** Initial retry delay in ms. */
+  initialRetryDelayMillis?: number;
+  /** Retry delay multiplier. */
+  retryDelayMultiplier?: number;
+  /** Maximum retry delay in ms. */
+  maxRetryDelayMillis?: number;
+  /** Initial RPC timeout in ms. */
+  initialRpcTimeoutMillis?: number;
+  /** RPC timeout multiplier. */
+  rpcTimeoutMultiplier?: number;
+  /** Maximum RPC timeout in ms. */
+  maxRpcTimeoutMillis?: number;
+  /** Total timeout in ms. */
+  totalTimeoutMillis?: number;
+}
+
+/**
+ * Retry configuration.
+ */
+export interface RetryOptions {
+  /** Retryable error codes. */
+  retryCodes?: number[];
+  /** Backoff settings. */
+  backoffSettings?: BackoffSettings;
+}
+
+/**
+ * gRPC call options.
+ * Reference: research/11-typescript-types.md
+ */
+export interface CallOptions {
+  /** Request timeout in ms. */
+  timeout?: number;
+  /** Retry configuration. */
+  retry?: RetryOptions;
+  /** Enable auto-pagination. */
+  autoPaginate?: boolean;
+  /** Page token. */
+  pageToken?: string;
+  /** Maximum results. */
+  maxResults?: number;
+}
