@@ -14,10 +14,9 @@ This implementation plan reflects a comprehensive analysis of the codebase condu
 
 ✅ **P1 Issues Found**: 0 high-priority issues (all resolved!)
 
-⚠️ **P2 Issues Found**: 6 medium-priority issues
+⚠️ **P2 Issues Found**: 5 medium-priority issues
 - MessageQueue missing advanced features (BR-013 through BR-022)
 - MessageQueue missing error handling (NotFoundError)
-- MessageQueue ackDeadline default mismatch
 - Subscription stub methods (cloud-specific)
 - Missing compatibility tests (2 files)
 - Missing integration tests (2 files)
@@ -30,7 +29,7 @@ This implementation plan reflects a comprehensive analysis of the codebase condu
 - Publisher missing validation (messageOrdering check)
 - 7 tests with weak assertions
 
-**Priority Work Items**: 12 total (0 P0, 0 P1, 6 P2, 6 P3)
+**Priority Work Items**: 11 total (0 P0, 0 P1, 5 P2, 6 P3)
 
 See "PRIORITIZED REMAINING WORK" section below for detailed implementation plan.
 
@@ -80,7 +79,7 @@ These issues affect API compatibility or cause incorrect runtime behavior.
 
 ---
 
-### P2: MEDIUM - Feature Completeness (6 items)
+### P2: MEDIUM - Feature Completeness (5 items)
 
 Missing features that don't break existing functionality.
 
@@ -116,28 +115,7 @@ Missing features that don't break existing functionality.
 
 ---
 
-#### P2-3. MessageQueue ackDeadline Default Mismatch
-**Status**: BUG
-**File**: `/Users/donlair/Projects/libraries/pubsub/src/internal/message-queue.ts` (line 260)
-**Spec Reference**: specs/07-message-queue.md
-
-**Issue**: Fallback ack deadline uses 60 seconds instead of spec's 10 seconds.
-
-**Current Code**:
-```typescript
-const deadline = subscription?.ackDeadlineSeconds ?? 60;
-```
-
-**Expected**:
-```typescript
-const deadline = subscription?.ackDeadlineSeconds ?? 10;
-```
-
-**Note**: Google's actual default is 10 seconds, though 60 is common in practice.
-
----
-
-#### P2-4. Subscription Stub Methods
+#### P2-3. Subscription Stub Methods
 **Status**: STUB
 **File**: `/Users/donlair/Projects/libraries/pubsub/src/subscription.ts`
 
@@ -152,7 +130,7 @@ const deadline = subscription?.ackDeadlineSeconds ?? 10;
 
 ---
 
-#### P2-5. Missing Compatibility Tests
+#### P2-4. Missing Compatibility Tests
 **Status**: MISSING
 **Files to Create**:
 - `/Users/donlair/Projects/libraries/pubsub/tests/compatibility/subscription-compat.test.ts`
@@ -166,7 +144,7 @@ const deadline = subscription?.ackDeadlineSeconds ?? 10;
 
 ---
 
-#### P2-6. Missing Integration Tests
+#### P2-5. Missing Integration Tests
 **Status**: MISSING
 **Files to Create**:
 - `/Users/donlair/Projects/libraries/pubsub/tests/integration/dead-letter.test.ts` - DLQ routing after max attempts
@@ -294,6 +272,24 @@ test('something works', () => {
 ## Previously Completed Items (Reference)
 
 ### Recent Completions (2026-01-15)
+
+#### ✅ P2-3: MessageQueue ackDeadline Default Mismatch - FIXED
+**Status**: COMPLETE
+**Date Completed**: 2026-01-15
+**Files Modified**:
+- `src/internal/message-queue.ts` (line 260) - Changed default from 60 to 10 seconds
+- `specs/07-message-queue.md` (line 142) - Fixed spec inconsistency from "default 60" to "default 10"
+
+**Issue**: Fallback ack deadline was using 60 seconds instead of spec's 10 seconds.
+
+**What was fixed**:
+- Changed `const deadline = subscription?.ackDeadlineSeconds ?? 60;` to use 10 seconds
+- Updated spec documentation to match (was incorrectly stating "default 60")
+- Google's actual default is 10 seconds for ack deadline
+
+**Impact**: Messages now expire according to the correct default deadline (10 seconds) when subscription doesn't specify ackDeadlineSeconds. This matches Google Cloud Pub/Sub behavior.
+
+---
 
 #### ✅ P1-1: Missing Environment Variable Detection for projectId - FIXED
 **Status**: COMPLETE
@@ -685,10 +681,9 @@ test('something works', () => {
 ### Next Sprint (P2) - Feature Completeness
 1. **P2-1**: Implement MessageQueue advanced features (flow control, DLQ, backoff)
 2. **P2-2**: Add proper error handling to MessageQueue
-3. **P2-3**: Fix MessageQueue ackDeadline default
-4. **P2-4**: Document subscription stub methods
-5. **P2-5**: Create subscription-compat.test.ts and message-compat.test.ts
-6. **P2-6**: Create dead-letter.test.ts and ack-deadline.test.ts
+3. **P2-3**: Document subscription stub methods
+4. **P2-4**: Create subscription-compat.test.ts and message-compat.test.ts
+5. **P2-5**: Create dead-letter.test.ts and ack-deadline.test.ts
 
 ### Future (P3) - Nice to Have
 1. **P3-1**: Update spec documentation for AckResponse values

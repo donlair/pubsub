@@ -257,7 +257,7 @@ export class MessageQueue {
     }
 
     const result: InternalMessage[] = [];
-    const ackDeadlineSeconds = subscription.ackDeadlineSeconds || 60;
+    const ackDeadlineSeconds = subscription.ackDeadlineSeconds || 10;
 
     // Pull from main queue first
     while (result.length < maxMessages && queue.messages.length > 0) {
