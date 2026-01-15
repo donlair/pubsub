@@ -1,6 +1,6 @@
 # Implementation Plan
 
-**Last Updated**: 2026-01-15 (Topic compatibility tests complete)
+**Last Updated**: 2026-01-15 (Comprehensive code review findings integrated)
 **Analysis Type**: Comprehensive code review with parallel agent analysis
 
 ## Executive Summary
@@ -10,11 +10,13 @@ This implementation plan reflects a comprehensive analysis of the codebase condu
 ✅ **Core Functionality**: 100% complete (Phases 1-8)
 - All 81 core acceptance criteria passing
 - 315 tests passing, 0 failures
-- Production-ready for basic pub/sub operations
+- Basic pub/sub operations functional
 
-⚠️ **Advanced Features**: Partially complete (Phase 10)
-- Message ordering: 100% complete (12/12 AC), validation, error handling, and integration tests complete
-- Schema validation: 100% complete (11/11 AC), JSON schema support
+⚠️ **API Compatibility Issues Found**: Several breaking compatibility issues identified
+- AckResponse enum values incompatible with Google API
+- LeaseManager not integrated (no automatic ack deadline extension)
+- Missing validation for message/attribute sizes
+- Subscription close behavior differs from spec
 
 ⚠️ **Testing Gaps**: Partial compatibility tests (Phase 9)
 - Publish-subscribe integration tests complete (10 scenarios)
@@ -26,11 +28,12 @@ This implementation plan reflects a comprehensive analysis of the codebase condu
 - Subscription, Message compatibility tests pending
 
 **Critical Gaps Identified**:
-1. **Ordering key validation** - ✅ COMPLETE (AC-008) - Empty and oversized keys rejected
-2. **Schema JSON type** - ✅ COMPLETE (AC-004, AC-008, AC-010) - JSON schema validation with ajv
-3. **Schema registry integration** - ✅ COMPLETE (AC-005, AC-006, AC-007, AC-011) - Schema lifecycle operations working
+1. **AckResponse values** - BREAKING: Uses numeric codes instead of string values
+2. **LeaseManager integration** - Messages won't auto-extend ack deadlines
+3. **Subscription close behavior** - Default 'NACK' will lose in-flight messages
+4. **Attribute/message validation** - Missing size limits per spec
 
-**Priority Work Items**: 11 total (0 P0, 0 P1, 6 P2, 5 P3)
+**Priority Work Items**: 18 total (4 P0, 5 P1, 4 P2, 5 P3)
 
 See "PRIORITIZED REMAINING WORK" section below for detailed implementation plan.
 
@@ -728,238 +731,351 @@ Test all 13 acceptance criteria from spec 01-pubsub-client.md.
 
 ## PRIORITIZED REMAINING WORK
 
-This section contains the prioritized list of remaining implementation items based on comprehensive code analysis.
+This section contains the prioritized list of remaining implementation items based on comprehensive code analysis conducted 2026-01-15.
 
-### P0: Critical Gaps (Blocking for Production Use)
+**Test Status**: 315 tests passing, 0 failures
 
-#### 1. Ordering Key Validation ✅
-**Status**: COMPLETE
-**Acceptance Criteria**: AC-008 from specs/09-ordering.md
-**Files Modified**:
-- `src/publisher/publisher.ts` - Added validation in `publishMessage()`
+---
 
-**Completed Requirements**:
-- ✅ Reject empty ordering keys with InvalidArgumentError
-- ✅ Reject ordering keys > 1024 bytes with InvalidArgumentError
-- ✅ Error messages: "Ordering key cannot be empty" and "Ordering key exceeds maximum length"
+### P0: CRITICAL - Must Fix for Production (4 items)
 
-**Implementation**:
+These issues break API compatibility or cause incorrect behavior.
+
+#### P0-1. AckResponse Enum Values Incompatible
+**Status**: BLOCKING
+**File**: `src/types/message.ts:71-79`
+**Issue**: AckResponse uses numeric gRPC codes instead of Google's string values
+
+**Current (WRONG)**:
 ```typescript
-if (message.orderingKey !== undefined) {
-  if (message.orderingKey === '') {
-    throw new InvalidArgumentError('Ordering key cannot be empty');
+export const AckResponse = {
+  SUCCESS: 0,           // Should be 'SUCCESS'
+  INVALID: 3,           // Should be 'INVALID'
+  PERMISSION_DENIED: 7, // Should be 'PERMISSION_DENIED'
+  ...
+} as const;
+```
+
+**Required (Google API)**:
+```typescript
+export const AckResponse = {
+  SUCCESS: 'SUCCESS',
+  INVALID: 'INVALID',
+  PERMISSION_DENIED: 'PERMISSION_DENIED',
+  FAILED_PRECONDITION: 'FAILED_PRECONDITION',
+  OTHER: 'OTHER',
+} as const;
+```
+
+**Impact**: Any code checking `response === AckResponse.SUCCESS` will break
+**Fix**: Update enum values to strings, update all usages in message.ts
+
+---
+
+#### P0-2. Message.modifyAckDeadline Uses Generic Error
+**Status**: BLOCKING
+**File**: `src/message.ts:89`
+**Issue**: Throws generic `Error` instead of `InvalidArgumentError` with gRPC code 3
+
+**Current (WRONG)**:
+```typescript
+throw new Error('Ack deadline must be between 0 and 600 seconds');
+```
+
+**Required**:
+```typescript
+throw new InvalidArgumentError('Ack deadline must be between 0 and 600 seconds');
+```
+
+**Impact**: Error handling based on error codes will fail
+**Fix**: Import and use InvalidArgumentError
+
+---
+
+#### P0-3. Subscription Default Close Behavior is 'NACK'
+**Status**: BLOCKING
+**File**: `src/subscriber/message-stream.ts:84`
+**Issue**: Default `closeMode` is 'NACK' but spec requires 'WAIT'
+
+**Current (WRONG)**:
+```typescript
+private closeMode: 'WAIT' | 'NACK' | 'ACK' = 'NACK';
+```
+
+**Required**:
+```typescript
+private closeMode: 'WAIT' | 'NACK' | 'ACK' = 'WAIT';
+```
+
+**Impact**: In-flight messages will be nacked and lost on close instead of waiting for completion
+**Fix**: Change default value to 'WAIT'
+
+---
+
+#### P0-4. LeaseManager Not Integrated with MessageStream
+**Status**: BLOCKING
+**Files**:
+- `src/subscriber/message-stream.ts` - LeaseManager never instantiated
+- `src/subscriber/lease-manager.ts` - Exists but unused
+
+**Issue**: LeaseManager class exists but is never created or used. Messages do not get automatic ack deadline extensions.
+
+**Impact**:
+- Long-running message processing will timeout
+- Messages will be redelivered unexpectedly
+- Exactly-once semantics broken
+
+**Fix Required**:
+1. Instantiate LeaseManager in MessageStream constructor
+2. Call `leaseManager.addLease(message)` when message delivered
+3. Call `leaseManager.removeLease(ackId)` on ack/nack
+4. Ensure LeaseManager timer extends deadlines automatically
+
+---
+
+### P1: HIGH - API Compatibility Issues (5 items)
+
+These issues affect API compatibility but don't break core functionality.
+
+#### P1-1. Missing Attribute Validation in Publisher
+**Status**: MISSING
+**File**: `src/publisher/publisher.ts`
+**Spec Reference**: BR-012, AC-015
+
+**Required Validation**:
+- Attribute key max 256 bytes
+- Attribute value max 1024 bytes
+- Reject reserved prefixes: `goog*`, `googclient_*`
+
+**Fix**: Add validation in `publishMessage()` before batching
+
+---
+
+#### P1-2. Missing 10MB Message Size Validation
+**Status**: MISSING
+**File**: `src/publisher/publisher.ts`
+**Spec Reference**: BR-011
+
+**Required**: Reject messages > 10MB with InvalidArgumentError
+**Fix**: Add size check in `publishMessage()`
+
+---
+
+#### P1-3. Subscription Caching Ignores Options on Subsequent Calls
+**Status**: BUG
+**File**: `src/pubsub.ts:145-150`
+**Issue**: When `subscription(name, options)` called twice with different options, second options are ignored
+
+**Current Behavior**:
+```typescript
+subscription(name: string, options?: SubscriptionOptions): Subscription {
+  if (this.subscriptionCache.has(name)) {
+    return this.subscriptionCache.get(name)!; // Options ignored!
   }
-  if (Buffer.byteLength(message.orderingKey, 'utf8') > 1024) {
-    throw new InvalidArgumentError('Ordering key exceeds maximum length of 1024 bytes');
-  }
+  // ...
 }
 ```
 
-**Tests Added**:
-- ✅ Empty string throws InvalidArgumentError
-- ✅ String > 1024 bytes throws InvalidArgumentError
-- ✅ Valid ordering key (1024 bytes) accepted
+**Fix Options**:
+1. Apply new options to cached instance via `setOptions()`
+2. Log warning when options differ
+3. Document behavior
 
 ---
 
-#### 2. Schema JSON Type and Validation ✅
+#### P1-4. Missing Subscription Methods
+**Status**: MISSING
+**File**: `src/subscription.ts`
+
+**Missing Methods**:
+- `pause()` - Exists in MessageStream but not exposed on Subscription
+- `resume()` - Exists in MessageStream but not exposed on Subscription
+- `acknowledge(ackIds: string[])` - Batch acknowledge multiple messages
+- `modifyAckDeadline(ackIds: string[], deadline: number)` - Batch modify
+
+**Fix**: Add wrapper methods that delegate to MessageStream/MessageQueue
+
+---
+
+#### P1-5. pull() Method is Stub
+**Status**: STUB
+**File**: `src/subscription.ts:278-280`
+**Issue**: Returns empty array instead of pulling messages
+
+**Current**:
+```typescript
+async pull(_options?: PullOptions): Promise<[Message[], unknown]> {
+  return [[], {}];
+}
+```
+
+**Required**: Actually pull messages from MessageQueue using synchronous pull API
+
+---
+
+### P2: MEDIUM - Feature Completeness (4 items)
+
+Missing features that don't break existing functionality.
+
+#### P2-1. MessageQueue Missing Advanced Features
+**Status**: PARTIAL
+**File**: `src/internal/message-queue.ts`
+**Spec Reference**: BR-013 through BR-022
+
+**Missing**:
+- BR-013/BR-014: Flow control enforcement on pull
+- BR-015: Retry backoff on nack (currently immediate redelivery)
+- BR-016: Dead letter queue routing after maxDeliveryAttempts
+- BR-017: Message/attribute validation before storing
+- BR-022: Queue size limits per subscription
+
+---
+
+#### P2-2. Subscription Stub Methods
+**Status**: STUB
+**File**: `src/subscription.ts`
+
+**Stub Methods** (return minimal/empty objects):
+- `seek()` (line ~290) - Returns empty object
+- `createSnapshot()` (line ~300) - Returns minimal objects
+- `modifyPushConfig()` (line ~310) - Returns empty object
+
+**Note**: These are cloud-specific features, may remain stubs for local dev
+
+---
+
+#### P2-3. Missing Compatibility Tests
+**Status**: MISSING
+**Files to Create**:
+- `tests/compatibility/subscription-compat.test.ts`
+- `tests/compatibility/message-compat.test.ts`
+
+**Purpose**: Verify Subscription and Message API signatures match @google-cloud/pubsub exactly
+
+---
+
+#### P2-4. Missing Integration Tests
+**Status**: MISSING
+**Files to Create**:
+- `tests/integration/dead-letter.test.ts` - DLQ routing after max attempts
+- `tests/integration/ack-deadline.test.ts` - Deadline extension and redelivery
+
+---
+
+### P3: LOW - Nice to Have (5 items)
+
+Optional enhancements and known limitations.
+
+#### P3-1. Type Safety Issues (Circular Dependencies)
+**Status**: KNOWN LIMITATION
+**Files**: `src/topic.ts`, `src/subscription.ts`
+
+**Issue**: `Topic.pubsub` and `Subscription.pubsub` typed as `unknown` due to circular dependencies
+**Impact**: Type safety reduced, requires type assertions
+**Note**: Could be fixed with interface extraction or lazy initialization
+
+---
+
+#### P3-2. Schema Stubs (Intentional)
+**Status**: INTENTIONALLY STUBBED
+**File**: `src/schema.ts`
+
+**Stubbed Features**:
+- AVRO validation throws `UnimplementedError`
+- Protocol Buffer validation throws `UnimplementedError`
+
+**Note**: JSON schema works. AVRO/ProtoBuf require external libraries, low priority for local dev.
+
+---
+
+#### P3-3. Snapshot/IAM Stubs (Intentional)
+**Status**: INTENTIONALLY STUBBED
+**Files**: `src/snapshot.ts`, `src/iam.ts`
+
+**Note**: Cloud-only features. All methods throw `UnimplementedError` by design. Not needed for local development.
+
+---
+
+#### P3-4. Missing Type Definitions
+**Status**: MISSING
+**File**: `src/types/`
+
+**Missing Types**:
+- `Duration` utility class
+- Schema operation options types
+- Snapshot operation options types
+
+**Impact**: Some options not fully typed
+
+---
+
+#### P3-5. Environment Variable Detection for projectId
+**Status**: MISSING
+**File**: `src/pubsub.ts`
+
+**Missing Detection Order** (per Google's library):
+1. `PUBSUB_PROJECT_ID`
+2. `GOOGLE_CLOUD_PROJECT`
+3. `GCLOUD_PROJECT`
+
+**Current**: Only defaults to 'local-project'
+**Fix**: Add env var detection in constructor
+
+---
+
+### Previously Completed Items (Reference)
+
+#### ✅ Ordering Key Validation (was P0)
 **Status**: COMPLETE
-**Completed**: 2026-01-15
+**Acceptance Criteria**: AC-008 from specs/09-ordering.md
+**Files Modified**: `src/publisher/publisher.ts`
+- Reject empty ordering keys with InvalidArgumentError
+- Reject ordering keys > 1024 bytes with InvalidArgumentError
+
+#### ✅ Schema JSON Type and Validation (was P0)
+**Status**: COMPLETE
 **Acceptance Criteria**: AC-001 through AC-011 from specs/08-schema.md (11/11 complete)
-
-**What was completed**:
-1. Installed ajv library for JSON Schema validation
-2. Added SchemaType.JSON to SchemaTypes enum in src/types/schema.ts
-3. Implemented full Schema class in src/schema.ts with:
-   - validateMessage() method with ajv for JSON schemas
-   - AVRO and Protocol Buffer validation throwing UnimplementedError with specific messages
-   - Cached compiled validators for performance
-   - Fixed exists() to check PubSub schemas registry
-   - Fixed delete() to remove from PubSub registry and throw NotFoundError if not found
-   - Fixed get() to retrieve from PubSub registry and throw NotFoundError if not found
-   - Fixed getName() to return full resource name format
-4. Updated topic.ts publishMessage() to validate against schema if schemaSettings exist
-5. Updated pubsub.ts validateSchema() to support JSON schema validation
-6. Created comprehensive tests in tests/unit/schema.test.ts covering all 11 acceptance criteria
-
-**Tests**: All 171 tests passing (0 failures)
-
-**Files Modified**:
-- `src/types/schema.ts` - Added JSON to SchemaTypes enum
-- `src/schema.ts` - Complete implementation with validation
-- `src/topic.ts` - Added schema validation on publish
-- `src/pubsub.ts` - Enhanced validateSchema() method
-- `package.json` - Added ajv dependency
-- `tests/unit/schema.test.ts` - Comprehensive test coverage
-
-**Acceptance Criteria Completed**:
-- ✅ AC-001: Create AVRO schema (stub with proper response)
-- ✅ AC-002: AVRO validation throws UnimplementedError
-- ✅ AC-003: Protocol Buffer validation throws UnimplementedError
-- ✅ AC-004: Topic with schema validation
-- ✅ AC-005: Schema exists check
-- ✅ AC-006: Delete schema
-- ✅ AC-007: Get schema details
-- ✅ AC-008: Invalid JSON schema definition
-- ✅ AC-009: List schemas
-- ✅ AC-010: Validate schema definition
-- ✅ AC-011: Get schema name
+**Files Modified**: `src/types/schema.ts`, `src/schema.ts`, `src/topic.ts`, `src/pubsub.ts`
+- JSON schema validation with ajv library
+- Schema registry integration complete
 
 ---
 
-### P2: Testing & Documentation (Required for Quality)
+### Integration Tests Status
 
-#### 4. Integration Tests: Publish-Subscribe Flow ✅
-**Status**: COMPLETE
-**Completed**: 2026-01-15
-**Files**: `tests/integration/publish-subscribe.test.ts`
+#### ✅ Publish-Subscribe Flow
+**File**: `tests/integration/publish-subscribe.test.ts`
+**Scenarios**: 10 test scenarios complete
 
-**Test Scenarios Implemented** (10 scenarios):
-1. Create topic → create subscription → publish → receive → ack
-2. Multiple subscriptions receive message copies
-3. Messages with attributes
-4. Multiple messages delivered in order
-5. Ack removes message from queue
-6. Nack causes immediate redelivery
-7. Messages persist until acknowledged
-8. Subscription filtering (messageRetentionDuration)
-9. Message ordering end-to-end with ordering keys
-10. Error handling for non-existent resources
+#### ✅ Message Ordering
+**File**: `tests/integration/ordering.test.ts`
+**Scenarios**: 5 test scenarios complete
 
-**Tests**: 181 total tests passing (up from 171)
+#### ✅ Flow Control
+**File**: `tests/integration/flow-control.test.ts`
+**Scenarios**: 13 test scenarios complete
+
+#### ✅ Schema Validation
+**File**: `tests/integration/schema-validation.test.ts`
+**Scenarios**: 12 test scenarios complete
 
 ---
 
-#### 5. Integration Tests: Message Ordering ✅
-**Status**: COMPLETE
-**Completed**: 2026-01-15
-**Files**: `tests/integration/ordering.test.ts`
+### Compatibility Tests Status
 
-**Test Scenarios Implemented** (5 scenarios):
-1. AC-003: Sequential processing per key (maxConcurrent=1)
-2. AC-004: Different keys concurrent (maxConcurrent>1)
-3. AC-005: Ordering preserved on redelivery
-4. AC-007: Multiple subscriptions ordered independently
-5. Integration with publish-subscribe flow
+#### ✅ PubSub Client Compatibility
+**File**: `tests/compatibility/pubsub-compat.test.ts`
+**Tests**: 51 tests
 
-**Tests**: All integration tests passing
+#### ✅ Topic Compatibility
+**File**: `tests/compatibility/topic-compat.test.ts`
+**Tests**: 55 tests
 
----
+#### ⬜ Subscription Compatibility (MISSING)
+**File**: `tests/compatibility/subscription-compat.test.ts`
 
-#### 6. Integration Tests: Flow Control ✅
-**Status**: COMPLETE
-**Completed**: 2026-01-15
-**Files**: `tests/integration/flow-control.test.ts`
-
-**Test Scenarios Implemented** (13 scenarios):
-1. Publisher flow control with maxOutstandingMessages limit
-2. Publisher flow control with maxOutstandingBytes limit
-3. Publisher flow control releases on successful publish
-4. Subscriber flow control with maxMessages limit
-5. Subscriber flow control with maxBytes limit
-6. Subscriber flow control releases on ack
-7. Subscriber flow control releases on nack
-8. Combined publisher and subscriber flow control
-9. Flow control with message ordering enabled
-10. High throughput with flow control
-11. Zero maxMessages blocks all messages
-12. Varying message sizes with byte limits
-13. Error handling with flow control
-
-**Tests**: 209 total tests passing (up from 185)
-
----
-
-#### 7. Integration Tests: Schema Validation ✅
-**Status**: COMPLETE
-**Completed**: 2026-01-15
-**Files**: `tests/integration/schema-validation.test.ts`
-
-**Test Scenarios Implemented** (12 scenarios):
-1. Topic with schema rejects invalid messages (type mismatch)
-2. Topic with schema rejects messages missing required fields
-3. Valid messages pass through with schema validation
-4. Schema validation with multiple messages and enum constraints
-5. Schema lifecycle: get, delete, recreate
-6. Schema validation with complex nested objects
-7. Schema validation with array constraints (minItems, maxItems)
-8. Schema validation with multiple subscribers
-9. Schema validation without explicit encoding parameter
-10. List schemas after creating multiple
-11. Schema validation with string constraints (minLength, maxLength, pattern)
-12. Schema validation with numeric constraints (minimum, maximum, multipleOf)
-
-**Tests**: 209 total tests passing
-
----
-
-#### 8. PubSub Client Compatibility Tests ✅
-**Status**: COMPLETE
-**Completed**: 2026-01-15
-**Files**: `tests/compatibility/pubsub-compat.test.ts`
-
-**Details**: 51 tests covering all PubSub client API signatures, tuple returns, error codes, caching, and resource name formatting
-
-**Test Coverage**:
-- Constructor and configuration (3 tests)
-- Project ID and emulator detection (2 tests)
-- Topic management methods and caching (15 tests)
-- Subscription management methods and caching (15 tests)
-- Schema management methods (7 tests)
-- Snapshot management (1 test)
-- Client lifecycle methods (3 tests)
-- Resource name formatting (5 tests)
-
-**Tests**: 260 total tests passing (up from 209)
-
----
-
-#### 9. Topic Compatibility Tests ✅
-**Status**: COMPLETE
-**Completed**: 2026-01-15
-**Files**: `tests/compatibility/topic-compat.test.ts`
-
-**Details**: 55 tests covering all Topic API signatures, publishing methods, batching, flow control, ordering, resource management, and subscription management
-
-**Test Coverage**:
-- Constructor and properties (4 tests)
-- Publishing methods (publish, publishMessage, publishJSON) (9 tests)
-- Batching configuration and defaults (7 tests)
-- Flow control and flush (4 tests)
-- Message ordering and resumePublishing (5 tests)
-- Topic lifecycle (create, get, delete, exists, setMetadata) (10 tests)
-- Subscription management (createSubscription, subscription, getSubscriptions) (10 tests)
-- Error handling and validation (6 tests)
-
-**Tests**: 315 total tests passing (up from 260)
-
----
-
-#### 10-11. Remaining Compatibility Tests
-**Status**: MISSING
-**Files**: Create `tests/compatibility/{subscription,message}-compat.test.ts`
-
-**Purpose**: Verify API signatures match @google-cloud/pubsub exactly for Subscription and Message classes
-
----
-
-### P3: Nice to Have (Optional Enhancements)
-
-#### 12. Schema Revision Support
-**Status**: MISSING
-**Requirements**: Track revisionId and revisionCreateTime
-
-#### 13. Snapshot Full Implementation
-**Status**: STUB (intentional for local dev)
-**Note**: Cloud-only feature, low priority for local development
-
-#### 14. Dead Letter Queue Integration Tests
-**Status**: MISSING
-**Note**: DLQ config exists but needs E2E testing
-
-#### 15. Schema Validation Cache
-**Status**: COMPLETE (implemented with P0 #2)
-**Note**: Compiled ajv validators are cached for performance
+#### ⬜ Message Compatibility (MISSING)
+**File**: `tests/compatibility/message-compat.test.ts`
 
 ---
 
