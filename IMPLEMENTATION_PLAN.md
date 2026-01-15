@@ -1,5 +1,36 @@
 # Implementation Plan
 
+**Last Updated**: 2026-01-15
+**Analysis Type**: Comprehensive code review with parallel agent analysis
+
+## Executive Summary
+
+This implementation plan reflects a comprehensive analysis of the codebase conducted using multiple parallel agents to compare actual implementation against specifications. The analysis reveals:
+
+✅ **Core Functionality**: 100% complete (Phases 1-8)
+- All 81 core acceptance criteria passing
+- 146 unit tests passing, 0 failures
+- Production-ready for basic pub/sub operations
+
+⚠️ **Advanced Features**: Partially complete (Phase 10)
+- Message ordering: 50% complete (6/12 AC), missing validation
+- Schema validation: 18% complete (2/11 AC), mostly stubbed
+
+❌ **Testing Gaps**: No integration or compatibility tests (Phase 9)
+- Zero integration tests for end-to-end workflows
+- Zero compatibility tests to verify API matches Google's
+
+**Critical Gaps Identified**:
+1. **Ordering key validation** - No validation for empty strings or max 1024 bytes (AC-008)
+2. **Schema JSON type** - SchemaType.JSON doesn't exist, no ajv validation library
+3. **Schema registry integration** - Schema.exists() always returns false
+
+**Priority Work Items**: 20 total (3 P0, 5 P1, 8 P2, 4 P3)
+
+See "PRIORITIZED REMAINING WORK" section below for detailed implementation plan.
+
+---
+
 ## Current Status Overview
 
 | Phase | Component | Status | Notes |
@@ -12,8 +43,11 @@
 | 6 | Topic class | 100% complete | All 10 AC passing |
 | 7 | Subscription class | 100% complete | All 9 AC passing |
 | 8 | PubSub client | 100% complete | All 13 AC passing |
-| 9 | Integration tests | Not started | End-to-end testing |
-| 10 | Advanced features | Not started | Ordering, schemas |
+| 9 | Integration tests | 0% complete | No integration tests yet |
+| 10a | Message ordering | 50% complete | 6/12 AC done, missing validation |
+| 10b | Schema validation | 18% complete | 2/11 AC partial, needs implementation |
+
+**Overall Progress**: 81/104 acceptance criteria passing (78% complete)
 
 ---
 
@@ -685,7 +719,235 @@ Test all 13 acceptance criteria from spec 01-pubsub-client.md.
 
 ---
 
+---
+
+## PRIORITIZED REMAINING WORK
+
+This section contains the prioritized list of remaining implementation items based on comprehensive code analysis.
+
+### P0: Critical Gaps (Blocking for Production Use)
+
+#### 1. Ordering Key Validation ⚠️
+**Status**: MISSING
+**Acceptance Criteria**: AC-008 from specs/09-ordering.md
+**Files to Modify**:
+- `src/publisher/publisher.ts` - Add validation in `publishMessage()`
+
+**Requirements**:
+- Reject empty ordering keys with InvalidArgumentError
+- Reject ordering keys > 1024 bytes with InvalidArgumentError
+- Error messages: "Ordering key cannot be empty" and "Ordering key exceeds maximum length"
+
+**Implementation**:
+```typescript
+if (message.orderingKey !== undefined) {
+  if (message.orderingKey === '') {
+    throw new InvalidArgumentError('Ordering key cannot be empty');
+  }
+  if (Buffer.byteLength(message.orderingKey, 'utf8') > 1024) {
+    throw new InvalidArgumentError('Ordering key exceeds maximum length of 1024 bytes');
+  }
+}
+```
+
+**Tests Needed**:
+- Empty string throws InvalidArgumentError
+- String > 1024 bytes throws InvalidArgumentError
+- Valid ordering key accepted
+
+---
+
+#### 2. Schema JSON Type and Validation ⚠️
+**Status**: MISSING
+**Acceptance Criteria**: AC-004, AC-008, AC-010 from specs/08-schema.md
+**Files to Modify**:
+- `src/types/schema.ts` - Add `JSON: 'JSON'` to SchemaTypes
+- `src/schema.ts` - Implement `validateMessage()` for JSON schemas
+- `package.json` - Add `ajv` dependency
+
+**Requirements**:
+- Add SchemaType.JSON for local development extension
+- Install ajv library for JSON Schema validation
+- Implement validateMessage() for JSON schemas
+- Keep AVRO/Protocol Buffer as UnimplementedError
+
+**Implementation Steps**:
+1. `bun add ajv` to install validator
+2. Add `JSON: 'JSON'` to SchemaTypes in types/schema.ts
+3. In Schema.validateMessage():
+   - For JSON: Use ajv to validate
+   - For AVRO/PROTOCOL_BUFFER: Throw UnimplementedError with specific message
+4. Cache compiled validators for performance
+
+**Tests Needed**:
+- Create JSON schema
+- Valid JSON message passes validation
+- Invalid JSON message throws error
+- AVRO throws UnimplementedError
+- Protocol Buffer throws UnimplementedError
+
+---
+
+#### 3. Schema Registry Existence Check ⚠️
+**Status**: BROKEN
+**Acceptance Criteria**: AC-005 from specs/08-schema.md
+**Files to Modify**:
+- `src/schema.ts` - Fix `exists()` to check PubSub registry
+
+**Current Issue**: `exists()` always returns `[false]` regardless of schema existence
+
+**Implementation**:
+```typescript
+async exists(): Promise<[boolean]> {
+  const schemas = this.pubsub['schemas']; // Access internal Map
+  return [schemas.has(this.id)];
+}
+```
+
+**Tests Needed**:
+- Schema doesn't exist returns false
+- Schema exists returns true after create
+
+---
+
+### P1: Important Features (Required for Completeness)
+
+#### 4. Schema Delete Implementation
+**Status**: STUB
+**Acceptance Criteria**: AC-006 from specs/08-schema.md
+**Files**: `src/schema.ts`, `src/pubsub.ts`
+
+**Requirements**:
+- Remove schema from PubSub schemas Map
+- Clear schema references from topics using it
+- Subsequent operations throw NotFoundError
+
+---
+
+#### 5. Schema Get with Full View
+**Status**: PARTIAL
+**Acceptance Criteria**: AC-007 from specs/08-schema.md
+**Files**: `src/schema.ts`
+
+**Requirements**:
+- Get from PubSub registry, not local cache
+- FULL view includes definition
+- BASIC view omits definition
+
+---
+
+#### 6. Topic Schema Validation on Publish
+**Status**: MISSING
+**Acceptance Criteria**: AC-004 from specs/08-schema.md
+**Files**: `src/topic.ts`, `src/publisher/publisher.ts`
+
+**Requirements**:
+- Check if topic has schemaSettings
+- If schema exists, validate message before publishing
+- Throw InvalidArgumentError if validation fails
+
+---
+
+#### 7. AVRO/Protocol Buffer Error Messages
+**Status**: PARTIAL
+**Acceptance Criteria**: AC-002, AC-003 from specs/08-schema.md
+**Files**: `src/schema.ts`
+
+**Requirements**:
+- Different UnimplementedError messages per schema type
+- Provide guidance on what's supported
+
+---
+
+#### 8. Schema Name Formatting
+**Status**: INCORRECT
+**Acceptance Criteria**: AC-011 from specs/08-schema.md
+**Files**: `src/schema.ts`
+
+**Requirements**: Return `projects/{projectId}/schemas/{id}` not just `{id}`
+
+---
+
+### P2: Testing & Documentation (Required for Quality)
+
+#### 9. Integration Tests: Publish-Subscribe Flow
+**Status**: MISSING
+**Files**: Create `tests/integration/publish-subscribe.test.ts`
+
+**Test Scenarios**:
+- Create topic → create subscription → publish → receive → ack
+- Multiple subscriptions receive message copies
+- Messages with attributes
+- Message ordering end-to-end
+
+---
+
+#### 10. Integration Tests: Message Ordering
+**Status**: MISSING
+**Files**: Create `tests/integration/ordering.test.ts`
+
+**Test Scenarios** (from specs/09-ordering.md):
+- AC-002: Same key delivered in order
+- AC-003: Sequential processing per key (maxConcurrent=1)
+- AC-004: Different keys concurrent (maxConcurrent>1)
+- AC-005: Ordering preserved on redelivery
+- AC-007: Multiple subscriptions ordered independently
+
+---
+
+#### 11. Integration Tests: Flow Control
+**Status**: MISSING
+**Files**: Create `tests/integration/flow-control.test.ts`
+
+**Test Scenarios**:
+- Publisher blocks when max outstanding reached
+- Subscriber limits in-flight messages
+- Flow control releases on ack/nack
+
+---
+
+#### 12. Integration Tests: Schema Validation
+**Status**: MISSING (depends on P0 #2)
+**Files**: Create `tests/integration/schema-validation.test.ts`
+
+**Test Scenarios**:
+- Topic with schema rejects invalid messages
+- Valid messages pass through
+- Schema updates
+
+---
+
+#### 13-16. Compatibility Tests
+**Status**: MISSING
+**Files**: Create `tests/compatibility/{pubsub,topic,subscription,message}-compat.test.ts`
+
+**Purpose**: Verify API signatures match @google-cloud/pubsub exactly
+
+---
+
+### P3: Nice to Have (Optional Enhancements)
+
+#### 17. Schema Revision Support
+**Status**: MISSING
+**Requirements**: Track revisionId and revisionCreateTime
+
+#### 18. Snapshot Full Implementation
+**Status**: STUB (intentional for local dev)
+**Note**: Cloud-only feature, low priority for local development
+
+#### 19. Dead Letter Queue Integration Tests
+**Status**: MISSING
+**Note**: DLQ config exists but needs E2E testing
+
+#### 20. Schema Validation Cache
+**Status**: N/A (depends on P0 #2)
+**Note**: Cache compiled ajv validators for performance
+
+---
+
 ## Priority 8: Phase 9 - Integration Tests
+
+**Current Status**: Not Started (0% complete)
 
 ### Test Structure
 
@@ -743,23 +1005,64 @@ tests/
 
 **Specification:** `specs/09-ordering.md`
 
+**Status**: 50% Complete (6/12 AC implemented)
+
 **Acceptance Criteria:** AC-001 to AC-012 (12 criteria)
 
-**Key Components to Enhance:**
-- Publisher: Separate batches per ordering key
-- MessageQueue: Separate queues per ordering key, sequential delivery
-- MessageStream: Deliver in order per key, wait for ack
-- Topic: resumePublishing() for error recovery
+**Implemented** ✅:
+- AC-001: Topic with resumePublishing()
+- AC-002: Same key delivered in order
+- AC-006: No ordering key not blocked
+- AC-009: Ordering key accepted without explicit enable
+- AC-010: Batching with ordering keys (separate batches per key)
+- AC-012: resumePublishing() clears paused state
+
+**Missing** ⚠️:
+- AC-003: Sequential processing test (maxConcurrent=1)
+- AC-004: Different keys concurrent test
+- AC-005: Ordering preserved on redelivery test
+- AC-007: Multiple subscriptions ordered independently test
+- AC-008: **Ordering key validation (CRITICAL)**
+- AC-011: Error message format and pause behavior
+
+**Key Components Already Implemented:**
+- Publisher: Separate batches per ordering key ✅
+- MessageQueue: Separate queues per ordering key, sequential delivery ✅
+- MessageStream: Deliver in order per key, wait for ack ✅
+- Topic: resumePublishing() for error recovery ✅
+
+**Files Exist**:
+- `/Users/donlair/Projects/libraries/pubsub/src/publisher/publisher.ts`
+- `/Users/donlair/Projects/libraries/pubsub/src/internal/message-queue.ts`
+- `/Users/donlair/Projects/libraries/pubsub/src/subscriber/message-stream.ts`
+- `/Users/donlair/Projects/libraries/pubsub/src/topic.ts`
 
 ### 10.2 Schema Validation
 
 **Specification:** `specs/08-schema.md`
 
+**Status**: 18% Complete (2/11 AC partially implemented)
+
 **Acceptance Criteria:** AC-001 to AC-011 (11 criteria)
 
-**File to Create:** `/Users/donlair/Projects/libraries/pubsub/src/schema.ts`
+**File Exists**: `/Users/donlair/Projects/libraries/pubsub/src/schema.ts`
 
-**Key Methods:**
+**Partially Implemented** ⚠️:
+- AC-009: List schemas (PubSub client only)
+- AC-010: Validate schema definition (basic AVRO JSON check only)
+
+**Missing** ❌:
+- AC-001: Create AVRO schema (stub exists)
+- AC-002: AVRO validation throws UnimplementedError (exists but untested)
+- AC-003: Protocol Buffer validation throws UnimplementedError (exists but untested)
+- AC-004: Topic with schema validation (schemaSettings stored but not used)
+- AC-005: Schema exists check (returns false always)
+- AC-006: Delete schema (returns empty object)
+- AC-007: Get schema details (gets local data only)
+- AC-008: Invalid JSON schema definition (no JSON type exists)
+- AC-011: Get schema name (returns ID not full name)
+
+**Key Methods in Schema Class**:
 ```typescript
 class Schema {
   readonly id: string;
@@ -767,49 +1070,37 @@ class Schema {
   type?: SchemaType;
   definition?: string;
 
-  create(type: SchemaType, definition: string, options?: CreateSchemaOptions): Promise<[Schema, ISchema]>;
-  delete(): Promise<[unknown]>;
-  exists(): Promise<[boolean]>;
-  get(view?: 'BASIC' | 'FULL', options?: CallOptions): Promise<[Schema, ISchema]>;
-  validateMessage(message: string | Buffer, encoding: Encoding): Promise<void>;
-  getName(): Promise<string>;
+  create() // STUB
+  delete() // STUB
+  exists() // BROKEN (always false)
+  get() // PARTIAL (local only)
+  validateMessage() // STUB (throws UnimplementedError)
+  getName() // BROKEN (wrong format)
 }
 ```
 
 **Implementation Notes:**
-- Use `ajv` for JSON Schema validation
-- AVRO and Protocol Buffer throw UnimplementedError
+- Need to add SchemaType.JSON (not in enum currently)
+- Need to install `ajv` for JSON Schema validation
+- AVRO and Protocol Buffer should throw UnimplementedError
 - JSON schema is local development extension only
+- Schema registry exists in PubSub but Schema class doesn't use it
 
 ### 10.3 Snapshot Support
 
-**File to Create:** `/Users/donlair/Projects/libraries/pubsub/src/snapshot.ts`
+**Status**: INTENTIONALLY STUBBED (for local dev)
 
-```typescript
-class Snapshot {
-  readonly name: string;
+**File Exists**: `/Users/donlair/Projects/libraries/pubsub/src/snapshot.ts`
 
-  create(): Promise<[Snapshot, SnapshotMetadata]>;
-  delete(): Promise<[unknown]>;
-  exists(): Promise<[boolean]>;
-  getMetadata(): Promise<[SnapshotMetadata]>;
-  seek(): Promise<[unknown]>;
-}
-```
+**Note**: Snapshots are a cloud-only feature for point-in-time recovery. All methods throw UnimplementedError by design. Low priority for local development.
 
 ### 10.4 IAM Support
 
-**File to Create:** `/Users/donlair/Projects/libraries/pubsub/src/iam.ts`
+**Status**: INTENTIONALLY STUBBED (for local dev)
 
-```typescript
-class IAM {
-  constructor(pubsub: PubSub, resource: string);
+**File Exists**: `/Users/donlair/Projects/libraries/pubsub/src/iam.ts`
 
-  getPolicy(): Promise<[Policy, unknown]>;
-  setPolicy(policy: Policy): Promise<[Policy, unknown]>;
-  testPermissions(permissions: string[]): Promise<[string[], unknown]>;
-}
-```
+**Note**: IAM is for Google Cloud authentication/authorization. All methods throw UnimplementedError by design. Not needed for local development.
 
 ---
 
@@ -936,23 +1227,27 @@ class IAM {
 - [ ] AC-006: Delete Schema
 - [ ] AC-007: Get Schema Details
 - [ ] AC-008: Invalid JSON Schema Definition
-- [ ] AC-009: List Schemas
-- [ ] AC-010: Validate Schema Definition
+- [x] AC-009: List Schemas (partial - PubSub client only)
+- [x] AC-010: Validate Schema Definition (partial - basic AVRO JSON check)
 - [ ] AC-011: Get Schema Name
 
+**Schema Status**: 2/11 AC partial (18% complete)
+
 #### Spec 09: Ordering (12 AC)
-- [ ] AC-001: Create Topic and Publish with Ordering Key
-- [ ] AC-002: Messages with Same Key Delivered in Order
-- [ ] AC-003: Sequential Processing per Key
-- [ ] AC-004: Different Keys Concurrent
-- [ ] AC-005: Ordering Preserved on Redelivery
-- [ ] AC-006: No Ordering Key Not Blocked
-- [ ] AC-007: Multiple Subscriptions Ordered Independently
-- [ ] AC-008: Ordering Key Validation
-- [ ] AC-009: Ordering Key Accepted Without Explicit Enable
-- [ ] AC-010: Batching with Ordering Keys
-- [ ] AC-011: Ordering Key Paused on Error
-- [ ] AC-012: Resume Publishing After Error
+- [x] AC-001: Create Topic and Publish with Ordering Key
+- [x] AC-002: Messages with Same Key Delivered in Order
+- [ ] AC-003: Sequential Processing per Key (implementation exists, test missing)
+- [ ] AC-004: Different Keys Concurrent (implementation exists, test missing)
+- [ ] AC-005: Ordering Preserved on Redelivery (implementation exists, test missing)
+- [x] AC-006: No Ordering Key Not Blocked
+- [ ] AC-007: Multiple Subscriptions Ordered Independently (implementation exists, test missing)
+- [ ] AC-008: Ordering Key Validation ⚠️ CRITICAL GAP
+- [x] AC-009: Ordering Key Accepted Without Explicit Enable
+- [x] AC-010: Batching with Ordering Keys
+- [ ] AC-011: Ordering Key Paused on Error (partial - error message format wrong)
+- [x] AC-012: Resume Publishing After Error
+
+**Ordering Status**: 6/12 AC complete (50% complete)
 
 ---
 
