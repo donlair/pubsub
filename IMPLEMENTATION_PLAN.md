@@ -1,6 +1,6 @@
 # Implementation Plan
 
-**Last Updated**: 2026-01-15 (Schema validation complete)
+**Last Updated**: 2026-01-15 (Message ordering integration tests complete)
 **Analysis Type**: Comprehensive code review with parallel agent analysis
 
 ## Executive Summary
@@ -13,12 +13,13 @@ This implementation plan reflects a comprehensive analysis of the codebase condu
 - Production-ready for basic pub/sub operations
 
 ⚠️ **Advanced Features**: Partially complete (Phase 10)
-- Message ordering: 67% complete (8/12 AC), validation and error handling complete
+- Message ordering: 100% complete (12/12 AC), validation, error handling, and integration tests complete
 - Schema validation: 100% complete (11/11 AC), JSON schema support
 
 ⚠️ **Testing Gaps**: Partial integration tests, no compatibility tests (Phase 9)
 - Publish-subscribe integration tests complete (10 scenarios)
-- Missing: ordering, flow control, schema validation integration tests
+- Message ordering integration tests complete (5 scenarios)
+- Missing: flow control, schema validation integration tests
 - Zero compatibility tests to verify API matches Google's
 
 **Critical Gaps Identified**:
@@ -44,11 +45,11 @@ See "PRIORITIZED REMAINING WORK" section below for detailed implementation plan.
 | 6 | Topic class | 100% complete | All 10 AC passing |
 | 7 | Subscription class | 100% complete | All 9 AC passing |
 | 8 | PubSub client | 100% complete | All 13 AC passing |
-| 9 | Integration tests | 25% complete | Publish-subscribe flow complete |
-| 10a | Message ordering | 67% complete | 8/12 AC done, validation and error handling |
+| 9 | Integration tests | 40% complete | Publish-subscribe and ordering complete |
+| 10a | Message ordering | 100% complete | All 12 AC passing |
 | 10b | Schema validation | 100% complete | All 11 AC passing |
 
-**Overall Progress**: 94/104 acceptance criteria passing (90% complete)
+**Overall Progress**: 98/104 acceptance criteria passing (94% complete)
 
 ---
 
@@ -826,16 +827,19 @@ if (message.orderingKey !== undefined) {
 
 ---
 
-#### 5. Integration Tests: Message Ordering
-**Status**: MISSING
-**Files**: Create `tests/integration/ordering.test.ts`
+#### 5. Integration Tests: Message Ordering ✅
+**Status**: COMPLETE
+**Completed**: 2026-01-15
+**Files**: `tests/integration/ordering.test.ts`
 
-**Test Scenarios** (from specs/09-ordering.md):
-- AC-002: Same key delivered in order
-- AC-003: Sequential processing per key (maxConcurrent=1)
-- AC-004: Different keys concurrent (maxConcurrent>1)
-- AC-005: Ordering preserved on redelivery
-- AC-007: Multiple subscriptions ordered independently
+**Test Scenarios Implemented** (5 scenarios):
+1. AC-003: Sequential processing per key (maxConcurrent=1)
+2. AC-004: Different keys concurrent (maxConcurrent>1)
+3. AC-005: Ordering preserved on redelivery
+4. AC-007: Multiple subscriptions ordered independently
+5. Integration with publish-subscribe flow
+
+**Tests**: All integration tests passing
 
 ---
 
@@ -958,37 +962,45 @@ tests/
 
 **Specification:** `specs/09-ordering.md`
 
-**Status**: 67% Complete (8/12 AC implemented)
+**Status**: 100% Complete (12/12 AC implemented)
 
-**Acceptance Criteria:** AC-001 to AC-012 (12 criteria)
+**Completed:** 2026-01-15
 
-**Implemented** ✅:
+**Acceptance Criteria:** AC-001 to AC-012 (12 criteria) ✅
+
+**All Acceptance Criteria Implemented** ✅:
 - AC-001: Topic with resumePublishing()
 - AC-002: Same key delivered in order
+- AC-003: Sequential processing test (maxConcurrent=1)
+- AC-004: Different keys concurrent test
+- AC-005: Ordering preserved on redelivery test
 - AC-006: No ordering key not blocked
+- AC-007: Multiple subscriptions ordered independently test
 - AC-008: Ordering key validation (empty and oversized rejected)
 - AC-009: Ordering key accepted without explicit enable
 - AC-010: Batching with ordering keys (separate batches per key)
 - AC-011: Ordering key paused on error (error message format fixed 2026-01-15)
 - AC-012: resumePublishing() clears paused state
 
-**Missing** ⚠️:
-- AC-003: Sequential processing test (maxConcurrent=1)
-- AC-004: Different keys concurrent test
-- AC-005: Ordering preserved on redelivery test
-- AC-007: Multiple subscriptions ordered independently test
+**Integration Tests Added**: `tests/integration/ordering.test.ts`
+- Sequential processing per ordering key (AC-003)
+- Concurrent processing across different keys (AC-004)
+- Order preservation on message redelivery (AC-005)
+- Independent ordering across multiple subscriptions (AC-007)
+- End-to-end ordering flow verification
 
-**Key Components Already Implemented:**
+**Key Components Implemented:**
 - Publisher: Separate batches per ordering key ✅
 - MessageQueue: Separate queues per ordering key, sequential delivery ✅
 - MessageStream: Deliver in order per key, wait for ack ✅
 - Topic: resumePublishing() for error recovery ✅
 
-**Files Exist**:
+**Files**:
 - `/Users/donlair/Projects/libraries/pubsub/src/publisher/publisher.ts`
 - `/Users/donlair/Projects/libraries/pubsub/src/internal/message-queue.ts`
 - `/Users/donlair/Projects/libraries/pubsub/src/subscriber/message-stream.ts`
 - `/Users/donlair/Projects/libraries/pubsub/src/topic.ts`
+- `/Users/donlair/Projects/libraries/pubsub/tests/integration/ordering.test.ts`
 
 ### 10.2 Schema Validation ✅
 
@@ -1059,8 +1071,8 @@ tests/
 | 06 | Subscriber | 10 | 5 | ✅ Complete |
 | 07 | MessageQueue | 13 | 2 | ✅ Complete |
 | 08 | Schema | 11 | 10 | ✅ Complete |
-| 09 | Ordering | 12 | 10 | Pending |
-| **Total** | | **104** | | **90% Complete (94/104)** |
+| 09 | Ordering | 12 | 10 | ✅ Complete |
+| **Total** | | **104** | | **94% Complete (98/104)** |
 
 ### Detailed AC Status
 
@@ -1174,21 +1186,21 @@ tests/
 
 **Schema Status**: 11/11 AC complete (100% complete)
 
-#### Spec 09: Ordering (12 AC)
+#### Spec 09: Ordering (12 AC) ✅
 - [x] AC-001: Create Topic and Publish with Ordering Key
 - [x] AC-002: Messages with Same Key Delivered in Order
-- [ ] AC-003: Sequential Processing per Key (implementation exists, test missing)
-- [ ] AC-004: Different Keys Concurrent (implementation exists, test missing)
-- [ ] AC-005: Ordering Preserved on Redelivery (implementation exists, test missing)
+- [x] AC-003: Sequential Processing per Key
+- [x] AC-004: Different Keys Concurrent
+- [x] AC-005: Ordering Preserved on Redelivery
 - [x] AC-006: No Ordering Key Not Blocked
-- [ ] AC-007: Multiple Subscriptions Ordered Independently (implementation exists, test missing)
+- [x] AC-007: Multiple Subscriptions Ordered Independently
 - [x] AC-008: Ordering Key Validation
 - [x] AC-009: Ordering Key Accepted Without Explicit Enable
 - [x] AC-010: Batching with Ordering Keys
 - [x] AC-011: Ordering Key Paused on Error (error message format fixed 2026-01-15)
 - [x] AC-012: Resume Publishing After Error
 
-**Ordering Status**: 8/12 AC complete (67% complete)
+**Ordering Status**: 12/12 AC complete (100% complete)
 
 ---
 

@@ -329,9 +329,10 @@ export class MessageQueue {
     };
 
     // Start deadline timer
+    const timerMs = ackDeadlineSeconds * 1000;
     lease.timer = setTimeout(() => {
       this.handleDeadlineExpiry(ackId);
-    }, ackDeadlineSeconds * 1000);
+    }, timerMs);
 
     // Store lease
     queue.inFlight.set(ackId, lease);
@@ -349,7 +350,9 @@ export class MessageQueue {
    */
   private handleDeadlineExpiry(ackId: string): void {
     const lease = this.leases.get(ackId);
-    if (!lease) return;
+    if (!lease) {
+      return;
+    }
 
     // Nack the message (returns to queue)
     this.nack(ackId);
