@@ -21,6 +21,7 @@ import { Publisher } from './publisher/publisher';
 import { MessageQueue } from './internal/message-queue';
 import { NotFoundError, AlreadyExistsError, InvalidArgumentError } from './types/errors';
 import { IAM } from './iam';
+import { Subscription } from './subscription';
 
 export class Topic {
 	readonly name: string;
@@ -168,55 +169,37 @@ export class Topic {
 	async createSubscription(
 		name: string,
 		options?: CreateSubscriptionOptions
-	): Promise<[unknown, SubscriptionMetadata]> {
+	): Promise<[Subscription, SubscriptionMetadata]> {
 		if (!this.queue.topicExists(this.name)) {
 			throw new NotFoundError(`Topic not found: ${this.name}`);
 		}
 
-		const subscriptionMetadata: SubscriptionMetadata = {
-			name,
-			topic: this.name,
-			ackDeadlineSeconds: options?.ackDeadlineSeconds ?? 10,
-			labels: options?.labels,
-			pushConfig: options?.pushConfig,
-			retainAckedMessages: options?.retainAckedMessages,
-			messageRetentionDuration: options?.messageRetentionDuration,
-			enableMessageOrdering: options?.enableMessageOrdering,
-			expirationPolicy: options?.expirationPolicy,
-			filter: options?.filter,
-			deadLetterPolicy: options?.deadLetterPolicy,
-			retryPolicy: options?.retryPolicy
-		};
-
-		this.queue.registerSubscription(name, this.name, subscriptionMetadata);
-
-		const Subscription = this.getSubscriptionClass();
 		const subscription = new Subscription(this.pubsub, name, {
+			...options,
 			topic: this as unknown as undefined
 		});
 
-		return [subscription, subscriptionMetadata];
+		return subscription.create(options);
 	}
 
 	subscription(
 		name: string,
-		_options?: SubscriptionOptions
-	): unknown {
-		const Subscription = this.getSubscriptionClass();
+		options?: SubscriptionOptions
+	): Subscription {
 		return new Subscription(this.pubsub, name, {
+			...options,
 			topic: this as unknown as undefined
 		});
 	}
 
 	async getSubscriptions(
 		_options?: GetTopicSubscriptionsOptions
-	): Promise<[unknown[], unknown, unknown]> {
+	): Promise<[Subscription[], unknown, unknown]> {
 		if (!this.queue.topicExists(this.name)) {
 			throw new NotFoundError(`Topic not found: ${this.name}`);
 		}
 
 		const subscriptionMetadatas = this.queue.getSubscriptionsForTopic(this.name);
-		const Subscription = this.getSubscriptionClass();
 		const subscriptions = subscriptionMetadatas.map(
 			(meta) => new Subscription(this.pubsub, meta.name ?? '', {
 				topic: this as unknown as undefined
@@ -224,19 +207,5 @@ export class Topic {
 		);
 
 		return [subscriptions, null, null];
-	}
-
-	private getSubscriptionClass(): new (
-		pubsub: unknown,
-		name: string,
-		options?: SubscriptionOptions
-	) => unknown {
-		return class SubscriptionStub {
-			constructor(
-				readonly pubsub: unknown,
-				readonly name: string,
-				readonly options?: SubscriptionOptions
-			) {}
-		};
 	}
 }

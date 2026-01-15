@@ -236,6 +236,12 @@ export interface CreateSubscriptionOptions extends SubscriptionMetadata {
 export interface SubscriptionOptions extends SubscriberOptions {
   /** Associated topic reference. */
   topic?: unknown; // Topic type (avoid circular dependency)
+
+  /** Ack deadline in seconds (10-600). */
+  ackDeadlineSeconds?: number;
+
+  /** Enable message ordering for this subscription. */
+  enableMessageOrdering?: boolean;
 }
 
 /**
