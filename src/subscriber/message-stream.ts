@@ -261,7 +261,7 @@ export class MessageStream {
 
 		if (!this.processingOrderingKeys.has(key)) {
 			this.processNextOrderedMessage(key);
-		} else if (message.deliveryAttempt && message.deliveryAttempt > 0) {
+		} else if (message.deliveryAttempt && message.deliveryAttempt > 1) {
 			this.processingOrderingKeys.delete(key);
 			this.processNextOrderedMessage(key);
 		}
