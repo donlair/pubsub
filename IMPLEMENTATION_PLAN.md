@@ -12,8 +12,7 @@ This implementation plan reflects a comprehensive analysis of the codebase condu
 - 348 tests passing, 0 failures
 - Basic pub/sub operations fully functional
 
-⚠️ **P1 Issues Found**: 1 high-priority issue identified
-- Environment variable detection for projectId missing
+✅ **P1 Issues Found**: 0 high-priority issues (all resolved!)
 
 ⚠️ **P2 Issues Found**: 6 medium-priority issues
 - MessageQueue missing advanced features (BR-013 through BR-022)
@@ -31,7 +30,7 @@ This implementation plan reflects a comprehensive analysis of the codebase condu
 - Publisher missing validation (messageOrdering check)
 - 7 tests with weak assertions
 
-**Priority Work Items**: 13 total (0 P0, 1 P1, 6 P2, 6 P3)
+**Priority Work Items**: 12 total (0 P0, 0 P1, 6 P2, 6 P3)
 
 See "PRIORITIZED REMAINING WORK" section below for detailed implementation plan.
 
@@ -73,36 +72,11 @@ These issues break API compatibility or cause incorrect behavior.
 
 ---
 
-### P1: HIGH - API Compatibility Issues (1 item)
+### P1: HIGH - API Compatibility Issues (0 items)
 
 These issues affect API compatibility or cause incorrect runtime behavior.
 
-#### P1-1. Missing Environment Variable Detection for projectId
-**Status**: INCOMPLETE
-**File**: `/Users/donlair/Projects/libraries/pubsub/src/pubsub.ts` (lines 49-51)
-**Spec Reference**: Google Pub/Sub API compatibility
-
-**Issue**: Missing detection order for projectId environment variables.
-
-**Expected Detection Order** (per Google's library):
-1. `PUBSUB_PROJECT_ID`
-2. `GOOGLE_CLOUD_PROJECT`
-3. `GCLOUD_PROJECT`
-4. Default to 'local-project'
-
-**Current Behavior**: Only defaults to 'local-project' without checking env vars.
-
-**Fix Required**:
-```typescript
-// In constructor
-const projectId = options?.projectId
-  ?? process.env.PUBSUB_PROJECT_ID
-  ?? process.env.GOOGLE_CLOUD_PROJECT
-  ?? process.env.GCLOUD_PROJECT
-  ?? 'local-project';
-```
-
-**Impact**: Users migrating from Google Cloud won't have automatic project detection.
+**All P1 items completed!** See "Previously Completed Items" section below.
 
 ---
 
@@ -320,6 +294,33 @@ test('something works', () => {
 ## Previously Completed Items (Reference)
 
 ### Recent Completions (2026-01-15)
+
+#### ✅ P1-1: Missing Environment Variable Detection for projectId - FIXED
+**Status**: COMPLETE
+**Date Completed**: 2026-01-15
+**Files Modified**:
+- `src/pubsub.ts` (line 51) - Added environment variable detection chain
+- `tests/unit/pubsub.test.ts` - Added 6 new tests for environment variable detection
+
+**Issue**: Missing detection order for projectId environment variables. Users migrating from Google Cloud wouldn't have automatic project detection.
+
+**What was fixed**:
+- Implemented environment variable detection chain in priority order:
+  1. `options.projectId` (highest priority)
+  2. `process.env.PUBSUB_PROJECT_ID`
+  3. `process.env.GOOGLE_CLOUD_PROJECT`
+  4. `process.env.GCLOUD_PROJECT`
+  5. `'local-project'` (default fallback)
+- Added test: "Uses projectId from options if provided"
+- Added test: "Uses PUBSUB_PROJECT_ID from environment"
+- Added test: "Uses GOOGLE_CLOUD_PROJECT from environment"
+- Added test: "Uses GCLOUD_PROJECT from environment"
+- Added test: "Defaults to 'local-project' if no environment variables set"
+- Added test: "Options projectId takes precedence over environment variables"
+
+**Impact**: Users migrating from Google Cloud now have automatic project detection matching Google's official library behavior. No need to explicitly pass projectId if environment variables are already configured.
+
+---
 
 #### ✅ P1-2: Publisher Message Size Calculation Bug - FIXED
 **Status**: COMPLETE
@@ -679,7 +680,7 @@ test('something works', () => {
 ## Action Items by Priority
 
 ### Immediate (P1) - Fix These First
-1. **P1-1**: Add environment variable detection for projectId in `src/pubsub.ts`
+**All P1 items completed!** 🎉
 
 ### Next Sprint (P2) - Feature Completeness
 1. **P2-1**: Implement MessageQueue advanced features (flow control, DLQ, backoff)

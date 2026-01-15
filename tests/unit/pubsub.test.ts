@@ -46,6 +46,52 @@ describe('PubSub Client', () => {
 			const pubsub = new PubSub();
 			expect(pubsub.projectId).toBe('local-project');
 		});
+
+		test('should detect projectId from PUBSUB_PROJECT_ID environment variable', () => {
+			process.env.PUBSUB_PROJECT_ID = 'env-project-1';
+			const pubsub = new PubSub();
+			expect(pubsub.projectId).toBe('env-project-1');
+			delete process.env.PUBSUB_PROJECT_ID;
+		});
+
+		test('should detect projectId from GOOGLE_CLOUD_PROJECT environment variable', () => {
+			process.env.GOOGLE_CLOUD_PROJECT = 'env-project-2';
+			const pubsub = new PubSub();
+			expect(pubsub.projectId).toBe('env-project-2');
+			delete process.env.GOOGLE_CLOUD_PROJECT;
+		});
+
+		test('should detect projectId from GCLOUD_PROJECT environment variable', () => {
+			process.env.GCLOUD_PROJECT = 'env-project-3';
+			const pubsub = new PubSub();
+			expect(pubsub.projectId).toBe('env-project-3');
+			delete process.env.GCLOUD_PROJECT;
+		});
+
+		test('should prioritize PUBSUB_PROJECT_ID over GOOGLE_CLOUD_PROJECT', () => {
+			process.env.PUBSUB_PROJECT_ID = 'pubsub-project';
+			process.env.GOOGLE_CLOUD_PROJECT = 'google-project';
+			const pubsub = new PubSub();
+			expect(pubsub.projectId).toBe('pubsub-project');
+			delete process.env.PUBSUB_PROJECT_ID;
+			delete process.env.GOOGLE_CLOUD_PROJECT;
+		});
+
+		test('should prioritize GOOGLE_CLOUD_PROJECT over GCLOUD_PROJECT', () => {
+			process.env.GOOGLE_CLOUD_PROJECT = 'google-project';
+			process.env.GCLOUD_PROJECT = 'gcloud-project';
+			const pubsub = new PubSub();
+			expect(pubsub.projectId).toBe('google-project');
+			delete process.env.GOOGLE_CLOUD_PROJECT;
+			delete process.env.GCLOUD_PROJECT;
+		});
+
+		test('should prioritize explicit projectId option over environment variables', () => {
+			process.env.PUBSUB_PROJECT_ID = 'env-project';
+			const pubsub = new PubSub({ projectId: 'explicit-project' });
+			expect(pubsub.projectId).toBe('explicit-project');
+			delete process.env.PUBSUB_PROJECT_ID;
+		});
 	});
 
 	describe('AC-003: Topic Factory Returns Same Instance', () => {

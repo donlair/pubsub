@@ -48,7 +48,11 @@ export class PubSub {
 
 	constructor(options?: PubSubOptions) {
 		this.options = { ...DEFAULT_PUBSUB_OPTIONS, ...options };
-		this.projectId = this.options.projectId || 'local-project';
+		this.projectId = options?.projectId
+			?? process.env.PUBSUB_PROJECT_ID
+			?? process.env.GOOGLE_CLOUD_PROJECT
+			?? process.env.GCLOUD_PROJECT
+			?? 'local-project';
 		this.isEmulator = this.detectEmulatorMode();
 		this.v1 = {
 			PublisherClient: {},
