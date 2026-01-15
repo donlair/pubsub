@@ -558,4 +558,87 @@ describe('Publisher', () => {
 			})
 		).rejects.toThrow('Attribute value for key "key" exceeds maximum length of 1024 bytes');
 	});
+
+	// BR-011 from specs/04-message.md: Message Size Limit (10MB)
+	test('Rejects message exceeding 10MB', async () => {
+		const topicName = 'projects/test-project/topics/my-topic';
+		queue.registerTopic(topicName);
+
+		const publisher = new Publisher(topicName);
+
+		// Create a message that exceeds 10MB (10 * 1024 * 1024 = 10485760 bytes)
+		const largeData = Buffer.alloc(10485761); // 10MB + 1 byte
+
+		await expect(
+			publisher.publishMessage({
+				data: largeData,
+			})
+		).rejects.toThrow('Message size exceeds maximum of 10MB');
+	});
+
+	test('Accepts message at exactly 10MB', async () => {
+		const topicName = 'projects/test-project/topics/my-topic';
+		queue.registerTopic(topicName);
+
+		// Configure publisher with flow control that allows 10MB+ messages
+		const publisher = new Publisher(topicName, {
+			flowControlOptions: {
+				maxOutstandingMessages: 10,
+				maxOutstandingBytes: 20 * 1024 * 1024, // 20MB
+			},
+		});
+
+		// Create a message that's exactly 10MB (10 * 1024 * 1024 = 10485760 bytes)
+		const maxData = Buffer.alloc(10485760);
+
+		const messageId = await publisher.publishMessage({
+			data: maxData,
+		});
+
+		expect(messageId).toBeDefined();
+		expect(typeof messageId).toBe('string');
+	});
+
+	test('Rejects message with data + attributes exceeding 10MB', async () => {
+		const topicName = 'projects/test-project/topics/my-topic';
+		queue.registerTopic(topicName);
+
+		const publisher = new Publisher(topicName);
+
+		// Create data that's close to 10MB
+		const largeData = Buffer.alloc(10485750); // 10MB - 10 bytes
+
+		// Add attributes that push total size over 10MB
+		await expect(
+			publisher.publishMessage({
+				data: largeData,
+				attributes: { key: 'x'.repeat(20) }, // 20 + 3 = 23 bytes (total > 10MB)
+			})
+		).rejects.toThrow('Message size exceeds maximum of 10MB');
+	});
+
+	test('Accepts message with data + attributes at 10MB limit', async () => {
+		const topicName = 'projects/test-project/topics/my-topic';
+		queue.registerTopic(topicName);
+
+		// Configure publisher with flow control that allows 10MB+ messages
+		const publisher = new Publisher(topicName, {
+			flowControlOptions: {
+				maxOutstandingMessages: 10,
+				maxOutstandingBytes: 20 * 1024 * 1024, // 20MB
+			},
+		});
+
+		// Create data + attributes that total exactly 10MB
+		const dataSize = 10485750; // 10MB - 10 bytes
+		const data = Buffer.alloc(dataSize);
+
+		const messageId = await publisher.publishMessage({
+			data,
+			attributes: { abc: 'de' }, // 3 + 2 = 5 bytes each, total 10 bytes
+		});
+
+		expect(messageId).toBeDefined();
+		expect(typeof messageId).toBe('string');
+	});
 });

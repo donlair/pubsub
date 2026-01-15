@@ -130,6 +130,14 @@ export class Publisher {
 			: 0;
 		const messageSize = dataSize + attrSize;
 
+		// Validate message size (BR-011)
+		const MAX_MESSAGE_SIZE = 10 * 1024 * 1024; // 10MB
+		if (messageSize > MAX_MESSAGE_SIZE) {
+			throw new InvalidArgumentError(
+				'Message size exceeds maximum of 10MB'
+			);
+		}
+
 		// Acquire flow control capacity
 		await this.flowControl.acquire(messageSize);
 

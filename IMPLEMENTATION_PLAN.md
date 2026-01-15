@@ -9,7 +9,7 @@ This implementation plan reflects a comprehensive analysis of the codebase condu
 
 ✅ **Core Functionality**: 100% complete (Phases 1-8)
 - All 81 core acceptance criteria passing
-- 325 tests passing, 0 failures
+- 329 tests passing, 0 failures
 - Basic pub/sub operations functional
 
 ⚠️ **API Compatibility Issues Found**: Several minor compatibility issues identified
@@ -31,7 +31,7 @@ This implementation plan reflects a comprehensive analysis of the codebase condu
 2. ✅ **Subscription close behavior** - Default 'WAIT' preserves in-flight messages
 3. ✅ **Attribute validation** - Full attribute key/value validation implemented
 
-**Priority Work Items**: 15 total (0 P0, 4 P1, 4 P2, 5 P3)
+**Priority Work Items**: 14 total (0 P0, 3 P1, 4 P2, 5 P3)
 
 See "PRIORITIZED REMAINING WORK" section below for detailed implementation plan.
 
@@ -743,19 +743,11 @@ These issues break API compatibility or cause incorrect behavior.
 
 ---
 
-### P1: HIGH - API Compatibility Issues (4 items)
+### P1: HIGH - API Compatibility Issues (3 items)
 
 These issues affect API compatibility but don't break core functionality.
 
-#### P1-2. Missing 10MB Message Size Validation
-**Status**: MISSING
-**File**: `src/publisher/publisher.ts`
-**Spec Reference**: BR-011
-
-**Required**: Reject messages > 10MB with InvalidArgumentError
-**Fix**: Add size check in `publishMessage()`
-
-#### P1-3. Subscription Caching Ignores Options on Subsequent Calls
+#### P1-1. Subscription Caching Ignores Options on Subsequent Calls
 **Status**: BUG
 **File**: `src/pubsub.ts:145-150`
 **Issue**: When `subscription(name, options)` called twice with different options, second options are ignored
@@ -777,7 +769,7 @@ subscription(name: string, options?: SubscriptionOptions): Subscription {
 
 ---
 
-#### P1-4. Missing Subscription Methods
+#### P1-2. Missing Subscription Methods
 **Status**: MISSING
 **File**: `src/subscription.ts`
 
@@ -791,7 +783,7 @@ subscription(name: string, options?: SubscriptionOptions): Subscription {
 
 ---
 
-#### P1-5. pull() Method is Stub
+#### P1-3. pull() Method is Stub
 **Status**: STUB
 **File**: `src/subscription.ts:278-280`
 **Issue**: Returns empty array instead of pulling messages
@@ -918,6 +910,24 @@ Optional enhancements and known limitations.
 ---
 
 ### Previously Completed Items (Reference)
+
+#### ✅ Missing 10MB Message Size Validation (was P1-2)
+**Status**: COMPLETE
+**Date Completed**: 2026-01-15
+**Files Modified**:
+- `src/publisher/publisher.ts` - Added 10MB message size validation (BR-011)
+- `tests/unit/publisher.test.ts` - Added 4 test cases for message size validation
+
+**What was implemented**:
+- Added validation to reject messages exceeding 10MB (10485760 bytes)
+- Validates total message size (data + attributes)
+- Throws InvalidArgumentError with message "Message size exceeds maximum of 10MB"
+- Validation occurs before flow control acquisition
+- Tests cover: exceeding limit, at exact limit, with attributes exceeding, with attributes at limit
+
+**Spec References**: BR-011 from specs/04-message.md
+**Tests**: All 329 tests passing (4 new tests added)
+**Impact**: Messages exceeding 10MB are now properly rejected before batching, ensuring full API compatibility with Google Pub/Sub
 
 #### ✅ Missing Attribute Validation in Publisher (was P1-1)
 **Status**: COMPLETE
