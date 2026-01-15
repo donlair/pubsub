@@ -147,7 +147,7 @@ export interface CallOptions {
 }
 ```
 
-#### 1.2 `src/types/errors.ts`
+#### 1.2 `src/types/errors.ts` ✅ COMPLETED
 
 ```typescript
 /**
