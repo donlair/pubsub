@@ -3,7 +3,6 @@
  * Reference: specs/03-subscription.md, research/03-subscription-api.md
  */
 
-import type { Duration } from './common';
 import type { SubscriberOptions, SubscriberFlowControlOptions } from './subscriber';
 import type { CallOptions } from './common';
 

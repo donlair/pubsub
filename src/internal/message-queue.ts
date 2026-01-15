@@ -4,7 +4,7 @@
  * Reference: specs/07-message-queue.md
  */
 
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
 import type { InternalMessage, MessageLease } from './types';
 import type { TopicMetadata } from '../types/topic';
 import type { SubscriptionMetadata } from '../types/subscription';
