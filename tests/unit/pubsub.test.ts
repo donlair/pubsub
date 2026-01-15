@@ -155,6 +155,25 @@ describe('PubSub Client', () => {
 			const sub2 = pubsub.subscription('sub-2');
 			expect(sub1).not.toBe(sub2);
 		});
+
+		test('should return same instance when called with different options', () => {
+			const pubsub = new PubSub();
+			const sub1 = pubsub.subscription('my-sub', {
+				flowControl: { maxMessages: 100 }
+			});
+			const sub2 = pubsub.subscription('my-sub', {
+				flowControl: { maxMessages: 500 }
+			});
+			expect(sub1).toBe(sub2);
+		});
+
+		test('should accept options parameter', () => {
+			const pubsub = new PubSub();
+			const sub = pubsub.subscription('my-sub', {
+				flowControl: { maxMessages: 100 }
+			});
+			expect(sub.name).toBe('projects/local-project/subscriptions/my-sub');
+		});
 	});
 
 	describe('AC-008: Get Topics Stream', () => {

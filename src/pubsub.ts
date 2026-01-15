@@ -146,6 +146,8 @@ export class PubSub {
 		const fullName = this.formatSubscriptionName(name);
 		if (!this.subscriptionCache.has(fullName)) {
 			this.subscriptionCache.set(fullName, new Subscription(this, fullName, options));
+		} else if (options) {
+			this.subscriptionCache.get(fullName)!.setOptions(options);
 		}
 		return this.subscriptionCache.get(fullName)!;
 	}

@@ -32,7 +32,7 @@ This implementation plan reflects a comprehensive analysis of the codebase condu
 3. ✅ **Attribute validation** - Full attribute key/value validation implemented
 4. ✅ **pull() Method** - Synchronous message pulling from MessageQueue
 
-**Priority Work Items**: 13 total (0 P0, 2 P1, 4 P2, 5 P3)
+**Priority Work Items**: 12 total (0 P0, 1 P1, 4 P2, 5 P3)
 
 See "PRIORITIZED REMAINING WORK" section below for detailed implementation plan.
 
@@ -744,33 +744,11 @@ These issues break API compatibility or cause incorrect behavior.
 
 ---
 
-### P1: HIGH - API Compatibility Issues (2 items)
+### P1: HIGH - API Compatibility Issues (1 item)
 
 These issues affect API compatibility but don't break core functionality.
 
-#### P1-1. Subscription Caching Ignores Options on Subsequent Calls
-**Status**: BUG
-**File**: `src/pubsub.ts:145-150`
-**Issue**: When `subscription(name, options)` called twice with different options, second options are ignored
-
-**Current Behavior**:
-```typescript
-subscription(name: string, options?: SubscriptionOptions): Subscription {
-  if (this.subscriptionCache.has(name)) {
-    return this.subscriptionCache.get(name)!; // Options ignored!
-  }
-  // ...
-}
-```
-
-**Fix Options**:
-1. Apply new options to cached instance via `setOptions()`
-2. Log warning when options differ
-3. Document behavior
-
----
-
-#### P1-2. Missing Subscription Methods
+#### P1-1. Missing Subscription Methods
 **Status**: MISSING
 **File**: `src/subscription.ts`
 
@@ -781,8 +759,6 @@ subscription(name: string, options?: SubscriptionOptions): Subscription {
 - `modifyAckDeadline(ackIds: string[], deadline: number)` - Batch modify
 
 **Fix**: Add wrapper methods that delegate to MessageStream/MessageQueue
-
-**Note**: This is now the last P1 item (previously P1-2, renumbered after P1-3 completion)
 
 ---
 
@@ -897,6 +873,26 @@ Optional enhancements and known limitations.
 ---
 
 ### Previously Completed Items (Reference)
+
+#### ✅ Subscription Caching Options (was P1-1)
+**Status**: COMPLETE
+**Date Completed**: 2026-01-15
+**Files Modified**:
+- `src/pubsub.ts:145-153` - Modified subscription() to apply new options to cached instances via setOptions()
+- `tests/unit/pubsub.test.ts` - Added 2 new tests for subscription caching behavior
+
+**What was implemented**:
+- subscription() method now applies new options to cached instances when options are provided on subsequent calls
+- Added test to verify same instance is returned when called with different options
+- Added test to verify options parameter is accepted
+- Fixed behavior to match Google Pub/Sub API: cached instances updated with new options instead of ignoring them
+
+**Bug fixes**:
+- Fixed subscription caching to respect options on subsequent calls by calling setOptions() on cached instance
+
+**Spec References**: AC-007 from specs/01-pubsub-client.md
+**Tests**: All 338 tests passing (2 new tests added)
+**Impact**: Subscription options now properly applied even when instance is cached, ensuring consistent behavior with Google Pub/Sub API
 
 #### ✅ pull() Method Implementation (was P1-3)
 **Status**: COMPLETE
