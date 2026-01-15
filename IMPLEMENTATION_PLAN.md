@@ -7,7 +7,7 @@
 | 1 | Type definitions | 100% complete | All types implemented |
 | 2 | Internal infrastructure | 100% complete | All 13 AC passing |
 | 3 | Message class | 100% complete | All 15 AC passing |
-| 4 | Publisher components | Not started | Batching and flow control |
+| 4 | Publisher components | 100% complete | All 11 AC passing |
 | 5 | Subscriber components | Not started | MessageStream, flow control |
 | 6 | Topic class | Not started | Publishing interface |
 | 7 | Subscription class | Not started | EventEmitter for messages |
@@ -219,13 +219,27 @@ Test all 15 acceptance criteria from spec 04-message.md.
 
 ---
 
-## Priority 3: Phase 4 - Publisher Components
+## Priority 3: Phase 4 - Publisher Components ✅
+
+**Status:** 100% Complete
+
+**Completed:** 2026-01-15
+
+**What was completed:**
+- Publisher class with batching and flow control
+- PublisherFlowControl class for concurrent publish limits
+- Time-based, count-based, and size-based batch triggering
+- Message ordering with separate batches per orderingKey
+- Ordering key pause/resume on publish errors
+- Flush functionality for immediate batch publishing
+
+**Tests:** All 11 acceptance criteria from `specs/05-publisher.md` passing
 
 ### Core Components: Publisher, BatchPublisher, FlowControl
 
 **Specification:** `specs/05-publisher.md`
 
-**Acceptance Criteria:** AC-001 to AC-011 (11 criteria)
+**Acceptance Criteria:** AC-001 to AC-011 (11 criteria) ✅
 
 ### Files to Create
 
@@ -743,12 +757,12 @@ class IAM {
 | 02 | Topic | 10 | 6 | Pending |
 | 03 | Subscription | 9 | 7 | Pending |
 | 04 | Message | 15 | 3 | ✅ Complete |
-| 05 | Publisher | 11 | 4 | Pending |
+| 05 | Publisher | 11 | 4 | ✅ Complete |
 | 06 | Subscriber | 10 | 5 | Pending |
 | 07 | MessageQueue | 13 | 2 | ✅ Complete |
 | 08 | Schema | 11 | 10 | Pending |
 | 09 | Ordering | 12 | 10 | Pending |
-| **Total** | | **104** | | **27% Complete (28/104)** |
+| **Total** | | **104** | | **38% Complete (39/104)** |
 
 ### Detailed AC Status
 
@@ -807,18 +821,18 @@ class IAM {
 - [x] AC-014: Response Methods Work Without Exactly-Once
 - [x] AC-015: Attribute Validation
 
-#### Spec 05: Publisher (11 AC)
-- [ ] AC-001: Default Batching Behavior
-- [ ] AC-002: Time-Based Batch Trigger
-- [ ] AC-003: Count-Based Batch Trigger
-- [ ] AC-004: Size-Based Batch Trigger
-- [ ] AC-005: Flush Publishes Immediately
-- [ ] AC-006: Message Ordering Separate Batches
-- [ ] AC-007: Ordering Key Error Pause and Resume
-- [ ] AC-008: Flow Control Max Messages
-- [ ] AC-009: Disable Batching
-- [ ] AC-010: Unique Message IDs
-- [ ] AC-011: Empty Message Batch
+#### Spec 05: Publisher (11 AC) ✅
+- [x] AC-001: Default Batching Behavior
+- [x] AC-002: Time-Based Batch Trigger
+- [x] AC-003: Count-Based Batch Trigger
+- [x] AC-004: Size-Based Batch Trigger
+- [x] AC-005: Flush Publishes Immediately
+- [x] AC-006: Message Ordering Separate Batches
+- [x] AC-007: Ordering Key Error Pause and Resume
+- [x] AC-008: Flow Control Max Messages
+- [x] AC-009: Disable Batching
+- [x] AC-010: Unique Message IDs
+- [x] AC-011: Empty Message Batch
 
 #### Spec 06: Subscriber (10 AC)
 - [ ] AC-001: Basic Streaming Pull
