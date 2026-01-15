@@ -347,10 +347,8 @@ describe('Schema', () => {
 
 			const message = JSON.stringify({ value: 42 });
 
-			await schema.validateMessage(message, Encodings.Json);
-			await schema.validateMessage(message, Encodings.Json);
-
-			expect(true).toBe(true);
+			await expect(schema.validateMessage(message, Encodings.Json)).resolves.toBeUndefined();
+			await expect(schema.validateMessage(message, Encodings.Json)).resolves.toBeUndefined();
 		});
 	});
 

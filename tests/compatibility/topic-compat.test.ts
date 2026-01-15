@@ -173,7 +173,9 @@ describe('Topic API Compatibility', () => {
 
       topic.setPublishOptions(options);
 
-      expect(true).toBe(true);
+      const messageId = await topic.publishMessage({ data: Buffer.from('test') });
+      expect(typeof messageId).toBe('string');
+      expect(messageId.length).toBeGreaterThan(0);
     });
 
     test('getPublishOptionDefaults() returns PublishOptions with defaults', async () => {
@@ -202,7 +204,9 @@ describe('Topic API Compatibility', () => {
         }
       });
 
-      expect(true).toBe(true);
+      const messageId = await topic.publishMessage({ data: Buffer.from('test') });
+      expect(typeof messageId).toBe('string');
+      expect(messageId.length).toBeGreaterThan(0);
     });
 
     test('setPublishOptions() with message ordering', async () => {
@@ -213,7 +217,12 @@ describe('Topic API Compatibility', () => {
         messageOrdering: true
       });
 
-      expect(true).toBe(true);
+      const messageId = await topic.publishMessage({
+        data: Buffer.from('test'),
+        orderingKey: 'user-123'
+      });
+      expect(typeof messageId).toBe('string');
+      expect(messageId.length).toBeGreaterThan(0);
     });
 
     test('setPublishOptions() with flow control options', async () => {
@@ -227,7 +236,9 @@ describe('Topic API Compatibility', () => {
         }
       });
 
-      expect(true).toBe(true);
+      const messageId = await topic.publishMessage({ data: Buffer.from('test') });
+      expect(typeof messageId).toBe('string');
+      expect(messageId.length).toBeGreaterThan(0);
     });
   });
 
@@ -283,7 +294,12 @@ describe('Topic API Compatibility', () => {
       topic.setPublishOptions({ messageOrdering: true });
       topic.resumePublishing('user-123');
 
-      expect(true).toBe(true);
+      const messageId = await topic.publishMessage({
+        data: Buffer.from('test'),
+        orderingKey: 'user-123'
+      });
+      expect(typeof messageId).toBe('string');
+      expect(messageId.length).toBeGreaterThan(0);
     });
   });
 
@@ -708,7 +724,12 @@ describe('Topic API Compatibility', () => {
       topic.setPublishOptions({ messageOrdering: true });
       topic.resumePublishing('user-123');
 
-      expect(true).toBe(true);
+      const messageId = await topic.publishMessage({
+        data: Buffer.from('test'),
+        orderingKey: 'user-123'
+      });
+      expect(typeof messageId).toBe('string');
+      expect(messageId.length).toBeGreaterThan(0);
     });
   });
 });

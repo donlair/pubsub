@@ -260,11 +260,13 @@ describe('Message API Compatibility', () => {
 
 			await topic.publishMessage({ data: Buffer.from('test') });
 			const [messages] = await subscription.pull({ maxMessages: 1 });
-			const message = messages[0];
+			const message = messages[0]!;
 
 			message.modifyAckDeadline(0);
 
-			expect(true).toBe(true);
+			const [redeliveredMessages] = await subscription.pull({ maxMessages: 1 });
+			expect(redeliveredMessages).toHaveLength(1);
+			expect(redeliveredMessages[0]!.id).toBe(message.id);
 		});
 	});
 
@@ -369,13 +371,14 @@ describe('Message API Compatibility', () => {
 
 			await topic.publishMessage({ data: Buffer.from('test') });
 			const [messages] = await subscription.pull({ maxMessages: 1 });
-			const message = messages[0];
+			const message = messages[0]!;
 
 			message.ack();
 			message.ack();
 			message.ack();
 
-			expect(true).toBe(true);
+			const [ackedMessages] = await subscription.pull({ maxMessages: 1 });
+			expect(ackedMessages).toHaveLength(0);
 		});
 
 		test('multiple nack() calls are idempotent (no error)', async () => {
@@ -384,12 +387,14 @@ describe('Message API Compatibility', () => {
 
 			await topic.publishMessage({ data: Buffer.from('test') });
 			const [messages] = await subscription.pull({ maxMessages: 1 });
-			const message = messages[0];
+			const message = messages[0]!;
 
 			message.nack();
 			message.nack();
 
-			expect(true).toBe(true);
+			const [nackedMessages] = await subscription.pull({ maxMessages: 1 });
+			expect(nackedMessages).toHaveLength(1);
+			expect(nackedMessages[0]!.id).toBe(message.id);
 		});
 
 		test('ack after nack has no effect (first operation wins)', async () => {
@@ -398,12 +403,14 @@ describe('Message API Compatibility', () => {
 
 			await topic.publishMessage({ data: Buffer.from('test') });
 			const [messages] = await subscription.pull({ maxMessages: 1 });
-			const message = messages[0];
+			const message = messages[0]!;
 
 			message.nack();
 			message.ack();
 
-			expect(true).toBe(true);
+			const [redeliveredMessages] = await subscription.pull({ maxMessages: 1 });
+			expect(redeliveredMessages).toHaveLength(1);
+			expect(redeliveredMessages[0]!.id).toBe(message.id);
 		});
 
 		test('nack after ack has no effect (first operation wins)', async () => {
@@ -412,12 +419,13 @@ describe('Message API Compatibility', () => {
 
 			await topic.publishMessage({ data: Buffer.from('test') });
 			const [messages] = await subscription.pull({ maxMessages: 1 });
-			const message = messages[0];
+			const message = messages[0]!;
 
 			message.ack();
 			message.nack();
 
-			expect(true).toBe(true);
+			const [ackedMessages] = await subscription.pull({ maxMessages: 1 });
+			expect(ackedMessages).toHaveLength(0);
 		});
 	});
 

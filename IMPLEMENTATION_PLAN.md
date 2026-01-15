@@ -17,15 +17,14 @@ This implementation plan reflects a comprehensive analysis of the codebase condu
 ⚠️ **P2 Issues Found**: 1 medium-priority issue
 - Subscription stub methods (cloud-specific)
 
-⚠️ **P3 Issues Found**: 6 low-priority issues
+⚠️ **P3 Issues Found**: 5 low-priority issues
 - Spec vs implementation AckResponse documentation
 - Type safety issues (circular dependencies)
 - Schema stubs (intentional)
 - Snapshot/IAM stubs (intentional)
 - Publisher missing validation (messageOrdering check)
-- 7 tests with weak assertions
 
-**Priority Work Items**: 7 total (0 P0, 0 P1, 1 P2, 6 P3)
+**Priority Work Items**: 6 total (0 P0, 0 P1, 1 P2, 5 P3)
 
 See "PRIORITIZED REMAINING WORK" section below for detailed implementation plan.
 
@@ -94,7 +93,7 @@ Missing features that don't break existing functionality.
 
 ---
 
-### P3: LOW - Nice to Have (6 items)
+### P3: LOW - Nice to Have (5 items)
 
 Optional enhancements and known limitations.
 
@@ -172,34 +171,42 @@ enum AckResponse {
 
 ---
 
-#### P3-6. Tests with Weak Assertions
-**Status**: IMPROVEMENT OPPORTUNITY
-**Count**: 7 tests
-
-**Issue**: Some tests use `expect(true).toBe(true)` instead of specific assertions.
-
-**Example**:
-```typescript
-// Weak
-test('something works', () => {
-  doSomething();
-  expect(true).toBe(true);
-});
-
-// Better
-test('something works', () => {
-  const result = doSomething();
-  expect(result).toEqual(expectedValue);
-});
-```
-
-**Impact**: Tests pass but could miss regressions. Should be strengthened for better coverage.
-
----
-
 ## Previously Completed Items (Reference)
 
 ### Recent Completions (2026-01-15)
+
+#### ✅ P3-6: Tests with Weak Assertions - COMPLETE
+**Status**: COMPLETE
+**Date Completed**: 2026-01-15
+**Files Modified**:
+- `tests/compatibility/topic-compat.test.ts` - Strengthened 6 weak assertions with actual behavior verification
+- `tests/compatibility/message-compat.test.ts` - Strengthened 5 weak assertions with message state verification
+- `tests/compatibility/subscription-compat.test.ts` - Strengthened 1 weak assertion with subscription state check
+- `tests/unit/schema.test.ts` - Strengthened 1 weak assertion with proper expectation
+
+**What was fixed**:
+All 13 weak assertions that used `expect(true).toBe(true)` have been replaced with specific assertions that verify actual behavior:
+
+1. **Topic tests (6 assertions)**: After calling `setPublishOptions()` or `resumePublishing()`, now verify that publishing actually works by publishing a test message and checking the message ID is returned.
+
+2. **Message tests (5 assertions)**: Verify message state after ack/nack operations by pulling messages again:
+   - `modifyAckDeadline(0)`: Verify message reappears (was nacked)
+   - `multiple ack()`: Verify message gone (was acked)
+   - `multiple nack()`: Verify message reappears (was nacked)
+   - `ack after nack`: Verify nack won (message reappears)
+   - `nack after ack`: Verify ack won (message gone)
+
+3. **Subscription test (1 assertion)**: Verify `subscription.isOpen === false` after close event fires.
+
+4. **Schema test (1 assertion)**: Use `expect().resolves.toBeUndefined()` to verify validation completes successfully on both calls (testing caching).
+
+**Additional Improvements**:
+- Fixed TypeScript errors by adding non-null assertions (`messages[0]!`) in the 5 modified message tests
+- Reduced total TypeScript errors from 61 to 51 (10 error reduction)
+
+**Impact**: Tests now verify actual behavior instead of just checking that methods don't throw. This provides better regression protection and makes test failures more meaningful.
+
+---
 
 #### ✅ P2-3: Missing Compatibility Tests - COMPLETE
 **Status**: COMPLETE
@@ -759,7 +766,6 @@ All advanced MessageQueue features now implemented with proper validation, metri
 3. **P3-3**: Consider implementing AVRO/ProtoBuf validation (requires external libs)
 4. **P3-4**: Snapshot/IAM stubs are intentional - document as such
 5. **P3-5**: Consider adding messageOrdering validation warning
-6. **P3-6**: Strengthen weak test assertions
 
 ---
 

@@ -291,7 +291,7 @@ describe('Subscription API Compatibility', () => {
 			await topic.createSubscription('sub-event-sub-3');
 
 			subscription.on('close', () => {
-				expect(true).toBe(true);
+				expect(subscription.isOpen).toBe(false);
 				done();
 			});
 
