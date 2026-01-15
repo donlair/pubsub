@@ -65,15 +65,14 @@ export interface MessageProperties {
 
 /**
  * Response codes for ack/nack operations.
- * Uses gRPC status codes for compatibility.
  * Reference: specs/04-message.md, research/11-typescript-types.md#ackresponses
  */
 export const AckResponses = {
-  Success: 0,              // gRPC OK
-  Invalid: 3,              // gRPC INVALID_ARGUMENT
-  PermissionDenied: 7,     // gRPC PERMISSION_DENIED
-  FailedPrecondition: 9,   // gRPC FAILED_PRECONDITION
-  Other: 13                // gRPC INTERNAL
+  Success: 'SUCCESS',
+  Invalid: 'INVALID',
+  PermissionDenied: 'PERMISSION_DENIED',
+  FailedPrecondition: 'FAILED_PRECONDITION',
+  Other: 'OTHER'
 } as const;
 
 export type AckResponse = (typeof AckResponses)[keyof typeof AckResponses];

@@ -13,7 +13,6 @@ This implementation plan reflects a comprehensive analysis of the codebase condu
 - Basic pub/sub operations functional
 
 ⚠️ **API Compatibility Issues Found**: Several breaking compatibility issues identified
-- AckResponse enum values incompatible with Google API
 - LeaseManager not integrated (no automatic ack deadline extension)
 - Missing validation for message/attribute sizes
 - Subscription close behavior differs from spec
@@ -28,12 +27,11 @@ This implementation plan reflects a comprehensive analysis of the codebase condu
 - Subscription, Message compatibility tests pending
 
 **Critical Gaps Identified**:
-1. **AckResponse values** - BREAKING: Uses numeric codes instead of string values
-2. **LeaseManager integration** - Messages won't auto-extend ack deadlines
-3. **Subscription close behavior** - Default 'NACK' will lose in-flight messages
-4. **Attribute/message validation** - Missing size limits per spec
+1. **LeaseManager integration** - Messages won't auto-extend ack deadlines
+2. **Subscription close behavior** - Default 'NACK' will lose in-flight messages
+3. **Attribute/message validation** - Missing size limits per spec
 
-**Priority Work Items**: 18 total (4 P0, 5 P1, 4 P2, 5 P3)
+**Priority Work Items**: 17 total (3 P0, 5 P1, 4 P2, 5 P3)
 
 See "PRIORITIZED REMAINING WORK" section below for detailed implementation plan.
 
@@ -737,42 +735,11 @@ This section contains the prioritized list of remaining implementation items bas
 
 ---
 
-### P0: CRITICAL - Must Fix for Production (4 items)
+### P0: CRITICAL - Must Fix for Production (3 items)
 
 These issues break API compatibility or cause incorrect behavior.
 
-#### P0-1. AckResponse Enum Values Incompatible
-**Status**: BLOCKING
-**File**: `src/types/message.ts:71-79`
-**Issue**: AckResponse uses numeric gRPC codes instead of Google's string values
-
-**Current (WRONG)**:
-```typescript
-export const AckResponse = {
-  SUCCESS: 0,           // Should be 'SUCCESS'
-  INVALID: 3,           // Should be 'INVALID'
-  PERMISSION_DENIED: 7, // Should be 'PERMISSION_DENIED'
-  ...
-} as const;
-```
-
-**Required (Google API)**:
-```typescript
-export const AckResponse = {
-  SUCCESS: 'SUCCESS',
-  INVALID: 'INVALID',
-  PERMISSION_DENIED: 'PERMISSION_DENIED',
-  FAILED_PRECONDITION: 'FAILED_PRECONDITION',
-  OTHER: 'OTHER',
-} as const;
-```
-
-**Impact**: Any code checking `response === AckResponse.SUCCESS` will break
-**Fix**: Update enum values to strings, update all usages in message.ts
-
----
-
-#### P0-2. Message.modifyAckDeadline Uses Generic Error
+#### P0-1. Message.modifyAckDeadline Uses Generic Error
 **Status**: BLOCKING
 **File**: `src/message.ts:89`
 **Issue**: Throws generic `Error` instead of `InvalidArgumentError` with gRPC code 3
@@ -792,7 +759,7 @@ throw new InvalidArgumentError('Ack deadline must be between 0 and 600 seconds')
 
 ---
 
-#### P0-3. Subscription Default Close Behavior is 'NACK'
+#### P0-2. Subscription Default Close Behavior is 'NACK'
 **Status**: BLOCKING
 **File**: `src/subscriber/message-stream.ts:84`
 **Issue**: Default `closeMode` is 'NACK' but spec requires 'WAIT'
@@ -812,7 +779,7 @@ private closeMode: 'WAIT' | 'NACK' | 'ACK' = 'WAIT';
 
 ---
 
-#### P0-4. LeaseManager Not Integrated with MessageStream
+#### P0-3. LeaseManager Not Integrated with MessageStream
 **Status**: BLOCKING
 **Files**:
 - `src/subscriber/message-stream.ts` - LeaseManager never instantiated
@@ -1024,6 +991,14 @@ Optional enhancements and known limitations.
 ---
 
 ### Previously Completed Items (Reference)
+
+#### ✅ AckResponse Enum Values (was P0-1)
+**Status**: COMPLETE
+**Completed**: 2026-01-15
+**File Modified**: `src/types/message.ts`
+**What was changed**: Changed AckResponses values from numeric gRPC codes to string values matching Google's API ('SUCCESS', 'INVALID', 'PERMISSION_DENIED', 'FAILED_PRECONDITION', 'OTHER')
+**Tests**: All 315 tests passing
+**Impact**: Restored full API compatibility - code checking `response === AckResponse.SUCCESS` now works correctly
 
 #### ✅ Ordering Key Validation (was P0)
 **Status**: COMPLETE
