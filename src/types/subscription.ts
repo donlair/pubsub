@@ -137,7 +137,7 @@ export interface CloudStorageConfig {
   filenameSuffix?: string;
 
   /** Text output format. */
-  textConfig?: { /* empty */ };
+  textConfig?: Record<string, never>;
 
   /** Avro output format. */
   avroConfig?: { writeMetadata?: boolean };
