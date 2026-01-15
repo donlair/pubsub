@@ -38,7 +38,7 @@ Following the [Ralph Wiggum methodology](https://ghuntley.com/ralph/) for contin
 
 ### 3. Implementation Plan
 
-Implementation follows a 10-phase sequence (see `specs/IMPLEMENTATION_PLAN.md`):
+Implementation follows a 10-phase sequence (see `IMPLEMENTATION_PLAN.md`):
 
 1. **Phase 1**: Type definitions (`src/types/`)
 2. **Phase 2**: Internal infrastructure (`src/internal/message-queue.ts`)
