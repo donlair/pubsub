@@ -9,7 +9,7 @@ This implementation plan reflects a comprehensive analysis of the codebase condu
 
 ✅ **Core Functionality**: 100% complete (Phases 1-8)
 - All 81 core acceptance criteria passing
-- 329 tests passing, 0 failures
+- 336 tests passing, 0 failures
 - Basic pub/sub operations functional
 
 ⚠️ **API Compatibility Issues Found**: Several minor compatibility issues identified
@@ -30,8 +30,9 @@ This implementation plan reflects a comprehensive analysis of the codebase condu
 1. ✅ **LeaseManager integration** - Messages now auto-extend ack deadlines
 2. ✅ **Subscription close behavior** - Default 'WAIT' preserves in-flight messages
 3. ✅ **Attribute validation** - Full attribute key/value validation implemented
+4. ✅ **pull() Method** - Synchronous message pulling from MessageQueue
 
-**Priority Work Items**: 14 total (0 P0, 3 P1, 4 P2, 5 P3)
+**Priority Work Items**: 13 total (0 P0, 2 P1, 4 P2, 5 P3)
 
 See "PRIORITIZED REMAINING WORK" section below for detailed implementation plan.
 
@@ -731,7 +732,7 @@ Test all 13 acceptance criteria from spec 01-pubsub-client.md.
 
 This section contains the prioritized list of remaining implementation items based on comprehensive code analysis conducted 2026-01-15.
 
-**Test Status**: All 315 tests passing, 0 failures
+**Test Status**: All 336 tests passing, 0 failures
 
 ---
 
@@ -743,7 +744,7 @@ These issues break API compatibility or cause incorrect behavior.
 
 ---
 
-### P1: HIGH - API Compatibility Issues (3 items)
+### P1: HIGH - API Compatibility Issues (2 items)
 
 These issues affect API compatibility but don't break core functionality.
 
@@ -781,21 +782,7 @@ subscription(name: string, options?: SubscriptionOptions): Subscription {
 
 **Fix**: Add wrapper methods that delegate to MessageStream/MessageQueue
 
----
-
-#### P1-3. pull() Method is Stub
-**Status**: STUB
-**File**: `src/subscription.ts:278-280`
-**Issue**: Returns empty array instead of pulling messages
-
-**Current**:
-```typescript
-async pull(_options?: PullOptions): Promise<[Message[], unknown]> {
-  return [[], {}];
-}
-```
-
-**Required**: Actually pull messages from MessageQueue using synchronous pull API
+**Note**: This is now the last P1 item (previously P1-2, renumbered after P1-3 completion)
 
 ---
 
@@ -910,6 +897,29 @@ Optional enhancements and known limitations.
 ---
 
 ### Previously Completed Items (Reference)
+
+#### ✅ pull() Method Implementation (was P1-3)
+**Status**: COMPLETE
+**Date Completed**: 2026-01-15
+**Files Modified**:
+- `src/subscription.ts` - Implemented pull() method to pull messages synchronously from MessageQueue
+- `tests/unit/subscription.test.ts` - Added 7 new test cases for pull() functionality
+
+**What was implemented**:
+- pull() method now pulls messages synchronously from MessageQueue
+- Respects maxMessages limit (default 100)
+- Returns tuple [Message[], metadata] matching Google API
+- Throws NotFoundError for non-existent subscriptions
+- Messages can be acked/nacked individually
+- Returns empty array when no messages available
+
+**Bug fixes**:
+- Fixed deliveryAttempt to start at 1 instead of 0 (matching Google API)
+- Fixed ordering key blocking logic for first delivery vs redelivery
+
+**Spec References**: AC-TBD from specs/03-subscription.md
+**Tests**: All 336 tests passing (7 new tests added)
+**Impact**: Synchronous pull API now functional, allowing users to pull messages on-demand instead of streaming, matching Google Pub/Sub API exactly
 
 #### ✅ Missing 10MB Message Size Validation (was P1-2)
 **Status**: COMPLETE
