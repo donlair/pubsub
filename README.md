@@ -2,9 +2,9 @@
 
 A node-compatible implementation of the Google Cloud Pub/Sub API that allows projects to start as fully self-contained monoliths and seamlessly migrate to actual Google Pub/Sub when scale demands it.
 
-## Project Status: 🔬 Research & Planning Phase
+## Project Status: 🚀 Ready for Implementation
 
-Currently defining specifications, API surface, and repository structure. Implementation will follow once the foundation is established.
+Research and specifications are complete. The project has a comprehensive 10-phase implementation plan ready to execute using Test-Driven Development.
 
 ## Project Vision
 
@@ -25,9 +25,9 @@ Following the [Ralph Wiggum methodology](https://ghuntley.com/ralph/) for contin
 
 **Development sequence:**
 1. ✅ **Research Phase** - Comprehensive API research (see `research/` folder)
-2. 🔄 **Specification Phase** - Define specs and repository structure (current)
-3. 📝 **Test Phase** - Write tests that validate API compatibility
-4. 💻 **Implementation Phase** - Implement code to pass tests
+2. ✅ **Specification Phase** - 9 specs with acceptance criteria (see `specs/` folder)
+3. ✅ **Technical Rules** - 8 rule files defining implementation standards
+4. 🔄 **Implementation Phase** - Write tests first, then implement (current)
 5. 🔁 **Refinement Phase** - Ralph Wiggum loop for quality improvement
 
 **TDD Principles:**
@@ -36,16 +36,44 @@ Following the [Ralph Wiggum methodology](https://ghuntley.com/ralph/) for contin
 - Code written to pass tests, not the other way around
 - Continuous refactoring with test safety net
 
-### 3. Specifications & Architecture
+### 3. Implementation Plan
 
-**To Be Determined:**
-- [ ] Repository structure and module organization
-- [ ] Core interfaces and type definitions
-- [ ] Storage backend strategy (in-memory, SQLite, file-based)
-- [ ] Message persistence approach
-- [ ] Subscription management model
-- [ ] Publisher batching and flow control
-- [ ] Testing strategy and framework setup
+Implementation follows a 10-phase sequence (see `specs/IMPLEMENTATION_PLAN.md`):
+
+1. **Phase 1**: Type definitions (`src/types/`)
+2. **Phase 2**: Internal infrastructure (`src/internal/message-queue.ts`)
+3. **Phase 3**: Message class (`src/message.ts`)
+4. **Phase 4**: Publisher components (`src/publisher/`)
+5. **Phase 5**: Subscriber components (`src/subscriber/`)
+6. **Phase 6**: Topic class (`src/topic.ts`)
+7. **Phase 7**: Subscription class (`src/subscription.ts`)
+8. **Phase 8**: PubSub client (`src/pubsub.ts`)
+9. **Phase 9**: Integration tests
+10. **Phase 10**: Advanced features (ordering, schemas)
+
+### 4. Specifications & Architecture
+
+**Completed:**
+- ✅ Repository structure and module organization
+- ✅ Core interfaces and type definitions
+- ✅ Storage backend strategy (in-memory, event-driven)
+- ✅ Message routing and delivery model
+- ✅ Subscription management model
+- ✅ Publisher batching and flow control
+- ✅ Testing strategy with Bun test
+
+**Specifications (in `specs/` folder):**
+| Spec | Component | Description |
+|------|-----------|-------------|
+| 01-pubsub-client.md | PubSub Client | Main entry point, factory for topics/subscriptions |
+| 02-topic.md | Topic | Topic management (17 methods) and publishing |
+| 03-subscription.md | Subscription | Subscription management (14 methods) and streaming |
+| 04-message.md | Message | Message object with ack/nack functionality |
+| 05-publisher.md | Publisher | Publishing with batching and flow control |
+| 06-subscriber.md | Subscriber | Message streaming and flow control |
+| 07-message-queue.md | MessageQueue | Internal message broker and routing |
+| 08-schema.md | Schema | Message schema validation |
+| 09-ordering.md | Ordering | Ordered message delivery |
 
 ## Research Documentation
 
@@ -75,9 +103,9 @@ See `research/` folder for detailed API documentation:
 ## Technology Stack
 
 **Runtime:** [Bun](https://bun.sh) - Fast all-in-one JavaScript runtime
-**Language:** TypeScript with full type safety
+**Language:** TypeScript with strict mode enabled
 **Testing:** `bun test` (built-in test runner)
-**Database:** TBD (likely SQLite via `bun:sqlite`)
+**Architecture:** In-memory, event-driven message broker (no persistence needed for local dev)
 
 ## Getting Started (Development Setup)
 
@@ -125,10 +153,10 @@ const pubsub = new PubSub({ projectId: 'your-project' });
 ## Contributing
 
 This project is in active development. Current focus:
-1. Finalizing specifications
-2. Defining repository structure
-3. Writing comprehensive test suite
-4. Implementing core functionality
+1. Writing tests based on specifications (TDD)
+2. Implementing core components in phased order
+3. Validating API compatibility with Google Pub/Sub
+4. Refining via Ralph Wiggum feedback loops
 
 ## License
 
@@ -136,4 +164,4 @@ TBD
 
 ---
 
-**Current Phase:** Research Complete ✅ | Specs & Structure 🔄 | Tests ⏳ | Implementation ⏳
+**Current Phase:** Research ✅ | Specs ✅ | Rules ✅ | Implementation 🔄

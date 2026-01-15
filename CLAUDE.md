@@ -30,11 +30,6 @@ This project implements a drop-in compatible Pub/Sub library that matches Google
 - ✅ All method behaviors must match official SDK
 - ✅ Reference `research/` documentation for verified API details
 
-**3. Ralph Wiggum Loop**
-- ✅ Use iterative refinement through AI-assisted feedback
-- ✅ Follow methodology described at https://ghuntley.com/ralph/
-- ✅ Continuous improvement through systematic iteration
-
 ## Architecture Overview
 
 **Design**: Event-driven, in-memory message broker with API-compatible facade
@@ -95,79 +90,9 @@ All technical implementation guidelines (the "how" to build):
 - `error-handling.md` - Error codes (gRPC status codes) and error classes
 - `event-driven.md` - EventEmitter patterns for Subscription
 
-## Ralph Wiggum Workflow
 
-### Implementation Prompt (Core Loop)
 
-Use this prompt repeatedly to implement each component:
 
-```
-Study @specs/SPECS.md for functional requirements
-Study @.claude/rules for technical requirements
-Implement what is not implemented
-Create tests FIRST (TDD)
-Run `bun test` and fix failures
-Run `bun build` and fix TypeScript errors
-```
-
-### When Implementation Stalls
-
-If the implementation gets stuck or goes off track:
-
-1. **Start fresh chat session** to clear context
-2. **Use the core loop prompt** again
-3. **Focus on one spec at a time** (e.g., just `specs/04-message.md`)
-4. **Let tests drive implementation** - write test, see it fail, make it pass
-
-### Phased Implementation
-
-Implement in this order (from `specs/SPECS.md`):
-
-1. **Phase 1**: Type definitions (`src/types/`)
-2. **Phase 2**: Internal infrastructure (`src/internal/message-queue.ts`)
-3. **Phase 3**: Message class (`src/message.ts`)
-4. **Phase 4**: Publisher components (`src/publisher/`)
-5. **Phase 5**: Subscriber components (`src/subscriber/`)
-6. **Phase 6**: Topic class (`src/topic.ts`)
-7. **Phase 7**: Subscription class (`src/subscription.ts`)
-8. **Phase 8**: PubSub client (`src/pubsub.ts`)
-9. **Phase 9**: Integration tests
-10. **Phase 10**: Advanced features (ordering, schemas)
-
-## Development Workflow
-
-### Starting a Feature
-
-1. **Read the spec**: `specs/<component>.md`
-2. **Read relevant rules**: `.claude/rules/*.md`
-3. **Write test FIRST** based on acceptance criteria
-4. **Run test** - it should FAIL
-5. **Write minimal implementation** to make test pass
-6. **Refactor** if needed
-7. **Commit** with Conventional Commits format
-
-### Before Committing
-
-```bash
-# TypeScript must compile
-bun run tsc --noEmit
-
-# All tests must pass
-bun test
-
-# Verify you wrote tests FIRST (check git history)
-git log --oneline
-```
-
-### Git Commit Format
-
-```
-<type>(<scope>): <subject>
-
-<body>
-
-Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
-```
 
 Types: `feat`, `fix`, `test`, `refactor`, `docs`, `chore`
 
@@ -237,23 +162,6 @@ test("hello world", () => {
   expect(1).toBe(1);
 });
 ```
-
-## Quick Reference
-
-**Start implementing?** Use this prompt:
-```
-Study @specs/SPECS.md for functional requirements
-Study @.claude/rules for technical requirements
-Implement what is not implemented
-Create tests FIRST (TDD)
-Run `bun test` and fix failures
-Run `bun build` and fix TypeScript errors
-```
-
-**Check compatibility?**
-- Reference: `research/` folder has verified API details
-- Types: Must match `@google-cloud/pubsub` exactly
-- Tests: Write compatibility tests in `tests/compatibility/`
 
 **Verify quality?**
 ```bash
