@@ -81,17 +81,23 @@ export type SubscriberCloseBehavior =
 /**
  * Options for closing a subscriber.
  * Reference: research/11-typescript-types.md#subscribercloseoptions
+ *
+ * Verified against @google-cloud/pubsub source (2026-01-15):
+ * https://github.com/googleapis/nodejs-pubsub/blob/main/src/subscriber.ts
  */
 export interface SubscriberCloseOptions {
   /**
    * Close behavior (NACK or WAIT).
-   * @default 'WAIT' (NEEDS VERIFICATION against @google-cloud/pubsub v5.2.0+)
+   * - NACK: Immediately nack all pending messages (most closely matches old behavior)
+   * - WAIT: Continue normal processing until close to timeout, then nack
+   * @default 'NACK'
    */
   behavior?: SubscriberCloseBehavior;
 
   /**
    * Max time to wait for pending operations.
-   * @default 30 seconds (NEEDS VERIFICATION against @google-cloud/pubsub v5.2.0+)
+   * If not specified, defaults to maxExtensionTime (3600 seconds / 1 hour).
+   * @default maxExtensionTime (3600 seconds)
    */
   timeout?: Duration;
 }
@@ -162,3 +168,10 @@ export const DEFAULT_STREAMING_OPTIONS: Required<MessageStreamOptions> = {
   maxStreams: 5,
   timeout: 300000 // 5 minutes
 };
+
+/**
+ * Default subscriber close options.
+ * Note: timeout uses maxExtensionTime by default (3600 seconds),
+ * so we don't define it here - it's computed at runtime.
+ */
+export const DEFAULT_SUBSCRIBER_CLOSE_BEHAVIOR: SubscriberCloseBehavior = 'NACK';

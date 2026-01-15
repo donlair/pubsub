@@ -25,10 +25,16 @@
 - All default values match Google Cloud Pub/Sub API
 - TypeScript strict mode patterns properly followed
 
-**Outstanding (AC-007):**
-- ⚠️ Two defaults in `subscriber.ts` still require verification against `@google-cloud/pubsub` v5.2.0+:
-  - `SubscriberCloseOptions.behavior` (assumed 'WAIT')
-  - `SubscriberCloseOptions.timeout` (assumed 30 seconds)
+**AC-007 Verification Complete (2026-01-15):**
+- ✅ `SubscriberCloseOptions.behavior` verified: default is `'NACK'` (NackImmediately)
+  - Source: https://github.com/googleapis/nodejs-pubsub/blob/main/src/subscriber.ts
+  - Comment in source: "If no behavior is specified, default to Nack. This most closely matches the old behavior."
+- ✅ `SubscriberCloseOptions.timeout` verified: default uses `maxExtensionTime` (3600 seconds / 1 hour)
+  - No hardcoded default; dynamically set based on maxExtensionTime
+- ✅ Updated `src/types/subscriber.ts` with correct defaults and JSDoc
+- ✅ Added `DEFAULT_SUBSCRIBER_CLOSE_BEHAVIOR` constant
+- ✅ Exported new constant from `src/types/index.ts`
+- ✅ TypeScript compiles without errors
 
 ---
 
@@ -1813,11 +1819,11 @@ export type {
 | | autoRetry | true |
 | | enableOpenTelemetryTracing | false |
 
-**Unverified Defaults (Require Confirmation):**
-- SubscriberCloseOptions.behavior: 'WAIT'
-- SubscriberCloseOptions.timeout: 30 seconds
+**✅ Verified Defaults (2026-01-15):**
+- SubscriberCloseOptions.behavior: 'NACK' (NackImmediately)
+- SubscriberCloseOptions.timeout: maxExtensionTime (3600 seconds / 1 hour)
 
-These defaults need verification against @google-cloud/pubsub v5.2.0+ before Phase 1 completion (see AC-007).
+All defaults have been verified against @google-cloud/pubsub source code.
 
 ---
 
@@ -1981,29 +1987,28 @@ test('encodings match Google SDK', () => {
 // All exported types should use `unknown` instead of `any`
 ```
 
-### AC-007: Verify Unconfirmed Default Values
+### AC-007: Verify Unconfirmed Default Values ✅ COMPLETED
 
-Before Phase 1 completion, verify these defaults against @google-cloud/pubsub v5.2.0+:
+**Verification completed 2026-01-15:**
 
-**Required Actions:**
-1. Install official SDK: `npm install @google-cloud/pubsub@latest`
-2. Create test script or inspect actual behavior
-3. Verify SubscriberCloseOptions.behavior default
-4. Verify SubscriberCloseOptions.timeout default
-5. Update research/07-subscriber-config.md with findings
-6. Remove "NEEDS VERIFICATION" notes from subscriber.ts
+Verified by inspecting official @google-cloud/pubsub source code:
+- Source: https://github.com/googleapis/nodejs-pubsub/blob/main/src/subscriber.ts
 
-**Test Approach:**
-```typescript
-// tests/compatibility/defaults-verification.test.ts
-import { PubSub, Subscription } from '@google-cloud/pubsub';
+**Verified Values:**
 
-test.todo('Verify SubscriberCloseOptions.behavior default is WAIT');
-test.todo('Verify SubscriberCloseOptions.timeout default is 30 seconds');
+| Property | Assumed Value | Actual Value | Notes |
+|----------|---------------|--------------|-------|
+| `SubscriberCloseOptions.behavior` | 'WAIT' | **'NACK'** | "If no behavior is specified, default to Nack. This most closely matches the old behavior." |
+| `SubscriberCloseOptions.timeout` | 30 seconds | **maxExtensionTime** | Dynamically set to maxExtensionTime (3600s by default), not a fixed value |
 
-// Test by inspecting SDK behavior or documentation
-// Update specs once verified
-```
+**Actions Completed:**
+1. ✅ Verified SubscriberCloseOptions.behavior default is 'NACK'
+2. ✅ Verified SubscriberCloseOptions.timeout default uses maxExtensionTime
+3. ✅ Updated src/types/subscriber.ts with correct defaults and JSDoc
+4. ✅ Added DEFAULT_SUBSCRIBER_CLOSE_BEHAVIOR constant
+5. ✅ Exported new constant from src/types/index.ts
+6. ✅ Removed "NEEDS VERIFICATION" notes from subscriber.ts
+7. ✅ TypeScript compiles without errors
 
 ---
 
