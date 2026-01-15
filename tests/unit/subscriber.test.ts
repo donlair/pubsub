@@ -220,6 +220,7 @@ describe('MessageStream', () => {
 	test('AC-002: Flow control maxMessages', async () => {
 		const stream = new MessageStream(subscription, {
 			flowControl: { maxMessages: 2 },
+			closeOptions: { behavior: 'NACK' },
 		});
 		const receivedMessages: Message[] = [];
 
@@ -259,6 +260,7 @@ describe('MessageStream', () => {
 	test('AC-003: Flow control maxBytes', async () => {
 		const stream = new MessageStream(subscription, {
 			flowControl: { maxBytes: 1024 },
+			closeOptions: { behavior: 'NACK' },
 		});
 		const receivedMessages: Message[] = [];
 

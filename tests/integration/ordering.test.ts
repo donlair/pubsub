@@ -41,7 +41,9 @@ describe('Integration: Message Ordering', () => {
 
 			topic.setPublishOptions({ messageOrdering: true });
 
-			const subscription = topic.subscription('ordered-sub');
+			const subscription = topic.subscription('ordered-sub', {
+				closeOptions: { behavior: 'NACK' }
+			});
 			await subscription.create();
 			subscription.setOptions({ enableMessageOrdering: true });
 			subscriptions.push(subscription);
@@ -85,7 +87,9 @@ describe('Integration: Message Ordering', () => {
 
 			topic.setPublishOptions({ messageOrdering: true });
 
-			const subscription = topic.subscription('ordered-sub');
+			const subscription = topic.subscription('ordered-sub', {
+				closeOptions: { behavior: 'NACK' }
+			});
 			await subscription.create();
 			subscription.setOptions({ enableMessageOrdering: true });
 			subscriptions.push(subscription);
@@ -135,7 +139,9 @@ describe('Integration: Message Ordering', () => {
 			topic = pubsub.topic('ordered-events');
 			await topic.create();
 
-			const subscription = topic.subscription('ordered-sub');
+			const subscription = topic.subscription('ordered-sub', {
+				closeOptions: { behavior: 'NACK' }
+			});
 			await subscription.create({
 				enableMessageOrdering: true,
 				ackDeadlineSeconds: 1,
@@ -193,8 +199,12 @@ describe('Integration: Message Ordering', () => {
 			topic = pubsub.topic('ordered-events');
 			await topic.create();
 
-			const sub1 = topic.subscription('sub-1');
-			const sub2 = topic.subscription('sub-2');
+			const sub1 = topic.subscription('sub-1', {
+				closeOptions: { behavior: 'NACK' }
+			});
+			const sub2 = topic.subscription('sub-2', {
+				closeOptions: { behavior: 'NACK' }
+			});
 			await sub1.create({ enableMessageOrdering: true });
 			await sub2.create({ enableMessageOrdering: true });
 			subscriptions.push(sub1, sub2);

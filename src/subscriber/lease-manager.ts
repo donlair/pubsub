@@ -7,7 +7,6 @@
  */
 
 import type { Message } from '../message';
-import { MessageQueue } from '../internal/message-queue';
 import type { Duration } from '../types/common';
 
 interface Lease {
@@ -34,7 +33,6 @@ export class LeaseManager {
 	private readonly maxAckDeadline: number;
 	private readonly maxExtensionTime: number;
 	private leases: Map<string, Lease>;
-	private messageQueue: MessageQueue;
 
 	constructor(options: {
 		minAckDeadline?: Duration;
@@ -45,28 +43,22 @@ export class LeaseManager {
 		this.maxAckDeadline = durationToSeconds(options.maxAckDeadline ?? 600);
 		this.maxExtensionTime = durationToSeconds(options.maxExtensionTime ?? 3600);
 		this.leases = new Map();
-		this.messageQueue = MessageQueue.getInstance();
 	}
 
 	/**
-	 * Add a lease for a message.
+	 * Add a lease for a message and start automatic deadline extension.
 	 */
 	addLease(message: Message): void {
 		const now = Date.now();
-		const deadline = this.minAckDeadline * 1000;
 
 		const lease: Lease = {
 			message,
 			startTime: now,
-			deadline: now + deadline,
+			deadline: now + this.minAckDeadline * 1000,
 		};
 
-		const timer = setTimeout(() => {
-			this.handleLeaseExpiry(message.ackId);
-		}, deadline);
-
-		lease.timer = timer;
 		this.leases.set(message.ackId, lease);
+		this.scheduleExtension(message.ackId);
 	}
 
 	/**
@@ -81,7 +73,7 @@ export class LeaseManager {
 	}
 
 	/**
-	 * Extend a lease deadline.
+	 * Manually extend a lease deadline (called by user code via message.modifyAckDeadline).
 	 */
 	extendDeadline(ackId: string, seconds: number): void {
 		const lease = this.leases.get(ackId);
@@ -108,25 +100,65 @@ export class LeaseManager {
 		);
 
 		lease.deadline = now + extensionSeconds * 1000;
-
-		const timer = setTimeout(() => {
-			this.handleLeaseExpiry(ackId);
-		}, extensionSeconds * 1000);
-
-		lease.timer = timer;
+		this.scheduleExtension(ackId);
 	}
 
 	/**
-	 * Handle lease expiry - nack the message for redelivery.
+	 * Schedule automatic deadline extension for a lease.
+	 * Extends the deadline periodically until message is acked or max extension time is reached.
 	 */
-	private handleLeaseExpiry(ackId: string): void {
+	private scheduleExtension(ackId: string): void {
 		const lease = this.leases.get(ackId);
 		if (!lease) {
 			return;
 		}
 
-		this.removeLease(ackId);
-		this.messageQueue.nack(ackId);
+		const now = Date.now();
+		const elapsed = (now - lease.startTime) / 1000;
+
+		if (elapsed >= this.maxExtensionTime) {
+			this.removeLease(ackId);
+			return;
+		}
+
+		const extensionInterval = Math.min(
+			this.minAckDeadline * 0.8,
+			5
+		) * 1000;
+
+		const timer = setTimeout(() => {
+			this.performExtension(ackId);
+		}, extensionInterval);
+
+		lease.timer = timer;
+	}
+
+	/**
+	 * Perform automatic deadline extension and schedule next extension.
+	 */
+	private performExtension(ackId: string): void {
+		const lease = this.leases.get(ackId);
+		if (!lease) {
+			return;
+		}
+
+		const now = Date.now();
+		const elapsed = (now - lease.startTime) / 1000;
+
+		if (elapsed >= this.maxExtensionTime) {
+			this.removeLease(ackId);
+			return;
+		}
+
+		const extensionSeconds = Math.min(
+			this.maxAckDeadline,
+			this.maxExtensionTime - elapsed
+		);
+
+		lease.message.modifyAckDeadline(extensionSeconds);
+		lease.deadline = now + extensionSeconds * 1000;
+
+		this.scheduleExtension(ackId);
 	}
 
 	/**

@@ -12,6 +12,7 @@ import type { InternalMessage } from '../internal/types';
 import { MessageQueue } from '../internal/message-queue';
 import { Message } from '../message';
 import { SubscriberFlowControl } from './flow-control';
+import { LeaseManager } from './lease-manager';
 import { NotFoundError } from '../types/errors';
 
 interface ISubscription extends EventEmitter {
@@ -26,6 +27,7 @@ export class MessageStream {
 	private subscription: ISubscription;
 	private options: SubscriberOptions;
 	private flowControl: SubscriberFlowControl;
+	private leaseManager: LeaseManager;
 	private messageQueue: MessageQueue;
 	private isRunning = false;
 	private isPaused = false;
@@ -39,6 +41,11 @@ export class MessageStream {
 		this.subscription = subscription;
 		this.options = options;
 		this.flowControl = new SubscriberFlowControl(options.flowControl);
+		this.leaseManager = new LeaseManager({
+			minAckDeadline: options.minAckDeadline,
+			maxAckDeadline: options.maxAckDeadline,
+			maxExtensionTime: options.maxExtensionTime,
+		});
 		this.messageQueue = MessageQueue.getInstance();
 	}
 
@@ -81,7 +88,7 @@ export class MessageStream {
 		}
 
 		const closeBehavior =
-			this.options.closeOptions?.behavior ?? 'NACK';
+			this.options.closeOptions?.behavior ?? 'WAIT';
 
 		if (closeBehavior === 'NACK') {
 			for (const message of this.inFlightMessages.values()) {
@@ -96,6 +103,7 @@ export class MessageStream {
 			await this.waitForInFlight();
 		}
 
+		this.leaseManager.clear();
 		this.inFlightMessages.clear();
 		this.orderingQueues.clear();
 		this.processingOrderingKeys.clear();
@@ -126,6 +134,11 @@ export class MessageStream {
 	setOptions(options: SubscriberOptions): void {
 		this.options = { ...this.options, ...options };
 		this.flowControl = new SubscriberFlowControl(options.flowControl);
+		this.leaseManager = new LeaseManager({
+			minAckDeadline: options.minAckDeadline ?? this.options.minAckDeadline,
+			maxAckDeadline: options.maxAckDeadline ?? this.options.maxAckDeadline,
+			maxExtensionTime: options.maxExtensionTime ?? this.options.maxExtensionTime,
+		});
 	}
 
 	/**
@@ -291,6 +304,7 @@ export class MessageStream {
 	private deliverMessage(message: Message): void {
 		this.flowControl.addMessage(message.length);
 		this.inFlightMessages.set(message.ackId, message);
+		this.leaseManager.addLease(message);
 
 		const originalAck = message.ack.bind(message);
 		const originalNack = message.nack.bind(message);
@@ -314,6 +328,7 @@ export class MessageStream {
 	 * Handle message completion (ack/nack).
 	 */
 	private handleMessageComplete(message: Message): void {
+		this.leaseManager.removeLease(message.ackId);
 		this.flowControl.removeMessage(message.length);
 		this.inFlightMessages.delete(message.ackId);
 

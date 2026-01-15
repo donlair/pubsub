@@ -78,6 +78,9 @@ test('AC-002: Flow Control Max Messages', async () => {
 	const subscription = topic.subscription('my-sub', {
 		flowControl: {
 			maxMessages: 2
+		},
+		closeOptions: {
+			behavior: 'NACK'
 		}
 	});
 	await subscription.create();
@@ -115,7 +118,10 @@ test('AC-003: Ack Deadline Redelivery', async () => {
 	await topic.create();
 
 	const subscription = topic.subscription('my-sub', {
-		ackDeadlineSeconds: 1
+		ackDeadlineSeconds: 1,
+		closeOptions: {
+			behavior: 'NACK'
+		}
 	});
 	await subscription.create();
 
@@ -149,7 +155,10 @@ test('AC-004: Message Ordering', async () => {
 	});
 
 	const subscription = topic.subscription('my-sub', {
-		enableMessageOrdering: true
+		enableMessageOrdering: true,
+		closeOptions: {
+			behavior: 'NACK'
+		}
 	});
 	await subscription.create();
 

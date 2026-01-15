@@ -731,11 +731,11 @@ Test all 13 acceptance criteria from spec 01-pubsub-client.md.
 
 This section contains the prioritized list of remaining implementation items based on comprehensive code analysis conducted 2026-01-15.
 
-**Test Status**: 315 tests passing, 0 failures
+**Test Status**: All 315 tests passing, 0 failures
 
 ---
 
-### P0: CRITICAL - Must Fix for Production (3 items)
+### P0: CRITICAL - Must Fix for Production (1 item)
 
 These issues break API compatibility or cause incorrect behavior.
 
@@ -756,47 +756,6 @@ throw new InvalidArgumentError('Ack deadline must be between 0 and 600 seconds')
 
 **Impact**: Error handling based on error codes will fail
 **Fix**: Import and use InvalidArgumentError
-
----
-
-#### P0-2. Subscription Default Close Behavior is 'NACK'
-**Status**: BLOCKING
-**File**: `src/subscriber/message-stream.ts:84`
-**Issue**: Default `closeMode` is 'NACK' but spec requires 'WAIT'
-
-**Current (WRONG)**:
-```typescript
-private closeMode: 'WAIT' | 'NACK' | 'ACK' = 'NACK';
-```
-
-**Required**:
-```typescript
-private closeMode: 'WAIT' | 'NACK' | 'ACK' = 'WAIT';
-```
-
-**Impact**: In-flight messages will be nacked and lost on close instead of waiting for completion
-**Fix**: Change default value to 'WAIT'
-
----
-
-#### P0-3. LeaseManager Not Integrated with MessageStream
-**Status**: BLOCKING
-**Files**:
-- `src/subscriber/message-stream.ts` - LeaseManager never instantiated
-- `src/subscriber/lease-manager.ts` - Exists but unused
-
-**Issue**: LeaseManager class exists but is never created or used. Messages do not get automatic ack deadline extensions.
-
-**Impact**:
-- Long-running message processing will timeout
-- Messages will be redelivered unexpectedly
-- Exactly-once semantics broken
-
-**Fix Required**:
-1. Instantiate LeaseManager in MessageStream constructor
-2. Call `leaseManager.addLease(message)` when message delivered
-3. Call `leaseManager.removeLease(ackId)` on ack/nack
-4. Ensure LeaseManager timer extends deadlines automatically
 
 ---
 
@@ -991,6 +950,35 @@ Optional enhancements and known limitations.
 ---
 
 ### Previously Completed Items (Reference)
+
+#### ✅ LeaseManager Integration (was P0-3)
+**Status**: COMPLETE
+**Completed**: 2026-01-15
+**Files Modified**:
+- `src/subscriber/message-stream.ts` - Integrated LeaseManager into MessageStream
+- `src/subscriber/lease-manager.ts` - Fixed auto-extend behavior
+**What was changed**:
+- Instantiated LeaseManager in MessageStream constructor
+- Added lease tracking on message delivery (`addLease`)
+- Added lease removal on message completion (`removeLease`)
+- Added lease cleanup on stop (`clear`)
+- Fixed LeaseManager to auto-extend deadlines instead of nacking messages
+- LeaseManager now schedules periodic deadline extensions before expiry
+**Tests**: All 315 tests passing
+**Impact**: Messages now get automatic ack deadline extensions, preventing unexpected redelivery during long processing
+
+#### ✅ Subscription Default Close Behavior (was P0-2)
+**Status**: COMPLETE
+**Completed**: 2026-01-15
+**Files Modified**:
+- `src/subscriber/message-stream.ts:91` - Changed default from 'NACK' to 'WAIT'
+- `src/types/subscriber.ts` - Updated type definition default
+- `src/subscriber/message-stream.ts:35` - Updated DEFAULT_SUBSCRIBER_CLOSE_BEHAVIOR constant to 'WAIT'
+**What was changed**:
+- Fixed default close behavior from 'NACK' to 'WAIT' per spec
+- Updated failing tests by adding `closeOptions` to tests that don't ack all messages before closing
+**Tests**: All 315 tests passing
+**Impact**: In-flight messages now wait for completion on close instead of being lost
 
 #### ✅ AckResponse Enum Values (was P0-1)
 **Status**: COMPLETE

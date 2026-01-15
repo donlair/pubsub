@@ -90,7 +90,7 @@ export interface SubscriberCloseOptions {
    * Close behavior (NACK or WAIT).
    * - NACK: Immediately nack all pending messages (most closely matches old behavior)
    * - WAIT: Continue normal processing until close to timeout, then nack
-   * @default 'NACK'
+   * @default 'WAIT'
    */
   behavior?: SubscriberCloseBehavior;
 
@@ -174,4 +174,4 @@ export const DEFAULT_STREAMING_OPTIONS: Required<MessageStreamOptions> = {
  * Note: timeout uses maxExtensionTime by default (3600 seconds),
  * so we don't define it here - it's computed at runtime.
  */
-export const DEFAULT_SUBSCRIBER_CLOSE_BEHAVIOR: SubscriberCloseBehavior = 'NACK';
+export const DEFAULT_SUBSCRIBER_CLOSE_BEHAVIOR: SubscriberCloseBehavior = 'WAIT';
