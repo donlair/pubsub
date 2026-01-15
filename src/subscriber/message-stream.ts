@@ -8,6 +8,7 @@
 
 import type { EventEmitter } from 'node:events';
 import type { SubscriberOptions } from '../types/subscriber';
+import type { SubscriptionMetadata } from '../types/subscription';
 import type { InternalMessage } from '../internal/types';
 import { MessageQueue } from '../internal/message-queue';
 import { Message } from '../message';
@@ -18,9 +19,7 @@ import { NotFoundError } from '../types/errors';
 interface ISubscription extends EventEmitter {
 	name: string;
 	isOpen: boolean;
-	metadata?: {
-		enableMessageOrdering?: boolean;
-	};
+	metadata?: SubscriptionMetadata;
 }
 
 export class MessageStream {
@@ -45,6 +44,7 @@ export class MessageStream {
 			minAckDeadline: options.minAckDeadline,
 			maxAckDeadline: options.maxAckDeadline,
 			maxExtensionTime: options.maxExtensionTime,
+			ackDeadlineSeconds: subscription.metadata?.ackDeadlineSeconds ?? 10,
 		});
 		this.messageQueue = MessageQueue.getInstance();
 	}
@@ -138,6 +138,7 @@ export class MessageStream {
 			minAckDeadline: options.minAckDeadline ?? this.options.minAckDeadline,
 			maxAckDeadline: options.maxAckDeadline ?? this.options.maxAckDeadline,
 			maxExtensionTime: options.maxExtensionTime ?? this.options.maxExtensionTime,
+			ackDeadlineSeconds: this.subscription.metadata?.ackDeadlineSeconds ?? 10,
 		});
 	}
 
