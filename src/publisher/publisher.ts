@@ -48,7 +48,45 @@ export class Publisher {
 	}
 
 	/**
-	 * Publish data with optional attributes and ordering key.
+	 * Publishes a message with the given data to the topic.
+	 *
+	 * This is a convenience method that wraps the data, attributes, and ordering key
+	 * into a PubsubMessage and calls publishMessage(). Messages are batched according
+	 * to the publisher's batching configuration and published when batch limits are reached.
+	 *
+	 * @param data - The message payload as a Buffer
+	 * @param attributes - Optional key-value pairs for message metadata
+	 * @param orderingKey - Optional key for ordered message delivery (requires messageOrdering: true)
+	 * @returns Promise resolving to the published message ID
+	 *
+	 * @throws {InvalidArgumentError} Code 3 - If data is not a Buffer
+	 * @throws {InvalidArgumentError} Code 3 - If ordering key is empty or exceeds 1024 bytes
+	 * @throws {InvalidArgumentError} Code 3 - If attribute key is empty, exceeds 256 bytes, or uses reserved prefix (goog*, googclient_*)
+	 * @throws {InvalidArgumentError} Code 3 - If attribute value exceeds 1024 bytes
+	 * @throws {InvalidArgumentError} Code 3 - If message size exceeds 10MB
+	 * @throws {InvalidArgumentError} Code 3 - If ordering key is paused due to previous error
+	 * @throws {ResourceExhaustedError} Code 8 - If flow control limits exceeded (blocks until capacity available)
+	 *
+	 * @example
+	 * ```typescript
+	 * const publisher = new Publisher('projects/my-project/topics/my-topic');
+	 *
+	 * // Simple publish
+	 * const messageId = await publisher.publish(Buffer.from('Hello World'));
+	 *
+	 * // With attributes
+	 * const messageId2 = await publisher.publish(
+	 *   Buffer.from('Hello'),
+	 *   { userId: '123', event: 'login' }
+	 * );
+	 *
+	 * // With ordering key
+	 * const messageId3 = await publisher.publish(
+	 *   Buffer.from('Order step 1'),
+	 *   { orderId: '456' },
+	 *   'order-456'
+	 * );
+	 * ```
 	 */
 	async publish(
 		data: Buffer,
@@ -59,7 +97,52 @@ export class Publisher {
 	}
 
 	/**
-	 * Publish a complete message object.
+	 * Publishes a complete PubsubMessage object to the topic.
+	 *
+	 * This method provides full control over the message structure and performs
+	 * comprehensive validation on all message fields. Messages are batched and
+	 * published according to batching configuration (maxMessages, maxBytes, maxMilliseconds).
+	 * When message ordering is enabled, messages with the same orderingKey are delivered
+	 * sequentially, while different keys are processed concurrently.
+	 *
+	 * @param message - The complete message object to publish
+	 * @returns Promise resolving to the published message ID
+	 *
+	 * @throws {InvalidArgumentError} Code 3 - If message.data is not a Buffer
+	 * @throws {InvalidArgumentError} Code 3 - If orderingKey is empty string
+	 * @throws {InvalidArgumentError} Code 3 - If orderingKey exceeds 1024 bytes
+	 * @throws {InvalidArgumentError} Code 3 - If attribute key is empty string
+	 * @throws {InvalidArgumentError} Code 3 - If attribute key exceeds 256 bytes
+	 * @throws {InvalidArgumentError} Code 3 - If attribute key uses reserved prefix (goog*, googclient_*)
+	 * @throws {InvalidArgumentError} Code 3 - If attribute value exceeds 1024 bytes
+	 * @throws {InvalidArgumentError} Code 3 - If total message size exceeds 10MB
+	 * @throws {InvalidArgumentError} Code 3 - If orderingKey is paused due to previous publish error
+	 * @throws {ResourceExhaustedError} Code 8 - If flow control limits exceeded (blocks until capacity available)
+	 *
+	 * @example
+	 * ```typescript
+	 * const publisher = new Publisher('projects/my-project/topics/my-topic', {
+	 *   batching: {
+	 *     maxMessages: 100,
+	 *     maxBytes: 1024 * 1024,
+	 *     maxMilliseconds: 10
+	 *   },
+	 *   messageOrdering: true
+	 * });
+	 *
+	 * // Publish complete message
+	 * const messageId = await publisher.publishMessage({
+	 *   data: Buffer.from('Order created'),
+	 *   attributes: { orderId: '123', status: 'pending' },
+	 *   orderingKey: 'order-123'
+	 * });
+	 *
+	 * // Messages with same orderingKey are delivered in order
+	 * await publisher.publishMessage({
+	 *   data: Buffer.from('Order updated'),
+	 *   orderingKey: 'order-123'
+	 * });
+	 * ```
 	 */
 	async publishMessage(message: PubsubMessage): Promise<string> {
 		// Validate message
@@ -169,7 +252,38 @@ export class Publisher {
 	}
 
 	/**
-	 * Flush all pending batches immediately.
+	 * Immediately publishes all pending batched messages.
+	 *
+	 * This method forces immediate publication of all messages currently waiting
+	 * in batches, bypassing the normal batching triggers (maxMessages, maxBytes,
+	 * maxMilliseconds). Useful for ensuring all messages are sent before shutdown
+	 * or at critical synchronization points.
+	 *
+	 * The method waits for all batches to complete publishing before resolving.
+	 * Individual message promises will still resolve/reject based on publish success.
+	 *
+	 * @returns Promise that resolves when all batches have been published
+	 *
+	 * @example
+	 * ```typescript
+	 * const publisher = new Publisher('projects/my-project/topics/my-topic', {
+	 *   batching: { maxMessages: 100, maxMilliseconds: 1000 }
+	 * });
+	 *
+	 * // Publish several messages (batched)
+	 * await publisher.publish(Buffer.from('Message 1'));
+	 * await publisher.publish(Buffer.from('Message 2'));
+	 * await publisher.publish(Buffer.from('Message 3'));
+	 *
+	 * // Force immediate publish of all pending messages
+	 * await publisher.flush();
+	 *
+	 * // Common pattern: flush before shutdown
+	 * process.on('SIGTERM', async () => {
+	 *   await publisher.flush();
+	 *   process.exit(0);
+	 * });
+	 * ```
 	 */
 	async flush(): Promise<void> {
 		const publishPromises: Promise<void>[] = [];
@@ -200,7 +314,42 @@ export class Publisher {
 	}
 
 	/**
-	 * Set publish options dynamically.
+	 * Updates the publisher's configuration at runtime.
+	 *
+	 * This method allows dynamic reconfiguration of batching settings, message ordering,
+	 * and flow control options without creating a new Publisher instance. Changes take
+	 * effect immediately for new messages; in-flight batches use their original configuration.
+	 *
+	 * Note: Changing messageOrdering or flowControlOptions replaces the entire configuration,
+	 * while batching options are merged with existing values.
+	 *
+	 * @param options - Partial publish options to update
+	 *
+	 * @example
+	 * ```typescript
+	 * const publisher = new Publisher('projects/my-project/topics/my-topic');
+	 *
+	 * // Increase batch size for high-throughput scenario
+	 * publisher.setPublishOptions({
+	 *   batching: {
+	 *     maxMessages: 500,
+	 *     maxBytes: 5 * 1024 * 1024
+	 *   }
+	 * });
+	 *
+	 * // Enable message ordering
+	 * publisher.setPublishOptions({
+	 *   messageOrdering: true
+	 * });
+	 *
+	 * // Adjust flow control limits
+	 * publisher.setPublishOptions({
+	 *   flowControlOptions: {
+	 *     maxOutstandingMessages: 5000,
+	 *     maxOutstandingBytes: 50 * 1024 * 1024
+	 *   }
+	 * });
+	 * ```
 	 */
 	setPublishOptions(options: PublishOptions): void {
 		if (options.batching) {
@@ -219,7 +368,42 @@ export class Publisher {
 	}
 
 	/**
-	 * Resume publishing for a paused ordering key.
+	 * Resumes publishing for a previously paused ordering key.
+	 *
+	 * When a publish error occurs for a message with an orderingKey, that key is
+	 * automatically paused to maintain ordering guarantees. This method clears the
+	 * pause state and allows new messages with this orderingKey to be published again.
+	 *
+	 * Note: Any messages queued before the pause are discarded. Only new messages
+	 * published after calling resumePublishing() will be sent.
+	 *
+	 * @param orderingKey - The ordering key to resume
+	 *
+	 * @example
+	 * ```typescript
+	 * const publisher = new Publisher('projects/my-project/topics/my-topic', {
+	 *   messageOrdering: true
+	 * });
+	 *
+	 * try {
+	 *   await publisher.publishMessage({
+	 *     data: Buffer.from('Message 1'),
+	 *     orderingKey: 'order-123'
+	 *   });
+	 * } catch (error) {
+	 *   // Ordering key 'order-123' is now paused
+	 *   console.error('Publish failed, key paused:', error);
+	 *
+	 *   // Resume after handling the error
+	 *   publisher.resumePublishing('order-123');
+	 *
+	 *   // Can now publish new messages with this key
+	 *   await publisher.publishMessage({
+	 *     data: Buffer.from('Message 2'),
+	 *     orderingKey: 'order-123'
+	 *   });
+	 * }
+	 * ```
 	 */
 	resumePublishing(orderingKey: string): void {
 		this.pausedOrderingKeys.delete(orderingKey);
