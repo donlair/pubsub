@@ -50,7 +50,35 @@ export class MessageStream {
 	}
 
 	/**
-	 * Start streaming pull.
+	 * Starts the streaming pull operation for this subscription.
+	 *
+	 * Begins continuously pulling messages from the MessageQueue at 10ms intervals
+	 * and emitting them to the subscription via 'message' events. Messages are subject
+	 * to flow control limits and ordering guarantees. If the subscription does not exist
+	 * in the MessageQueue, emits a NotFoundError via the 'error' event.
+	 *
+	 * This method is idempotent - calling start() multiple times has no effect if
+	 * already running.
+	 *
+	 * @throws {NotFoundError} Code 5 - Emitted via 'error' event if subscription not found in MessageQueue
+	 *
+	 * @example
+	 * ```typescript
+	 * const subscription = pubsub.subscription('my-subscription');
+	 *
+	 * // Start receiving messages
+	 * subscription.on('message', (message) => {
+	 *   console.log('Received:', message.data.toString());
+	 *   message.ack();
+	 * });
+	 *
+	 * subscription.on('error', (error) => {
+	 *   console.error('Subscription error:', error);
+	 * });
+	 *
+	 * // This starts the internal MessageStream
+	 * // (typically called automatically by subscription.open())
+	 * ```
 	 */
 	start(): void {
 		if (this.isRunning) {
@@ -73,7 +101,49 @@ export class MessageStream {
 	}
 
 	/**
-	 * Stop streaming pull and cleanup.
+	 * Stops the streaming pull operation and performs cleanup.
+	 *
+	 * Halts message pulling and handles in-flight messages according to the configured
+	 * close behavior (WAIT or NACK). When using WAIT behavior (default), waits up to 30
+	 * seconds for all in-flight messages to be ack'd or nack'd before cleaning up. When
+	 * using NACK behavior, immediately nacks all in-flight and pending messages.
+	 *
+	 * After cleanup completes, emits a 'close' event to signal the subscription has
+	 * fully shut down. This method is idempotent - calling stop() when not running
+	 * has no effect.
+	 *
+	 * @returns Promise that resolves when cleanup is complete and 'close' event is emitted
+	 *
+	 * @example
+	 * ```typescript
+	 * const subscription = pubsub.subscription('my-subscription', {
+	 *   closeOptions: { behavior: 'WAIT' } // Wait for in-flight messages (default)
+	 * });
+	 *
+	 * subscription.on('message', (message) => {
+	 *   // Process message
+	 *   message.ack();
+	 * });
+	 *
+	 * subscription.on('close', () => {
+	 *   console.log('Subscription closed');
+	 * });
+	 *
+	 * // Later: stop receiving messages
+	 * await subscription.close(); // Internally calls messageStream.stop()
+	 * ```
+	 *
+	 * @example
+	 * ```typescript
+	 * // NACK behavior: immediately nack all in-flight messages
+	 * const subscription = pubsub.subscription('my-subscription', {
+	 *   closeOptions: { behavior: 'NACK' }
+	 * });
+	 *
+	 * // ... use subscription ...
+	 *
+	 * await subscription.close(); // Nacks all in-flight messages immediately
+	 * ```
 	 */
 	async stop(): Promise<void> {
 		if (!this.isRunning) {
@@ -123,21 +193,130 @@ export class MessageStream {
 	}
 
 	/**
-	 * Pause message flow.
+	 * Pauses the message flow without stopping the stream.
+	 *
+	 * Temporarily halts pulling new messages from the MessageQueue while keeping
+	 * the stream running. In-flight messages continue to be processed and can still
+	 * be ack'd or nack'd. Flow control counters are maintained. This is useful for
+	 * temporarily throttling message delivery during high load or maintenance.
+	 *
+	 * Call resume() to restart message flow. Unlike stop(), pause() does not emit
+	 * any events and does not clean up resources.
+	 *
+	 * @example
+	 * ```typescript
+	 * const subscription = pubsub.subscription('my-subscription');
+	 *
+	 * subscription.on('message', async (message) => {
+	 *   // Pause during slow processing
+	 *   subscription.pause();
+	 *
+	 *   await processMessage(message);
+	 *   message.ack();
+	 *
+	 *   // Resume when ready
+	 *   subscription.resume();
+	 * });
+	 * ```
+	 *
+	 * @example
+	 * ```typescript
+	 * // Pause during system maintenance
+	 * subscription.pause();
+	 * await performMaintenance();
+	 * subscription.resume();
+	 * ```
 	 */
 	pause(): void {
 		this.isPaused = true;
 	}
 
 	/**
-	 * Resume message flow.
+	 * Resumes message flow after a pause().
+	 *
+	 * Restarts pulling messages from the MessageQueue that was halted by pause().
+	 * Message delivery resumes immediately on the next pull interval (10ms). This
+	 * method has no effect if the stream is not currently paused.
+	 *
+	 * @example
+	 * ```typescript
+	 * const subscription = pubsub.subscription('my-subscription');
+	 *
+	 * subscription.on('message', async (message) => {
+	 *   subscription.pause(); // Stop receiving more messages
+	 *
+	 *   await processMessage(message);
+	 *   message.ack();
+	 *
+	 *   subscription.resume(); // Continue receiving messages
+	 * });
+	 * ```
+	 *
+	 * @example
+	 * ```typescript
+	 * // Throttle message processing during high load
+	 * let processing = 0;
+	 * const MAX_CONCURRENT = 10;
+	 *
+	 * subscription.on('message', async (message) => {
+	 *   if (processing >= MAX_CONCURRENT) {
+	 *     subscription.pause();
+	 *   }
+	 *
+	 *   processing++;
+	 *   await processMessage(message);
+	 *   message.ack();
+	 *   processing--;
+	 *
+	 *   if (processing < MAX_CONCURRENT) {
+	 *     subscription.resume();
+	 *   }
+	 * });
+	 * ```
 	 */
 	resume(): void {
 		this.isPaused = false;
 	}
 
 	/**
-	 * Update subscriber options.
+	 * Updates subscriber options dynamically while the stream is running.
+	 *
+	 * Merges the provided options with existing configuration and recreates the
+	 * flow control and lease manager with the new settings. This allows adjusting
+	 * flow control limits (maxMessages, maxBytes), ack deadline parameters
+	 * (minAckDeadline, maxAckDeadline, maxExtensionTime), and other subscriber
+	 * options without restarting the stream.
+	 *
+	 * Changes take effect immediately for new messages and lease management, but
+	 * do not affect messages already in-flight.
+	 *
+	 * @param options - Partial subscriber options to update (merged with existing options)
+	 *
+	 * @example
+	 * ```typescript
+	 * const subscription = pubsub.subscription('my-subscription');
+	 *
+	 * // Start with default flow control
+	 * subscription.open();
+	 *
+	 * // Later: increase flow control limits during high throughput period
+	 * subscription.setOptions({
+	 *   flowControl: {
+	 *     maxMessages: 2000,  // Up from default 1000
+	 *     maxBytes: 200 * 1024 * 1024  // Up from default 100MB
+	 *   }
+	 * });
+	 * ```
+	 *
+	 * @example
+	 * ```typescript
+	 * // Adjust ack deadline parameters for slower processing
+	 * subscription.setOptions({
+	 *   minAckDeadline: 30,  // 30 seconds minimum
+	 *   maxAckDeadline: 300, // 5 minutes maximum
+	 *   maxExtensionTime: 3600 // 1 hour max total extension
+	 * });
+	 * ```
 	 */
 	setOptions(options: SubscriberOptions): void {
 		this.options = { ...this.options, ...options };
