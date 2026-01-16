@@ -1,6 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import { PubSub } from '../../src/pubsub';
-import { Topic } from '../../src/topic';
 import { Subscription } from '../../src/subscription';
 import { Message } from '../../src/message';
 import type { SubscriptionMetadata, SubscriptionOptions } from '../../src/types';
@@ -72,7 +71,6 @@ describe('Subscription API Compatibility', () => {
 	describe('Lifecycle Methods with Tuples', () => {
 		test('create() returns [Subscription, SubscriptionMetadata] tuple', async () => {
 			const [topic] = await pubsub.createTopic('sub-lifecycle-topic-1');
-			const newSub = pubsub.subscription('sub-create-tuple-sub');
 			const result = await topic.createSubscription('sub-create-tuple-sub');
 
 			expect(Array.isArray(result)).toBe(true);

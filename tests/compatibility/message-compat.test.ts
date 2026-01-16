@@ -1,7 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import { PubSub } from '../../src/pubsub';
-import { Topic } from '../../src/topic';
-import { Subscription } from '../../src/subscription';
 import { Message } from '../../src/message';
 import { AckResponses } from '../../src/types/message';
 import type { PreciseDate } from '../../src/types';
@@ -24,7 +22,7 @@ describe('Message API Compatibility', () => {
 
 			await topic.publishMessage({ data: Buffer.from('test') });
 			const [messages] = await subscription.pull({ maxMessages: 1 });
-			const message = messages[0];
+			const message = messages[0]!;
 
 			expect(typeof message.id).toBe('string');
 			expect(message.id.length).toBeGreaterThan(0);
@@ -36,7 +34,7 @@ describe('Message API Compatibility', () => {
 
 			await topic.publishMessage({ data: Buffer.from('test') });
 			const [messages] = await subscription.pull({ maxMessages: 1 });
-			const message = messages[0];
+			const message = messages[0]!;
 
 			expect(typeof message.ackId).toBe('string');
 			expect(message.ackId.length).toBeGreaterThan(0);
@@ -49,7 +47,7 @@ describe('Message API Compatibility', () => {
 			const testData = Buffer.from('test data');
 			await topic.publishMessage({ data: testData });
 			const [messages] = await subscription.pull({ maxMessages: 1 });
-			const message = messages[0];
+			const message = messages[0]!;
 
 			expect(message.data).toBeInstanceOf(Buffer);
 			expect(message.data.toString()).toBe('test data');
@@ -64,7 +62,7 @@ describe('Message API Compatibility', () => {
 				attributes: { key1: 'value1', key2: 'value2' },
 			});
 			const [messages] = await subscription.pull({ maxMessages: 1 });
-			const message = messages[0];
+			const message = messages[0]!;
 
 			expect(typeof message.attributes).toBe('object');
 			expect(message.attributes.key1).toBe('value1');
@@ -80,7 +78,7 @@ describe('Message API Compatibility', () => {
 				attributes: { key: 'value' },
 			});
 			const [messages] = await subscription.pull({ maxMessages: 1 });
-			const message = messages[0];
+			const message = messages[0]!;
 
 			expect(() => {
 				(message.attributes as Record<string, string>).newKey = 'newValue';
@@ -93,7 +91,7 @@ describe('Message API Compatibility', () => {
 
 			await topic.publishMessage({ data: Buffer.from('test') });
 			const [messages] = await subscription.pull({ maxMessages: 1 });
-			const message = messages[0];
+			const message = messages[0]!;
 
 			expect(message.publishTime).toBeInstanceOf(Date);
 			expect(typeof message.publishTime.getTime).toBe('function');
@@ -105,7 +103,7 @@ describe('Message API Compatibility', () => {
 
 			await topic.publishMessage({ data: Buffer.from('test') });
 			const [messages] = await subscription.pull({ maxMessages: 1 });
-			const message = messages[0];
+			const message = messages[0]!;
 
 			expect(typeof message.received).toBe('number');
 			expect(message.received).toBeGreaterThan(0);
@@ -118,17 +116,14 @@ describe('Message API Compatibility', () => {
 			const testData = Buffer.from('Hello World');
 			await topic.publishMessage({ data: testData });
 			const [messages] = await subscription.pull({ maxMessages: 1 });
-			const message = messages[0];
+			const message = messages[0]!;
 
 			expect(message.length).toBe(testData.length);
 			expect(message.length).toBe(11);
 		});
 
 		test('has orderingKey property when ordering enabled', async () => {
-			const orderingTopic = pubsub.topic('ordering-topic', {
-				messageOrdering: true,
-			});
-			await orderingTopic.create();
+			const [orderingTopic] = await pubsub.createTopic('ordering-topic');
 
 			const [orderingSub] = await orderingTopic.createSubscription('ordering-sub', {
 				enableMessageOrdering: true,
@@ -140,7 +135,7 @@ describe('Message API Compatibility', () => {
 			});
 
 			const [messages] = await orderingSub.pull({ maxMessages: 1 });
-			const message = messages[0];
+			const message = messages[0]!;
 
 			expect(message.orderingKey).toBe('key1');
 			expect(typeof message.orderingKey).toBe('string');
@@ -152,7 +147,7 @@ describe('Message API Compatibility', () => {
 
 			await topic.publishMessage({ data: Buffer.from('test') });
 			const [messages] = await subscription.pull({ maxMessages: 1 });
-			const message = messages[0];
+			const message = messages[0]!;
 
 			expect(message.orderingKey).toBeUndefined();
 		});
@@ -163,7 +158,7 @@ describe('Message API Compatibility', () => {
 
 			await topic.publishMessage({ data: Buffer.from('test') });
 			const [messages] = await subscription.pull({ maxMessages: 1 });
-			const message = messages[0];
+			const message = messages[0]!;
 
 			expect(
 				message.deliveryAttempt === undefined ||
@@ -179,7 +174,7 @@ describe('Message API Compatibility', () => {
 
 			await topic.publishMessage({ data: Buffer.from('test') });
 			const [messages] = await subscription.pull({ maxMessages: 1 });
-			const message = messages[0];
+			const message = messages[0]!;
 
 			const result = message.ack();
 
@@ -192,7 +187,7 @@ describe('Message API Compatibility', () => {
 
 			await topic.publishMessage({ data: Buffer.from('test') });
 			const [messages] = await subscription.pull({ maxMessages: 1 });
-			const message = messages[0];
+			const message = messages[0]!;
 
 			const result = message.nack();
 
@@ -205,7 +200,7 @@ describe('Message API Compatibility', () => {
 
 			await topic.publishMessage({ data: Buffer.from('test') });
 			const [messages] = await subscription.pull({ maxMessages: 1 });
-			const message = messages[0];
+			const message = messages[0]!;
 
 			const result = message.modifyAckDeadline(30);
 
@@ -218,7 +213,7 @@ describe('Message API Compatibility', () => {
 
 			await topic.publishMessage({ data: Buffer.from('test') });
 			const [messages] = await subscription.pull({ maxMessages: 1 });
-			const message = messages[0];
+			const message = messages[0]!;
 
 			const result = message.modAck(30);
 
@@ -229,12 +224,14 @@ describe('Message API Compatibility', () => {
 			const [topic] = await pubsub.createTopic('sync-topic-5');
 			const [subscription] = await topic.createSubscription('sync-sub-5');
 
-			await topic.publishMessage({ data: Buffer.from('test') });
-			const [messages] = await subscription.pull({ maxMessages: 1 });
-			const message = messages[0];
+			await topic.publishMessage({ data: Buffer.from('test1') });
+			await topic.publishMessage({ data: Buffer.from('test2') });
+			const [messages] = await subscription.pull({ maxMessages: 2 });
+			const message1 = messages[0]!;
+			const message2 = messages[1]!;
 
-			expect(() => message.modifyAckDeadline(0)).not.toThrow();
-			expect(() => message.modifyAckDeadline(600)).not.toThrow();
+			expect(() => message1.modifyAckDeadline(0)).not.toThrow();
+			expect(() => message2.modifyAckDeadline(600)).not.toThrow();
 		});
 
 		test('modifyAckDeadline() throws InvalidArgumentError with code 3 for invalid deadline', async () => {
@@ -243,7 +240,7 @@ describe('Message API Compatibility', () => {
 
 			await topic.publishMessage({ data: Buffer.from('test') });
 			const [messages] = await subscription.pull({ maxMessages: 1 });
-			const message = messages[0];
+			const message = messages[0]!;
 
 			try {
 				message.modifyAckDeadline(601);
@@ -277,7 +274,7 @@ describe('Message API Compatibility', () => {
 
 			await topic.publishMessage({ data: Buffer.from('test') });
 			const [messages] = await subscription.pull({ maxMessages: 1 });
-			const message = messages[0];
+			const message = messages[0]!;
 
 			const response = await message.ackWithResponse();
 
@@ -291,7 +288,7 @@ describe('Message API Compatibility', () => {
 
 			await topic.publishMessage({ data: Buffer.from('test') });
 			const [messages] = await subscription.pull({ maxMessages: 1 });
-			const message = messages[0];
+			const message = messages[0]!;
 
 			const response = await message.nackWithResponse();
 
@@ -305,7 +302,7 @@ describe('Message API Compatibility', () => {
 
 			await topic.publishMessage({ data: Buffer.from('test') });
 			const [messages] = await subscription.pull({ maxMessages: 1 });
-			const message = messages[0];
+			const message = messages[0]!;
 
 			const response = await message.modAckWithResponse(30);
 
@@ -341,7 +338,7 @@ describe('Message API Compatibility', () => {
 
 			await topic.publishMessage({ data: Buffer.from('test') });
 			const [messages] = await subscription.pull({ maxMessages: 1 });
-			const message = messages[0];
+			const message = messages[0]!;
 
 			await message.ackWithResponse();
 			const secondResponse = await message.ackWithResponse();
@@ -355,7 +352,7 @@ describe('Message API Compatibility', () => {
 
 			await topic.publishMessage({ data: Buffer.from('test') });
 			const [messages] = await subscription.pull({ maxMessages: 1 });
-			const message = messages[0];
+			const message = messages[0]!;
 
 			await message.nackWithResponse();
 			const secondResponse = await message.nackWithResponse();
@@ -436,7 +433,7 @@ describe('Message API Compatibility', () => {
 
 			await topic.publishMessage({ data: Buffer.from('test') });
 			const [messages] = await subscription.pull({ maxMessages: 1 });
-			const message: Message = messages[0];
+			const message: Message = messages[0]!;
 
 			expect(message).toBeInstanceOf(Message);
 		});
@@ -447,7 +444,7 @@ describe('Message API Compatibility', () => {
 
 			await topic.publishMessage({ data: Buffer.from('test') });
 			const [messages] = await subscription.pull({ maxMessages: 1 });
-			const message = messages[0];
+			const message = messages[0]!;
 
 			const data: Buffer = message.data;
 			expect(data).toBeInstanceOf(Buffer);
@@ -462,7 +459,7 @@ describe('Message API Compatibility', () => {
 				attributes: { key: 'value' },
 			});
 			const [messages] = await subscription.pull({ maxMessages: 1 });
-			const message = messages[0];
+			const message = messages[0]!;
 
 			const attributes: Readonly<Record<string, string>> = message.attributes;
 			expect(typeof attributes).toBe('object');
@@ -474,7 +471,7 @@ describe('Message API Compatibility', () => {
 
 			await topic.publishMessage({ data: Buffer.from('test') });
 			const [messages] = await subscription.pull({ maxMessages: 1 });
-			const message = messages[0];
+			const message = messages[0]!;
 
 			const publishTime: PreciseDate = message.publishTime;
 			expect(typeof publishTime.getTime).toBe('function');
@@ -489,7 +486,7 @@ describe('Message API Compatibility', () => {
 
 			await topic.publishMessage({ data: Buffer.from('test') });
 			const [messages] = await subscription.pull({ maxMessages: 1 });
-			const message = messages[0];
+			const message = messages[0]!;
 
 			expect(typeof message.publishTime.getTime).toBe('function');
 			expect(typeof message.publishTime.toISOString).toBe('function');
@@ -501,7 +498,7 @@ describe('Message API Compatibility', () => {
 
 			await topic.publishMessage({ data: Buffer.from('test') });
 			const [messages] = await subscription.pull({ maxMessages: 1 });
-			const message = messages[0];
+			const message = messages[0]!;
 
 			expect(typeof message.publishTime.getFullTimeString).toBe('function');
 			const timeString = message.publishTime.getFullTimeString();
@@ -516,7 +513,7 @@ describe('Message API Compatibility', () => {
 
 			await topic.publishMessage({ data: Buffer.alloc(0) });
 			const [messages] = await subscription.pull({ maxMessages: 1 });
-			const message = messages[0];
+			const message = messages[0]!;
 
 			expect(message.data).toBeInstanceOf(Buffer);
 			expect(message.data.length).toBe(0);
@@ -529,7 +526,7 @@ describe('Message API Compatibility', () => {
 
 			await topic.publishMessage({ data: Buffer.from('test') });
 			const [messages] = await subscription.pull({ maxMessages: 1 });
-			const message = messages[0];
+			const message = messages[0]!;
 
 			expect(typeof message.attributes).toBe('object');
 			expect(Object.keys(message.attributes).length).toBeGreaterThanOrEqual(0);
@@ -541,7 +538,7 @@ describe('Message API Compatibility', () => {
 
 			await topic.publishMessage({ data: Buffer.from('test'), attributes: {} });
 			const [messages] = await subscription.pull({ maxMessages: 1 });
-			const message = messages[0];
+			const message = messages[0]!;
 
 			expect(typeof message.attributes).toBe('object');
 		});
@@ -554,7 +551,7 @@ describe('Message API Compatibility', () => {
 
 			await topic.publishMessage({ data: Buffer.from('test') });
 			const [messages] = await subscription.pull({ maxMessages: 1 });
-			const message = messages[0];
+			const message = messages[0]!;
 
 			expect(() => {
 				(message as unknown as { id: string }).id = 'new-id';
@@ -567,7 +564,7 @@ describe('Message API Compatibility', () => {
 
 			await topic.publishMessage({ data: Buffer.from('test') });
 			const [messages] = await subscription.pull({ maxMessages: 1 });
-			const message = messages[0];
+			const message = messages[0]!;
 
 			expect(() => {
 				(message as unknown as { ackId: string }).ackId = 'new-ack-id';
@@ -580,7 +577,7 @@ describe('Message API Compatibility', () => {
 
 			await topic.publishMessage({ data: Buffer.from('test') });
 			const [messages] = await subscription.pull({ maxMessages: 1 });
-			const message = messages[0];
+			const message = messages[0]!;
 
 			expect(() => {
 				(message as unknown as { data: Buffer }).data = Buffer.from('new data');
@@ -593,7 +590,7 @@ describe('Message API Compatibility', () => {
 
 			await topic.publishMessage({ data: Buffer.from('test') });
 			const [messages] = await subscription.pull({ maxMessages: 1 });
-			const message = messages[0];
+			const message = messages[0]!;
 
 			expect(() => {
 				(message as unknown as { publishTime: Date }).publishTime = new Date();

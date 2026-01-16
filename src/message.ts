@@ -24,15 +24,15 @@ interface ISubscription {
  * Message class represents a received Pub/Sub message.
  */
 export class Message implements MessageProperties {
-	readonly id: string;
-	readonly ackId: string;
-	readonly data: Buffer;
-	readonly attributes: Readonly<Attributes>;
-	readonly publishTime: PreciseDate;
-	readonly received: number;
+	readonly id!: string;
+	readonly ackId!: string;
+	readonly data!: Buffer;
+	readonly attributes!: Readonly<Attributes>;
+	readonly publishTime!: PreciseDate;
+	readonly received!: number;
 	readonly orderingKey?: string;
 	readonly deliveryAttempt?: number;
-	readonly length: number;
+	readonly length!: number;
 
 	private _acked = false;
 
@@ -46,15 +46,65 @@ export class Message implements MessageProperties {
 		orderingKey?: string,
 		deliveryAttempt?: number,
 	) {
-		this.id = id;
-		this.ackId = ackId;
-		this.data = data;
-		this.attributes = Object.freeze({ ...attributes });
-		this.publishTime = publishTime;
-		this.received = Date.now();
-		this.orderingKey = orderingKey;
-		this.deliveryAttempt = deliveryAttempt;
-		this.length = data.length;
+		Object.defineProperty(this, 'id', {
+			value: id,
+			writable: false,
+			enumerable: true,
+			configurable: false,
+		});
+		Object.defineProperty(this, 'ackId', {
+			value: ackId,
+			writable: false,
+			enumerable: true,
+			configurable: false,
+		});
+		Object.defineProperty(this, 'data', {
+			value: data,
+			writable: false,
+			enumerable: true,
+			configurable: false,
+		});
+		Object.defineProperty(this, 'attributes', {
+			value: Object.freeze({ ...attributes }),
+			writable: false,
+			enumerable: true,
+			configurable: false,
+		});
+		Object.defineProperty(this, 'publishTime', {
+			value: publishTime,
+			writable: false,
+			enumerable: true,
+			configurable: false,
+		});
+		Object.defineProperty(this, 'received', {
+			value: Date.now(),
+			writable: false,
+			enumerable: true,
+			configurable: false,
+		});
+		Object.defineProperty(this, 'length', {
+			value: data.length,
+			writable: false,
+			enumerable: true,
+			configurable: false,
+		});
+
+		if (orderingKey !== undefined) {
+			Object.defineProperty(this, 'orderingKey', {
+				value: orderingKey,
+				writable: false,
+				enumerable: true,
+				configurable: false,
+			});
+		}
+		if (deliveryAttempt !== undefined) {
+			Object.defineProperty(this, 'deliveryAttempt', {
+				value: deliveryAttempt,
+				writable: false,
+				enumerable: true,
+				configurable: false,
+			});
+		}
 	}
 
 	/**

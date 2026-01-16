@@ -108,6 +108,15 @@ export interface SubscriberCloseOptions {
  */
 export interface SubscriberOptions {
   /**
+   * Acknowledgment deadline in seconds.
+   * Time a message has before being redelivered if not acknowledged.
+   * Range: 10-600 seconds (10 seconds to 10 minutes).
+   * This is distinct from minAckDeadline/maxAckDeadline which set bounds for automatic extension.
+   * @default 10
+   */
+  ackDeadline?: number;
+
+  /**
    * Minimum ack deadline in seconds.
    * @default 10
    */

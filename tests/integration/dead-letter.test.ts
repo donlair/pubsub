@@ -281,7 +281,6 @@ describe('Integration: Dead Letter Queue', () => {
 		subscription.open();
 		dlqSubscription.open();
 
-		const originalPublishTime = new Date();
 		await topic.publishMessage({
 			data: Buffer.from('Metadata test'),
 			attributes: { key: 'value', type: 'test' },
