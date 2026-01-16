@@ -12,11 +12,11 @@ Conducted comprehensive analysis using 20 parallel Sonnet agents to compare impl
 - 486 unit/integration tests passing (100%)
 - Basic pub/sub operations fully functional
 
-⚠️ **Issues Found**: 10 total (0 P1, 0 P2, 9 P3)
+⚠️ **Issues Found**: 9 total (0 P1, 0 P2, 8 P3)
 - 0 MEDIUM priority items remaining
-- 9 LOW priority: Documentation, stubs, edge cases
+- 8 LOW priority: Documentation, stubs, edge cases
 
-**Priority Work Items**: 10 total (0 P1, 0 P2, 9 P3)
+**Priority Work Items**: 9 total (0 P1, 0 P2, 8 P3)
 
 See "PRIORITIZED REMAINING WORK" section below for detailed implementation plan.
 
@@ -48,7 +48,7 @@ See "PRIORITIZED REMAINING WORK" section below for detailed implementation plan.
 
 ## PRIORITIZED REMAINING WORK
 
-### P3: LOW - Documentation & Nice-to-Have (9 items)
+### P3: LOW - Documentation & Nice-to-Have (8 items)
 
 Optional enhancements, documentation gaps, and intentional limitations.
 
@@ -85,30 +85,7 @@ Optional enhancements, documentation gaps, and intentional limitations.
 
 ---
 
-#### P3-2. Generic Error Usage in Publisher
-**Status**: CODE QUALITY ISSUE
-**File**: `/Users/donlair/Projects/libraries/pubsub/src/publisher/publisher.ts:361`
-**Priority**: LOW - Minor rule violation
-
-**Issue**: Uses generic `Error` class instead of `InternalError`.
-
-**Current**:
-```typescript
-const err = error instanceof Error ? error : new Error(String(error));
-```
-
-**Should be**:
-```typescript
-const err = error instanceof Error ? error : new InternalError(`Batch publish failed: ${String(error)}`, error as Error);
-```
-
-**Rule Violation**: "Never use generic Error class" (from error-handling.md)
-
-**Action Required**: Replace generic Error with InternalError
-
----
-
-#### P3-3. Missing Public Method Documentation
+#### P3-2. Missing Public Method Documentation
 **Status**: DOCUMENTATION GAP
 **Files**: Multiple implementation files
 **Priority**: LOW - Developer experience
@@ -130,7 +107,7 @@ const err = error instanceof Error ? error : new InternalError(`Batch publish fa
 
 ---
 
-#### P3-4. Spec vs Implementation: AckResponse Values
+#### P3-3. Spec vs Implementation: AckResponse Values
 **Status**: DOCUMENTATION MISMATCH
 **File**: Spec documentation
 **Priority**: LOW - Spec correction needed
@@ -152,7 +129,7 @@ enum AckResponse {
 
 ---
 
-#### P3-5. Type Safety: Circular Dependencies
+#### P3-4. Type Safety: Circular Dependencies
 **Status**: KNOWN LIMITATION
 **Files**: `/Users/donlair/Projects/libraries/pubsub/src/topic.ts`, `/Users/donlair/Projects/libraries/pubsub/src/subscription.ts`
 **Priority**: LOW - Works at runtime
@@ -170,7 +147,7 @@ enum AckResponse {
 
 ---
 
-#### P3-6. Schema Stubs (Intentional)
+#### P3-5. Schema Stubs (Intentional)
 **Status**: INTENTIONALLY STUBBED
 **File**: `/Users/donlair/Projects/libraries/pubsub/src/schema.ts`
 **Priority**: LOW - Future enhancement
@@ -185,7 +162,7 @@ enum AckResponse {
 
 ---
 
-#### P3-7. Snapshot/IAM API Signature Mismatches
+#### P3-6. Snapshot/IAM API Signature Mismatches
 **Status**: STUB API COMPATIBILITY ISSUES
 **Files**: `/Users/donlair/Projects/libraries/pubsub/src/snapshot.ts`, `/Users/donlair/Projects/libraries/pubsub/src/iam.ts`
 **Priority**: LOW - Cloud-only stubs
@@ -208,7 +185,7 @@ enum AckResponse {
 
 ---
 
-#### P3-8. Publisher Missing messageOrdering Validation
+#### P3-7. Publisher Missing messageOrdering Validation
 **Status**: VALIDATION GAP
 **File**: `/Users/donlair/Projects/libraries/pubsub/src/publisher/publisher.ts`
 **Priority**: LOW - Matches Google's behavior
@@ -223,7 +200,7 @@ enum AckResponse {
 
 ---
 
-#### P3-9. Missing Integration Test Coverage
+#### P3-8. Missing Integration Test Coverage
 **Status**: TEST COVERAGE GAPS
 **Files**: `tests/integration/` directory
 **Priority**: LOW - Future test expansion
@@ -247,6 +224,26 @@ enum AckResponse {
 ## Previously Completed Items (Reference)
 
 ### Recent Completions (2026-01-15)
+
+#### ✅ P3-2: Generic Error Usage in Publisher - COMPLETE
+**Status**: COMPLETE
+**Date Completed**: 2026-01-15
+**File Modified**: `/Users/donlair/Projects/libraries/pubsub/src/publisher/publisher.ts`
+
+**What was completed**: Replaced generic Error class with InternalError in batch publish error handling (line 361)
+
+**Implementation Details**:
+- Added InternalError import from '../errors/index.js'
+- Updated error creation from `new Error(String(error))` to `new InternalError(\`Batch publish failed: ${String(error)}\`, error as Error)`
+- Ensures all errors use gRPC status codes as required by error-handling.md rule
+
+**Test Results**:
+- All 486 tests passing (100%)
+- No test changes required (error handling already covered by existing tests)
+
+**Impact**: Resolves rule violation from error-handling.md - "Never use generic Error class"
+
+---
 
 #### ✅ P2-4: Topic.publishJSON() Missing orderingKey Support - COMPLETE
 **Status**: COMPLETE
@@ -478,14 +475,13 @@ Added comprehensive JSDoc documentation to three cloud-specific stub methods:
 
 ### Future (P3) - Documentation & Enhancements
 1. **P3-1**: Add @throws JSDoc to all public methods
-2. **P3-2**: Replace generic Error with InternalError in Publisher
-3. **P3-3**: Add JSDoc to ~60 public methods
-4. **P3-4**: Update spec for AckResponse values
-5. **P3-5**: Consider fixing circular dependency types
-6. **P3-6**: Document AVRO/ProtoBuf as intentional limitation
-7. **P3-7**: Fix Snapshot/IAM API signatures (Phase 10)
-8. **P3-8**: Consider messageOrdering validation
-9. **P3-9**: Add integration tests for advanced features
+2. **P3-2**: Add JSDoc to ~60 public methods
+3. **P3-3**: Update spec for AckResponse values
+4. **P3-4**: Consider fixing circular dependency types
+5. **P3-5**: Document AVRO/ProtoBuf as intentional limitation
+6. **P3-6**: Fix Snapshot/IAM API signatures (Phase 10)
+7. **P3-7**: Consider messageOrdering validation
+8. **P3-8**: Add integration tests for advanced features
 
 ---
 
@@ -548,6 +544,7 @@ bun test --watch
 
 | Date | Version | Author | Changes |
 |------|---------|--------|---------|
+| 2026-01-15 | 3.3 | Claude | P3-2 completed - Generic Error replaced with InternalError in Publisher, 8 issues remaining (0 P1, 0 P2, 8 P3) |
 | 2026-01-15 | 3.2 | Claude | P2-4 completed - publishJSON orderingKey support added, 10 issues remaining (0 P1, 0 P2, 9 P3) - All P2 work complete! |
 | 2026-01-15 | 3.1 | Claude | P2-3 completed - Message properties now runtime-readonly, 15 issues remaining (1 P1, 5 P2, 9 P3) |
 | 2026-01-15 | 3.0 | Claude | Deep analysis with 20 parallel agents - 16 issues identified (1 P1, 6 P2, 9 P3) |
