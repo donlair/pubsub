@@ -55,9 +55,24 @@ test("hello world", () => {
 });
 ```
 
-**Verify quality?**
+## Verification
+
+**IMPORTANT: Run `bun run verify` after making changes to ensure correctness.**
+
 ```bash
-bun run tsc --noEmit  # TypeScript compiles
-bun test              # All tests pass
-git log --oneline     # Tests written before implementation
+bun run verify        # Runs typecheck + lint + tests (use this!)
 ```
+
+Individual checks if needed:
+```bash
+bun run typecheck     # TypeScript type checking
+bun run lint          # Biome linting
+bun run lint:fix      # Auto-fix lint issues
+bun test              # Run tests
+```
+
+## Code style
+#### Rule: Comments
+- **No inline comments** - NO inline comments. NO comments inside functions unless absolutely necessary for clarity.
+- **JSDoc for public APIs** - When it adds value, not for obvious methods
+- **Explain why, not what** - Comment reasoning, not mechanics

@@ -65,13 +65,13 @@ export interface MessageProperties {
 
 /**
  * Response codes for ack/nack operations.
- * Reference: research/11-typescript-types.md#ackresponses
+ * Reference: specs/04-message.md, research/11-typescript-types.md#ackresponses
  */
 export const AckResponses = {
   Success: 'SUCCESS',
+  Invalid: 'INVALID',
   PermissionDenied: 'PERMISSION_DENIED',
   FailedPrecondition: 'FAILED_PRECONDITION',
-  Invalid: 'INVALID',
   Other: 'OTHER'
 } as const;
 

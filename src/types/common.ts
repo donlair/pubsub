@@ -103,3 +103,20 @@ export interface CallOptions {
   /** Maximum results. */
   maxResults?: number;
 }
+
+/**
+ * Pagination options for list operations.
+ * Reference: specs/01-pubsub-client.md
+ */
+export interface PageOptions {
+  /** gRPC call options. */
+  gaxOpts?: CallOptions;
+  /** Enable auto-pagination. */
+  autoPaginate?: boolean;
+  /** Maximum results per page. */
+  maxResults?: number;
+  /** Page token for next page. */
+  pageToken?: string;
+  /** Page size. */
+  pageSize?: number;
+}

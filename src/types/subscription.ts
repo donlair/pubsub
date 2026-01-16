@@ -3,7 +3,6 @@
  * Reference: specs/03-subscription.md, research/03-subscription-api.md
  */
 
-import type { Duration } from './common';
 import type { SubscriberOptions, SubscriberFlowControlOptions } from './subscriber';
 import type { CallOptions } from './common';
 
@@ -138,7 +137,7 @@ export interface CloudStorageConfig {
   filenameSuffix?: string;
 
   /** Text output format. */
-  textConfig?: { /* empty */ };
+  textConfig?: Record<string, never>;
 
   /** Avro output format. */
   avroConfig?: { writeMetadata?: boolean };
@@ -237,6 +236,12 @@ export interface CreateSubscriptionOptions extends SubscriptionMetadata {
 export interface SubscriptionOptions extends SubscriberOptions {
   /** Associated topic reference. */
   topic?: unknown; // Topic type (avoid circular dependency)
+
+  /** Ack deadline in seconds (10-600). */
+  ackDeadlineSeconds?: number;
+
+  /** Enable message ordering for this subscription. */
+  enableMessageOrdering?: boolean;
 }
 
 /**
@@ -254,6 +259,9 @@ export interface GetSubscriptionOptions {
  * Options for listing subscriptions.
  */
 export interface GetSubscriptionsOptions {
+  /** Filter by topic. */
+  topic?: string | unknown;
+
   /** Page size. */
   pageSize?: number;
 
@@ -305,6 +313,19 @@ export interface CreateSnapshotOptions {
   /** Labels. */
   labels?: Record<string, string>;
 
+  /** gRPC call options. */
+  gaxOpts?: CallOptions;
+}
+
+/**
+ * Options for pull() method to fetch messages.
+ * Reference: specs/03-subscription.md
+ */
+export interface PullOptions {
+  /** Maximum messages to pull. */
+  maxMessages?: number;
+  /** Return immediately if no messages (deprecated, always false). */
+  returnImmediately?: boolean;
   /** gRPC call options. */
   gaxOpts?: CallOptions;
 }

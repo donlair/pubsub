@@ -139,7 +139,7 @@ interface SubscriptionMetadata {
 **And** make available for immediate re-pull
 
 ### BR-008: Ack Deadline Expiry
-**Given** a message is in-flight with ack deadline (10-600 seconds, default 60)
+**Given** a message is in-flight with ack deadline (10-600 seconds, default 10)
 **When** deadline expires without ack or nack
 **Then** automatically return message to queue
 **And** increment deliveryAttempt counter

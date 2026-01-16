@@ -10,7 +10,8 @@ import type { CallOptions } from './common';
  */
 export const SchemaTypes = {
   ProtocolBuffer: 'PROTOCOL_BUFFER',
-  Avro: 'AVRO'
+  Avro: 'AVRO',
+  Json: 'JSON'
 } as const;
 
 export type SchemaType = (typeof SchemaTypes)[keyof typeof SchemaTypes];
@@ -50,6 +51,17 @@ export interface ISchema {
   revisionId?: string;
   /** Revision creation timestamp. */
   revisionCreateTime?: { seconds?: number; nanos?: number };
+}
+
+/**
+ * Schema definition for validation.
+ * Reference: specs/01-pubsub-client.md
+ */
+export interface SchemaDefinition {
+  /** Schema type (AVRO or PROTOCOL_BUFFER). */
+  type: SchemaType;
+  /** Schema definition string. */
+  definition: string;
 }
 
 /**
