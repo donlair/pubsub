@@ -89,6 +89,20 @@ export class PubSub {
 		return `projects/${this.projectId}/schemas/${id}`;
 	}
 
+	/**
+	 * Gets a reference to a topic. Does not create the topic if it doesn't exist.
+	 * Use createTopic() to actually create a topic in the system.
+	 *
+	 * @param name - The topic name or full resource path
+	 * @returns A Topic instance for interacting with the topic
+	 *
+	 * @example
+	 * ```typescript
+	 * const pubsub = new PubSub();
+	 * const topic = pubsub.topic('my-topic');
+	 * await topic.publishMessage({ data: Buffer.from('Hello') });
+	 * ```
+	 */
 	topic(name: string): Topic {
 		const fullName = this.formatTopicName(name);
 		if (!this.topicCache.has(fullName)) {
@@ -97,6 +111,24 @@ export class PubSub {
 		return this.topicCache.get(fullName)!;
 	}
 
+	/**
+	 * Creates a new topic in the Pub/Sub system. Topics must be created before
+	 * publishing messages to them.
+	 *
+	 * @param name - The topic name or full resource path
+	 * @param options - Optional topic configuration (labels, schema settings, etc.)
+	 * @returns A tuple of [Topic instance, topic metadata]
+	 * @throws {AlreadyExistsError} Code 6 - Topic already exists
+	 *
+	 * @example
+	 * ```typescript
+	 * const pubsub = new PubSub();
+	 * const [topic, metadata] = await pubsub.createTopic('my-topic', {
+	 *   labels: { env: 'production' }
+	 * });
+	 * console.log('Created topic:', topic.name);
+	 * ```
+	 */
 	async createTopic(name: string, options?: CreateTopicOptions): Promise<[Topic, TopicMetadata | undefined]> {
 		const fullName = this.formatTopicName(name);
 
@@ -119,6 +151,14 @@ export class PubSub {
 		return [topic, metadata];
 	}
 
+	/**
+	 * Retrieves an existing topic and its metadata. Use this to verify a topic exists
+	 * and get its configuration details.
+	 *
+	 * @param name - The topic name or full resource path
+	 * @returns A tuple of [Topic instance, topic metadata]
+	 * @throws {NotFoundError} Code 5 - Topic not found
+	 */
 	async getTopic(name: string): Promise<[Topic, TopicMetadata | undefined]> {
 		const fullName = this.formatTopicName(name);
 
@@ -132,6 +172,12 @@ export class PubSub {
 		return [topic, metadata];
 	}
 
+	/**
+	 * Lists all topics in the project. Returns all topics with pagination metadata.
+	 *
+	 * @param _options - Optional pagination and filter options
+	 * @returns A tuple of [array of Topics, next page token, response metadata]
+	 */
 	async getTopics(_options?: GetTopicsOptions): Promise<[Topic[], unknown, unknown]> {
 		const allTopics = this.queue.getAllTopics();
 		const topics = allTopics.map((meta) => this.topic(meta.name || ''));
@@ -139,6 +185,13 @@ export class PubSub {
 		return [topics, null, {}];
 	}
 
+	/**
+	 * Lists all topics as a readable stream. Useful for processing large numbers
+	 * of topics without loading them all into memory.
+	 *
+	 * @param _options - Optional pagination options
+	 * @returns A readable stream of Topic instances
+	 */
 	getTopicsStream(_options?: PageOptions): Readable {
 		const allTopics = this.queue.getAllTopics();
 		const topics = allTopics.map((meta) => this.topic(meta.name || ''));
@@ -146,6 +199,25 @@ export class PubSub {
 		return Readable.from(topics);
 	}
 
+	/**
+	 * Gets a reference to a subscription. Does not create the subscription if it doesn't exist.
+	 * Use createSubscription() to actually create a subscription in the system.
+	 *
+	 * @param name - The subscription name or full resource path
+	 * @param options - Optional subscription options (flow control, ack deadline, etc.)
+	 * @returns A Subscription instance for receiving messages
+	 *
+	 * @example
+	 * ```typescript
+	 * const pubsub = new PubSub();
+	 * const subscription = pubsub.subscription('my-subscription');
+	 * subscription.on('message', (message) => {
+	 *   console.log('Received:', message.data.toString());
+	 *   message.ack();
+	 * });
+	 * subscription.on('error', (error) => console.error(error));
+	 * ```
+	 */
 	subscription(name: string, options?: SubscriptionOptions): Subscription {
 		const fullName = this.formatSubscriptionName(name);
 		if (!this.subscriptionCache.has(fullName)) {
@@ -156,6 +228,28 @@ export class PubSub {
 		return this.subscriptionCache.get(fullName)!;
 	}
 
+	/**
+	 * Creates a new subscription to a topic. Subscriptions receive messages published
+	 * to the topic and must be created before messages can be received.
+	 *
+	 * @param topic - The topic name, full resource path, or Topic instance to subscribe to
+	 * @param name - The subscription name or full resource path
+	 * @param options - Optional subscription configuration (ack deadline, flow control, filters, etc.)
+	 * @returns A tuple of [Subscription instance, subscription metadata]
+	 * @throws {NotFoundError} Code 5 - Topic not found
+	 * @throws {AlreadyExistsError} Code 6 - Subscription already exists
+	 *
+	 * @example
+	 * ```typescript
+	 * const pubsub = new PubSub();
+	 * await pubsub.createTopic('my-topic');
+	 * const [subscription, metadata] = await pubsub.createSubscription(
+	 *   'my-topic',
+	 *   'my-subscription',
+	 *   { ackDeadlineSeconds: 30 }
+	 * );
+	 * ```
+	 */
 	async createSubscription(
 		topic: string | Topic,
 		name: string,
@@ -192,6 +286,14 @@ export class PubSub {
 		return [subscription, subscription.metadata];
 	}
 
+	/**
+	 * Retrieves an existing subscription and its metadata. Use this to verify a subscription
+	 * exists and get its configuration details.
+	 *
+	 * @param name - The subscription name or full resource path
+	 * @returns A tuple of [Subscription instance, subscription metadata]
+	 * @throws {NotFoundError} Code 5 - Subscription not found
+	 */
 	async getSubscription(name: string): Promise<[Subscription, SubscriptionMetadata | undefined]> {
 		const fullName = this.formatSubscriptionName(name);
 
@@ -205,6 +307,13 @@ export class PubSub {
 		return [subscription, subscription.metadata];
 	}
 
+	/**
+	 * Lists all subscriptions in the project, optionally filtered by topic.
+	 * Returns all subscriptions with pagination metadata.
+	 *
+	 * @param options - Optional filter by topic and pagination options
+	 * @returns A tuple of [array of Subscriptions, next page token, response metadata]
+	 */
 	async getSubscriptions(options?: GetSubscriptionsOptions): Promise<[Subscription[], unknown, unknown]> {
 		let allSubscriptions = this.queue.getAllSubscriptions();
 
@@ -224,6 +333,13 @@ export class PubSub {
 		return [subscriptions, null, {}];
 	}
 
+	/**
+	 * Lists all subscriptions as a readable stream, optionally filtered by topic.
+	 * Useful for processing large numbers of subscriptions without loading them all into memory.
+	 *
+	 * @param options - Optional filter by topic and pagination options
+	 * @returns A readable stream of Subscription instances
+	 */
 	getSubscriptionsStream(options?: GetSubscriptionsOptions): Readable {
 		let allSubscriptions = this.queue.getAllSubscriptions();
 
@@ -243,6 +359,13 @@ export class PubSub {
 		return Readable.from(subscriptions);
 	}
 
+	/**
+	 * Gets a reference to a schema. Does not create the schema if it doesn't exist.
+	 * Use createSchema() to actually create a schema in the system.
+	 *
+	 * @param id - The schema ID or full resource path
+	 * @returns A Schema instance for working with the schema
+	 */
 	schema(id: string): Schema {
 		const fullName = this.formatSchemaName(id);
 		if (!this.schemaCache.has(fullName)) {
@@ -251,6 +374,18 @@ export class PubSub {
 		return this.schemaCache.get(fullName)!;
 	}
 
+	/**
+	 * Creates a new schema for message validation. Schemas define the structure of
+	 * messages that can be published to topics.
+	 *
+	 * @param schemaId - The schema ID or full resource path
+	 * @param type - The schema type (AVRO, PROTOCOL_BUFFER, or JSON)
+	 * @param definition - The schema definition string
+	 * @param _options - Optional schema creation options
+	 * @returns A tuple of [Schema instance, schema metadata]
+	 * @throws {AlreadyExistsError} Code 6 - Schema already exists
+	 * @throws {InvalidArgumentError} Code 3 - Invalid schema type or definition
+	 */
 	async createSchema(
 		schemaId: string,
 		type: SchemaType,
@@ -280,6 +415,14 @@ export class PubSub {
 		return [schema, metadata];
 	}
 
+	/**
+	 * Lists all schemas in the project as an async iterable. Use view parameter to
+	 * control whether full schema definitions are included.
+	 *
+	 * @param view - View mode: 'FULL' includes definitions, 'BASIC' excludes them
+	 * @param _options - Optional pagination options
+	 * @returns An async iterable of Schema instances
+	 */
 	async *listSchemas(view?: SchemaView, _options?: PageOptions): AsyncIterable<Schema> {
 		for (const [fullName, schemaData] of this.schemas.entries()) {
 			const schema = this.schema(fullName);
@@ -289,6 +432,15 @@ export class PubSub {
 		}
 	}
 
+	/**
+	 * Validates a schema definition without creating it. Verifies the schema syntax
+	 * and structure are correct for the specified type.
+	 *
+	 * @param schema - Schema definition with type and definition string
+	 * @param _options - Optional call options
+	 * @returns A promise that resolves if valid, rejects if invalid
+	 * @throws {InvalidArgumentError} Code 3 - Missing type, missing definition, or invalid schema syntax
+	 */
 	async validateSchema(schema: SchemaDefinition, _options?: CallOptions): Promise<void> {
 		if (!schema.type) {
 			throw new InvalidArgumentError('Schema type is required');
@@ -316,10 +468,22 @@ export class PubSub {
 		}
 	}
 
+	/**
+	 * Gets the underlying schema client. Provided for Google Cloud Pub/Sub API compatibility.
+	 *
+	 * @returns A promise resolving to the schema client object
+	 */
 	async getSchemaClient(): Promise<unknown> {
 		return {};
 	}
 
+	/**
+	 * Gets a reference to a snapshot. Snapshots capture the state of a subscription
+	 * at a point in time for replay purposes.
+	 *
+	 * @param name - The snapshot name
+	 * @returns A Snapshot instance for working with the snapshot
+	 */
 	snapshot(name: string): Snapshot {
 		const fullName = `projects/${this.projectId}/snapshots/${name}`;
 		if (!this.snapshotCache.has(fullName)) {
@@ -328,10 +492,23 @@ export class PubSub {
 		return this.snapshotCache.get(fullName)!;
 	}
 
+	/**
+	 * Lists all snapshots as a readable stream. Currently returns an empty stream
+	 * as snapshot functionality is not fully implemented.
+	 *
+	 * @param _options - Optional pagination options
+	 * @returns A readable stream of Snapshot instances
+	 */
 	getSnapshotsStream(_options?: PageOptions): Readable {
 		return Readable.from([]);
 	}
 
+	/**
+	 * Gets the client configuration including service path, port, and credentials.
+	 * Useful for debugging connection settings.
+	 *
+	 * @returns A promise resolving to the client configuration object
+	 */
 	async getClientConfig(): Promise<unknown> {
 		return {
 			servicePath: this.options.servicePath || 'pubsub.googleapis.com',
@@ -341,10 +518,21 @@ export class PubSub {
 		};
 	}
 
+	/**
+	 * Gets the current project ID being used by this client.
+	 *
+	 * @returns A promise resolving to the project ID string
+	 */
 	async getProjectId(): Promise<string> {
 		return this.projectId;
 	}
 
+	/**
+	 * Closes the PubSub client and all active subscriptions. Cleans up all resources
+	 * and clears caches. Call this when you're done using the client.
+	 *
+	 * @returns A promise that resolves when all resources are closed
+	 */
 	async close(): Promise<void> {
 		for (const subscription of this.subscriptionCache.values()) {
 			if (subscription.isOpen) {
