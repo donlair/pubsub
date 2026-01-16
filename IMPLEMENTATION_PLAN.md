@@ -96,11 +96,10 @@ Optional enhancements, documentation gaps, and intentional limitations.
 - ✅ **PubSub**: 20 methods - COMPLETE (all methods now have JSDoc with @param, @returns, @throws, and examples)
 - ✅ **Topic**: 17 methods - COMPLETE (all methods now have JSDoc with @param, @returns, @throws, and examples)
 - ✅ **Subscription**: 15 methods - COMPLETE (all methods now have JSDoc with @param, @returns, @throws, and examples)
-- **Publisher**: 5 methods - PENDING
+- ✅ **Publisher**: 5 methods - COMPLETE (all methods now have JSDoc with @param, @returns, @throws, and examples)
 - **MessageStream**: 5 methods - PENDING
 
 **Examples Without JSDoc**:
-- **Publisher**: publish(), publishMessage(), flush(), setPublishOptions(), resumePublishing() (5 methods)
 - **MessageStream**: start(), stop(), pause(), resume(), setOptions() (5 methods)
 
 **Action Required**:
@@ -228,6 +227,28 @@ enum AckResponse {
 ## Previously Completed Items (Reference)
 
 ### Recent Completions (2026-01-15)
+
+#### ✅ P3-2: Publisher Documentation - COMPLETE
+**Status**: COMPLETE
+**Date Completed**: 2026-01-15
+**File Modified**: `/Users/donlair/Projects/libraries/pubsub/src/publisher/publisher.ts`
+
+**What was completed**: Added comprehensive JSDoc documentation to all 5 Publisher public methods
+
+**Implementation Details**:
+- publish() - Documented publishing messages with @param, @returns, @throws, and @example
+- publishMessage() - Documented message validation, batching, and ordering key handling
+- flush() - Documented manual batch flushing with pending message handling
+- setPublishOptions() - Documented dynamic publishing option updates
+- resumePublishing() - Documented ordering key error recovery
+
+**Test Results**:
+- All 486 tests passing (100%)
+- No test changes required (API behavior unchanged)
+
+**Impact**: P3-2 progress - 4/5 components complete (PubSub, Topic, Subscription, Publisher). Only MessageStream documentation remains (5 methods).
+
+---
 
 #### ✅ P3-2: Generic Error Usage in Publisher - COMPLETE
 **Status**: COMPLETE
@@ -548,6 +569,7 @@ bun test --watch
 
 | Date | Version | Author | Changes |
 |------|---------|--------|---------|
+| 2026-01-15 | 3.4 | Claude | P3-2 completed - Publisher documentation added (5 methods), MessageStream remains (5 methods), 8 issues remaining (0 P1, 0 P2, 8 P3) |
 | 2026-01-15 | 3.3 | Claude | P3-2 completed - Generic Error replaced with InternalError in Publisher, 8 issues remaining (0 P1, 0 P2, 8 P3) |
 | 2026-01-15 | 3.2 | Claude | P2-4 completed - publishJSON orderingKey support added, 10 issues remaining (0 P1, 0 P2, 9 P3) - All P2 work complete! |
 | 2026-01-15 | 3.1 | Claude | P2-3 completed - Message properties now runtime-readonly, 15 issues remaining (1 P1, 5 P2, 9 P3) |
