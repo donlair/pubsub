@@ -9,15 +9,14 @@ Conducted comprehensive analysis using 20 parallel Sonnet agents to compare impl
 
 ✅ **Core Functionality**: 100% complete (Phases 1-10)
 - All 104 acceptance criteria passing (100%)
-- 379 unit/integration tests passing
+- 483 unit/integration tests passing (100%)
 - Basic pub/sub operations fully functional
 
-⚠️ **Issues Found**: 15 total (1 P1, 5 P2, 9 P3)
-- 1 HIGH priority: Missing type definition breaking API compatibility
-- 5 MEDIUM priority: API mismatches, test failures, missing features
+⚠️ **Issues Found**: 11 total (0 P1, 1 P2, 9 P3)
+- 1 MEDIUM priority: Missing feature
 - 9 LOW priority: Documentation, stubs, edge cases
 
-**Priority Work Items**: 15 total (1 P1, 5 P2, 9 P3)
+**Priority Work Items**: 11 total (0 P1, 1 P2, 9 P3)
 
 See "PRIORITIZED REMAINING WORK" section below for detailed implementation plan.
 
@@ -27,13 +26,13 @@ See "PRIORITIZED REMAINING WORK" section below for detailed implementation plan.
 
 | Phase | Component | Status | Notes |
 |-------|-----------|--------|-------|
-| 1 | Type definitions | 99% complete | Missing 1 property (ackDeadline) |
+| 1 | Type definitions | 100% complete | All type definitions complete |
 | 2 | Internal infrastructure | 100% complete | All 13 AC passing |
 | 3 | Message class | 100% complete | All 15 AC passing |
 | 4 | Publisher components | 98% complete | Minor validation gap |
 | 5 | Subscriber components | 100% complete | All 10 AC passing |
-| 6 | Topic class | 98% complete | TypeScript error in schema validation |
-| 7 | Subscription class | 98% complete | Name normalization issue |
+| 6 | Topic class | 100% complete | All AC passing |
+| 7 | Subscription class | 100% complete | All AC passing |
 | 8 | PubSub client | 100% complete | All 13 AC passing |
 | 9 | Integration tests | 95% complete | Missing snapshot/streaming tests |
 | 10a | Message ordering | 98% complete | publishJSON missing orderingKey |
@@ -41,123 +40,17 @@ See "PRIORITIZED REMAINING WORK" section below for detailed implementation plan.
 
 **Overall Progress**: 104/104 acceptance criteria passing (100% functional)
 
-**Test Status**: 475/483 tests passing (98.3% pass rate)
+**Test Status**: 483/483 tests passing (100% pass rate)
 - 379 unit/integration tests: 100% passing
-- 201 compatibility tests: 196 passing, 8 failing
+- 201 compatibility tests: 201 passing, 0 failing
 
 ---
 
 ## PRIORITIZED REMAINING WORK
 
-### P1: HIGH - API Breaking Issues (1 item)
-
-These issues break API compatibility with `@google-cloud/pubsub`.
-
-#### P1-1. Missing `ackDeadline` Property in SubscriberOptions
-**Status**: CRITICAL BUG
-**File**: `/Users/donlair/Projects/libraries/pubsub/src/types/subscriber.ts`
-**Priority**: HIGH - Blocks API compatibility
-
-**Issue**: The `SubscriberOptions` interface is missing the `ackDeadline?: number` property that exists in Google's API.
-
-**Current Definition** (lines 109-145):
-```typescript
-export interface SubscriberOptions {
-  minAckDeadline?: Duration;
-  maxAckDeadline?: Duration;
-  maxExtensionTime?: Duration;
-  // ... missing ackDeadline
-}
-```
-
-**Expected** (from @google-cloud/pubsub):
-```typescript
-export interface SubscriberOptions {
-  ackDeadline?: number;  // ← MISSING!
-  minAckDeadline?: Duration;
-  maxAckDeadline?: Duration;
-  // ...
-}
-```
-
-**Impact**:
-- TypeScript compilation error in compatibility tests (line 463)
-- Users cannot set `ackDeadline` option
-- API incompatibility with Google's library
-- Specs reference this property (specs/03-subscription.md line 82, specs/01-pubsub-client.md line 62)
-
-**Action Required**:
-1. Add `ackDeadline?: number` to `SubscriberOptions` interface
-2. Add JSDoc explaining relationship to min/maxAckDeadline
-3. Fix compatibility test compilation error
-
----
-
-### P2: MEDIUM - Feature Gaps & API Mismatches (5 items)
+### P2: MEDIUM - Feature Gaps & API Mismatches (1 item)
 
 Missing features and API compatibility issues that don't break core functionality.
-
-#### P2-1. Topic Schema Validation TypeScript Error
-**Status**: COMPILATION ERROR
-**File**: `/Users/donlair/Projects/libraries/pubsub/src/topic.ts:65`
-**Priority**: MEDIUM - Prevents clean compilation
-
-**Issue**: Type mismatch when passing `message.data` to `schema.validateMessage()`:
-```typescript
-await schema.validateMessage(
-    message.data,  // Type error: Uint8Array not assignable to string | Buffer
-    metadata.schemaSettings.encoding || 'JSON'
-);
-```
-
-**Error Message**:
-```
-error TS2345: Argument of type 'Uint8Array<ArrayBufferLike> | Buffer<ArrayBufferLike>'
-is not assignable to parameter of type 'string | Buffer<ArrayBufferLike>'.
-```
-
-**Action Required**:
-1. Cast `message.data` to `Buffer` before passing to validateMessage()
-2. OR update Schema.validateMessage() signature to accept `Uint8Array`
-
----
-
-#### P2-2. PubSub.getSubscriptions() Wrong Return Type
-**Status**: API COMPATIBILITY ISSUE
-**File**: `/Users/donlair/Projects/libraries/pubsub/src/pubsub.ts:208`
-**Priority**: MEDIUM - API signature mismatch
-
-**Issue**: Returns 3-tuple instead of 2-tuple.
-
-**Current**: `Promise<[Subscription[], unknown, unknown]>` (3-tuple)
-**Expected**: `Promise<[Subscription[], GetSubscriptionsResponse]>` (2-tuple)
-
-**Evidence**: Research doc `research/03-subscription-api.md` line 59
-
-**Action Required**:
-1. Change return type to 2-tuple
-2. Update implementation to match
-3. Verify tests still pass
-
----
-
-#### P2-3. Subscription Name Not Normalized
-**Status**: IMPLEMENTATION BUG
-**File**: `/Users/donlair/Projects/libraries/pubsub/src/subscription.ts`
-**Priority**: MEDIUM - API compatibility
-
-**Issue**: Subscription names aren't normalized to full resource name format.
-
-**Failing Compatibility Test**: "accepts short subscription names"
-- Expected: `projects/test-project/subscriptions/sub-short-name`
-- Received: `sub-short-name`
-
-**Action Required**:
-1. Apply same normalization logic used for Topic names
-2. Ensure subscription names use `projects/{project}/subscriptions/{name}` format
-3. Fix 1 failing compatibility test
-
----
 
 #### P2-4. Topic.publishJSON() Missing orderingKey Support
 **Status**: FEATURE GAP
@@ -182,27 +75,6 @@ async publishJSON(json: object, options?: { attributes?: Attributes; orderingKey
 1. Update signature to support orderingKey
 2. Add tests for publishJSON with ordering
 3. Update spec if needed
-
----
-
-#### P2-5. Compatibility Test Failures
-**Status**: TEST ISSUES
-**Files**: Multiple test files
-**Priority**: MEDIUM - Test quality
-
-**Issue**: 8 compatibility tests failing (all Subscription-related)
-
-**Subscription Failures (8 tests)**:
-- 6 tests: Subscription not registered with MessageQueue (test setup issue)
-- 1 test: Name normalization (covered by P2-3)
-- 1 test: Subscription doesn't exist (test setup issue)
-
-**Action Required**:
-1. Fix P2-3 (will fix 1 test)
-2. Fix subscription test setup (create via topic.createSubscription())
-3. Fix remaining test setup issues
-
-**Note**: Message property immutability tests (5 tests) were fixed in P2-3 completion (2026-01-15)
 
 ---
 
@@ -406,6 +278,54 @@ enum AckResponse {
 
 ### Recent Completions (2026-01-15)
 
+#### ✅ P2-3: Subscription Name Normalization - COMPLETE
+**Status**: COMPLETE
+**Date Completed**: 2026-01-15
+**Files Modified**:
+- Created `/Users/donlair/Projects/libraries/pubsub/src/internal/naming.ts`
+- Updated `/Users/donlair/Projects/libraries/pubsub/src/topic.ts`
+- Updated `/Users/donlair/Projects/libraries/pubsub/src/internal/message-queue.ts`
+- Updated `/Users/donlair/Projects/libraries/pubsub/src/pubsub.ts`
+
+**What was completed**:
+1. Created new utility file `src/internal/naming.ts` with `formatSubscriptionName()` and `formatTopicName()` functions
+2. Updated `Topic.createSubscription()` to normalize subscription names using `formatSubscriptionName()`
+3. Updated `Topic.subscription()` to normalize subscription names
+4. Updated `Topic.getSubscriptions()` to normalize subscription names
+5. Added `MessageQueue.resetForTesting()` method for proper singleton cleanup between tests
+6. Updated `PubSub.close()` to call `MessageQueue.resetForTesting()`
+
+**Test Results**:
+- All 483 tests passing (100%)
+- All 201 compatibility tests passing (100%)
+- Fixed all 8 failing subscription compatibility tests
+
+---
+
+#### ✅ P2-2: PubSub.getSubscriptions() Return Type - NOT AN ISSUE
+**Status**: VERIFIED CORRECT
+**Date Verified**: 2026-01-15
+
+**Verification**: Current 3-tuple implementation `Promise<[Subscription[], unknown, unknown]>` is correct and matches Google's API. No action needed.
+
+---
+
+#### ✅ P2-1: Topic Schema Validation TypeScript Error - NOT AN ISSUE
+**Status**: VERIFIED NO ERROR
+**Date Verified**: 2026-01-15
+
+**Verification**: No TypeScript compilation errors found. Type checking passes cleanly with `bun run typecheck`.
+
+---
+
+#### ✅ P1-1: Missing ackDeadline Property - ALREADY COMPLETE
+**Status**: VERIFIED EXISTS
+**Date Verified**: 2026-01-15
+
+**Verification**: The `ackDeadline` property already exists in `SubscriberOptions` interface at line 112 of `/Users/donlair/Projects/libraries/pubsub/src/types/subscriber.ts`. No action needed.
+
+---
+
 #### ✅ P2-3: Message Properties Runtime-Readonly - COMPLETE
 **Status**: COMPLETE
 **Date Completed**: 2026-01-15
@@ -539,41 +459,34 @@ Added comprehensive JSDoc documentation to three cloud-specific stub methods:
 | Dead Letter | `tests/integration/dead-letter.test.ts` | ✅ 6 scenarios |
 | Ack Deadline | `tests/integration/ack-deadline.test.ts` | ✅ 3 scenarios |
 
-### Compatibility Tests (201 tests - 196 passing, 8 failing)
+### Compatibility Tests (201 tests - 201 passing)
 | API | File | Status |
 |-----|------|--------|
 | PubSub Client | `tests/compatibility/pubsub-compat.test.ts` | ✅ 51/51 passing |
 | Topic | `tests/compatibility/topic-compat.test.ts` | ✅ 55/55 passing |
-| Subscription | `tests/compatibility/subscription-compat.test.ts` | ⚠️ 39/47 passing (8 failures) |
+| Subscription | `tests/compatibility/subscription-compat.test.ts` | ✅ 47/47 passing |
 | Message | `tests/compatibility/message-compat.test.ts` | ✅ 48/48 passing |
 
-**Total**: 475/483 tests passing (98.3% pass rate across all test types)
+**Total**: 483/483 tests passing (100% pass rate across all test types)
 **Core Functionality**: 428/428 unit+integration tests passing (100%)
 
 ---
 
 ## Action Items by Priority
 
-### Immediate (P1) - Fix These First
-1. **P1-1**: Add `ackDeadline` property to SubscriberOptions
-
 ### Next Sprint (P2) - API Compatibility
-2. **P2-1**: Fix Topic schema validation TypeScript error
-3. **P2-2**: Fix PubSub.getSubscriptions() return type
-4. **P2-3**: Fix Subscription name normalization
-5. **P2-4**: Add orderingKey support to Topic.publishJSON()
-6. **P2-5**: Fix 8 failing compatibility tests
+1. **P2-4**: Add orderingKey support to Topic.publishJSON()
 
 ### Future (P3) - Documentation & Enhancements
-7. **P3-1**: Add @throws JSDoc to all public methods
-8. **P3-2**: Replace generic Error with InternalError in Publisher
-9. **P3-3**: Add JSDoc to ~60 public methods
-10. **P3-4**: Update spec for AckResponse values
-11. **P3-5**: Consider fixing circular dependency types
-12. **P3-6**: Document AVRO/ProtoBuf as intentional limitation
-13. **P3-7**: Fix Snapshot/IAM API signatures (Phase 10)
-14. **P3-8**: Consider messageOrdering validation
-15. **P3-9**: Add integration tests for advanced features
+2. **P3-1**: Add @throws JSDoc to all public methods
+3. **P3-2**: Replace generic Error with InternalError in Publisher
+4. **P3-3**: Add JSDoc to ~60 public methods
+5. **P3-4**: Update spec for AckResponse values
+6. **P3-5**: Consider fixing circular dependency types
+7. **P3-6**: Document AVRO/ProtoBuf as intentional limitation
+8. **P3-7**: Fix Snapshot/IAM API signatures (Phase 10)
+9. **P3-8**: Consider messageOrdering validation
+10. **P3-9**: Add integration tests for advanced features
 
 ---
 

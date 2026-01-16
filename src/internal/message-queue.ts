@@ -26,7 +26,7 @@ interface SubscriptionQueue {
  * MessageQueue singleton manages all topics, subscriptions, and message routing.
  */
 export class MessageQueue {
-  private static instance: MessageQueue;
+  private static instance: MessageQueue | null;
 
   private topics: Map<string, TopicMetadata>;
   private subscriptions: Map<string, SubscriptionMetadata>;
@@ -719,5 +719,26 @@ export class MessageQueue {
     lease.timer = setTimeout(() => {
       this.handleDeadlineExpiry(ackId);
     }, seconds * 1000);
+  }
+
+  /**
+   * Reset the singleton instance for testing.
+   * Clears all topics, subscriptions, messages, and leases.
+   */
+  static resetForTesting(): void {
+    if (MessageQueue.instance) {
+      // Clear all timers
+      for (const lease of MessageQueue.instance.leases.values()) {
+        if (lease.timer) {
+          clearTimeout(lease.timer);
+        }
+      }
+
+      // Clear all data
+      MessageQueue.instance.topics.clear();
+      MessageQueue.instance.subscriptions.clear();
+      MessageQueue.instance.leases.clear();
+      MessageQueue.instance = null;
+    }
   }
 }

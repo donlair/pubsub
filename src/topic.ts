@@ -21,7 +21,8 @@ import { Publisher } from './publisher/publisher';
 import { MessageQueue } from './internal/message-queue';
 import { NotFoundError, AlreadyExistsError, InvalidArgumentError } from './types/errors';
 import { IAM } from './iam';
-import { Subscription } from './subscription';
+import type { Subscription } from './subscription';
+import { extractProjectId, formatSubscriptionName } from './internal/naming';
 
 export class Topic {
 	readonly name: string;
@@ -184,7 +185,15 @@ export class Topic {
 			throw new NotFoundError(`Topic not found: ${this.name}`);
 		}
 
-		const subscription = new Subscription(this.pubsub, name, {
+		const projectId = extractProjectId(this.name);
+		if (!projectId) {
+			throw new InvalidArgumentError('Topic name must be in full resource format');
+		}
+
+		const fullName = formatSubscriptionName(name, projectId);
+
+		const { Subscription } = await import('./subscription');
+		const subscription = new Subscription(this.pubsub, fullName, {
 			...options,
 			topic: this as unknown as undefined
 		});
@@ -196,7 +205,15 @@ export class Topic {
 		name: string,
 		options?: SubscriptionOptions
 	): Subscription {
-		return new Subscription(this.pubsub, name, {
+		const projectId = extractProjectId(this.name);
+		if (!projectId) {
+			throw new InvalidArgumentError('Topic name must be in full resource format');
+		}
+
+		const fullName = formatSubscriptionName(name, projectId);
+
+		const { Subscription } = require('./subscription');
+		return new Subscription(this.pubsub, fullName, {
 			...options,
 			topic: this as unknown as undefined
 		});
@@ -209,6 +226,12 @@ export class Topic {
 			throw new NotFoundError(`Topic not found: ${this.name}`);
 		}
 
+		const projectId = extractProjectId(this.name);
+		if (!projectId) {
+			throw new InvalidArgumentError('Topic name must be in full resource format');
+		}
+
+		const { Subscription } = await import('./subscription');
 		const subscriptionMetadatas = this.queue.getSubscriptionsForTopic(this.name);
 		const subscriptions = subscriptionMetadatas.map(
 			(meta) => new Subscription(this.pubsub, meta.name ?? '', {

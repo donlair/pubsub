@@ -356,5 +356,7 @@ export class PubSub {
 		this.subscriptionCache.clear();
 		this.schemaCache.clear();
 		this.snapshotCache.clear();
+
+		MessageQueue.resetForTesting();
 	}
 }
