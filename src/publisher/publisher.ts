@@ -13,7 +13,7 @@ import { PublisherFlowControl } from './flow-control';
 import { MessageQueue } from '../internal/message-queue';
 import type { InternalMessage } from '../internal/types';
 import { PreciseDate } from '../utils/precise-date';
-import { InvalidArgumentError } from '../types/errors';
+import { InvalidArgumentError, InternalError } from '../types/errors';
 
 interface Batch {
 	messages: PubsubMessage[];
@@ -358,7 +358,7 @@ export class Publisher {
 			}
 		} catch (error) {
 			// Reject all promises
-			const err = error instanceof Error ? error : new Error(String(error));
+			const err = error instanceof Error ? error : new InternalError(`Batch publish failed: ${String(error)}`, error as Error);
 			for (const promise of batch.promises) {
 				promise.reject(err);
 			}
