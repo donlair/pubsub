@@ -4,7 +4,6 @@
  * Reference: specs/07-message-queue.md
  */
 
-import { randomUUID } from 'node:crypto';
 import type { InternalMessage, MessageLease } from './types';
 import type { TopicMetadata } from '../types/topic';
 import type { SubscriptionMetadata } from '../types/subscription';
@@ -235,7 +234,7 @@ export class MessageQueue {
       const messageLength = this.calculateMessageLength(msg);
 
       // Generate unique message ID
-      const messageId = msg.id || randomUUID();
+      const messageId = msg.id || crypto.randomUUID();
       messageIds.push(messageId);
 
       // Create message with ID and length
@@ -461,7 +460,7 @@ export class MessageQueue {
     ackDeadlineSeconds: number
   ): InternalMessage | null {
     // Generate unique ackId
-    const ackId = `${msg.id}-${msg.deliveryAttempt}-${randomUUID()}`;
+    const ackId = `${msg.id}-${msg.deliveryAttempt}-${crypto.randomUUID()}`;
 
     // Create deadline
     const deadline = new Date(Date.now() + ackDeadlineSeconds * 1000);
@@ -667,7 +666,7 @@ export class MessageQueue {
 
     // Create copy of message preserving original metadata
     const dlqMessage: InternalMessage = {
-      id: randomUUID(),
+      id: crypto.randomUUID(),
       data: msg.data,
       attributes: msg.attributes,
       publishTime: msg.publishTime,
