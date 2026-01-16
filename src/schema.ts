@@ -27,6 +27,14 @@ export class Schema {
 		this.name = id.startsWith('projects/') ? id : `projects/${this.pubsub.projectId}/schemas/${id.replace(/^projects\/[^/]+\/schemas\//, '')}`;
 	}
 
+	/**
+	 * Create a new schema with the specified type and definition.
+	 * @param type - Schema type (JSON, AVRO, or PROTOCOL_BUFFER)
+	 * @param definition - Schema definition string
+	 * @param _options - Optional creation options
+	 * @returns Promise resolving to tuple of [Schema instance, schema metadata]
+	 * @throws {InvalidArgumentError} Code 3 - Invalid schema definition or malformed JSON
+	 */
 	async create(type: SchemaType, definition: string, _options?: CreateSchemaOptions): Promise<[Schema, ISchema]> {
 		if (type === 'JSON') {
 			try {
@@ -57,6 +65,12 @@ export class Schema {
 		return [this, metadata];
 	}
 
+	/**
+	 * Delete the schema.
+	 * @param _options - Optional call options
+	 * @returns Promise resolving to tuple with empty metadata
+	 * @throws {NotFoundError} Code 5 - Schema not found
+	 */
 	async delete(_options?: CallOptions): Promise<[unknown]> {
 		if (!this.pubsub.schemas.has(this.name)) {
 			throw new NotFoundError(`Schema not found: ${this.name}`);
@@ -70,6 +84,13 @@ export class Schema {
 		return [this.pubsub.schemas.has(this.name)];
 	}
 
+	/**
+	 * Get the schema metadata.
+	 * @param view - Schema view (BASIC or FULL). FULL includes definition.
+	 * @param _options - Optional call options
+	 * @returns Promise resolving to tuple of [Schema instance, schema metadata]
+	 * @throws {NotFoundError} Code 5 - Schema not found
+	 */
 	async get(view?: SchemaView, _options?: CallOptions): Promise<[Schema, ISchema]> {
 		const schemaData = this.pubsub.schemas.get(this.name);
 
@@ -89,6 +110,16 @@ export class Schema {
 		return [this, metadata];
 	}
 
+	/**
+	 * Validate a message against the schema.
+	 * @param message - Message data to validate (string or Buffer)
+	 * @param encoding - Message encoding (JSON or BINARY)
+	 * @param _options - Optional validation options
+	 * @returns Promise that resolves if validation succeeds
+	 * @throws {NotFoundError} Code 5 - Schema not found
+	 * @throws {UnimplementedError} Code 12 - AVRO or Protocol Buffer schemas not yet implemented
+	 * @throws {InvalidArgumentError} Code 3 - Schema definition missing, failed to compile schema, failed to parse message, or validation failed
+	 */
 	async validateMessage(message: string | Buffer, encoding: SchemaEncoding, _options?: ValidateSchemaOptions): Promise<void> {
 		if (!this.type) {
 			const schemaData = this.pubsub.schemas.get(this.name);

@@ -134,6 +134,7 @@ export class Message implements MessageProperties {
 	/**
 	 * Modify ack deadline for this message.
 	 * @param seconds - New deadline in seconds (0-600). 0 = immediate redelivery.
+	 * @throws {InvalidArgumentError} Code 3 - Ack deadline must be between 0 and 600 seconds
 	 */
 	modifyAckDeadline(seconds: number): void {
 		if (seconds < 0 || seconds > 600) {
