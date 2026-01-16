@@ -9,14 +9,14 @@ Conducted comprehensive analysis using 20 parallel Sonnet agents to compare impl
 
 ✅ **Core Functionality**: 100% complete (Phases 1-10)
 - All 104 acceptance criteria passing (100%)
-- 483 unit/integration tests passing (100%)
+- 486 unit/integration tests passing (100%)
 - Basic pub/sub operations fully functional
 
-⚠️ **Issues Found**: 11 total (0 P1, 1 P2, 9 P3)
-- 1 MEDIUM priority: Missing feature
+⚠️ **Issues Found**: 10 total (0 P1, 0 P2, 9 P3)
+- 0 MEDIUM priority items remaining
 - 9 LOW priority: Documentation, stubs, edge cases
 
-**Priority Work Items**: 11 total (0 P1, 1 P2, 9 P3)
+**Priority Work Items**: 10 total (0 P1, 0 P2, 9 P3)
 
 See "PRIORITIZED REMAINING WORK" section below for detailed implementation plan.
 
@@ -29,54 +29,24 @@ See "PRIORITIZED REMAINING WORK" section below for detailed implementation plan.
 | 1 | Type definitions | 100% complete | All type definitions complete |
 | 2 | Internal infrastructure | 100% complete | All 13 AC passing |
 | 3 | Message class | 100% complete | All 15 AC passing |
-| 4 | Publisher components | 98% complete | Minor validation gap |
+| 4 | Publisher components | 100% complete | All features complete |
 | 5 | Subscriber components | 100% complete | All 10 AC passing |
 | 6 | Topic class | 100% complete | All AC passing |
 | 7 | Subscription class | 100% complete | All AC passing |
 | 8 | PubSub client | 100% complete | All 13 AC passing |
 | 9 | Integration tests | 95% complete | Missing snapshot/streaming tests |
-| 10a | Message ordering | 98% complete | publishJSON missing orderingKey |
+| 10a | Message ordering | 100% complete | All features complete |
 | 10b | Schema validation | 100% complete | All 11 AC passing |
 
 **Overall Progress**: 104/104 acceptance criteria passing (100% functional)
 
-**Test Status**: 483/483 tests passing (100% pass rate)
-- 379 unit/integration tests: 100% passing
+**Test Status**: 486/486 tests passing (100% pass rate)
+- 382 unit/integration tests: 100% passing
 - 201 compatibility tests: 201 passing, 0 failing
 
 ---
 
 ## PRIORITIZED REMAINING WORK
-
-### P2: MEDIUM - Feature Gaps & API Mismatches (1 item)
-
-Missing features and API compatibility issues that don't break core functionality.
-
-#### P2-4. Topic.publishJSON() Missing orderingKey Support
-**Status**: FEATURE GAP
-**File**: `/Users/donlair/Projects/libraries/pubsub/src/topic.ts:73`
-**Priority**: MEDIUM - Spec examples show this usage
-
-**Issue**: `publishJSON()` doesn't accept `orderingKey` parameter as shown in spec examples.
-
-**Current signature**:
-```typescript
-async publishJSON(json: object, attributes?: Attributes): Promise<string>
-```
-
-**Expected** (from spec examples):
-```typescript
-async publishJSON(json: object, options?: { attributes?: Attributes; orderingKey?: string }): Promise<string>
-```
-
-**Spec Reference**: `specs/09-ordering.md` lines 622-632
-
-**Action Required**:
-1. Update signature to support orderingKey
-2. Add tests for publishJSON with ordering
-3. Update spec if needed
-
----
 
 ### P3: LOW - Documentation & Nice-to-Have (9 items)
 
@@ -278,6 +248,38 @@ enum AckResponse {
 
 ### Recent Completions (2026-01-15)
 
+#### ✅ P2-4: Topic.publishJSON() Missing orderingKey Support - COMPLETE
+**Status**: COMPLETE
+**Date Completed**: 2026-01-15
+**File Modified**: `/Users/donlair/Projects/libraries/pubsub/src/topic.ts`
+**Test File Modified**: `/Users/donlair/Projects/libraries/pubsub/tests/integration/ordering.test.ts`
+
+**What was completed**:
+1. Updated `publishJSON()` signature to accept options object with both `attributes` and `orderingKey`
+2. Maintained backward compatibility with attributes-only parameter
+3. Added 3 comprehensive integration tests for `publishJSON` with `orderingKey`:
+   - Test for orderingKey-only usage (without attributes)
+   - Test for combined attributes + orderingKey usage
+   - Test for backward compatibility (attributes-only usage)
+
+**Implementation Details**:
+- Function now accepts either `Attributes` object directly (backward compatible) or options object `{ attributes?, orderingKey? }`
+- Internally forwards to `publishMessage()` with proper options structure
+- All ordering guarantees maintained (sequential per key, concurrent across keys)
+
+**Test Results**:
+- All 486 tests passing (100%)
+- New tests added: 3 integration tests for publishJSON with orderingKey
+- Backward compatibility maintained: existing attributes-only usage continues to work
+- Integration tests verify: orderingKey-only, combined usage, and backward compatibility
+
+**Impact**:
+- Phase 4 (Publisher components): 100% complete (was 98%)
+- Phase 10a (Message ordering): 100% complete (was 98%)
+- P2 items remaining: 0 (was 1)
+
+---
+
 #### ✅ P2-3: Subscription Name Normalization - COMPLETE
 **Status**: COMPLETE
 **Date Completed**: 2026-01-15
@@ -296,7 +298,7 @@ enum AckResponse {
 6. Updated `PubSub.close()` to call `MessageQueue.resetForTesting()`
 
 **Test Results**:
-- All 483 tests passing (100%)
+- 483 tests passing (100%) at time of completion
 - All 201 compatibility tests passing (100%)
 - Fixed all 8 failing subscription compatibility tests
 
@@ -343,7 +345,7 @@ Enforced runtime immutability for Message properties using `Object.definePropert
 **Test Results**:
 - Fixed 5 failing Message compatibility tests (property immutability tests)
 - Message compatibility tests: 48/48 passing (was 43/48)
-- Total tests: 475/483 passing (was 470/483)
+- 475 tests passing at time of completion (was 470/483)
 - Overall failure count reduced from 13 to 8
 
 ---
@@ -437,7 +439,7 @@ Added comprehensive JSDoc documentation to three cloud-specific stub methods:
 
 ## Test Status Summary
 
-### Unit Tests (379 tests - 100% passing)
+### Unit Tests (382 tests - 100% passing)
 | Component | File | Status |
 |-----------|------|--------|
 | MessageQueue | `tests/unit/message-queue.test.ts` | ✅ All passing |
@@ -449,11 +451,11 @@ Added comprehensive JSDoc documentation to three cloud-specific stub methods:
 | PubSub | `tests/unit/pubsub.test.ts` | ✅ All passing |
 | Schema | `tests/unit/schema.test.ts` | ✅ All passing |
 
-### Integration Tests (49 tests - 100% passing)
+### Integration Tests (52 tests - 100% passing)
 | Feature | File | Status |
 |---------|------|--------|
 | Publish-Subscribe | `tests/integration/publish-subscribe.test.ts` | ✅ 10 scenarios |
-| Message Ordering | `tests/integration/ordering.test.ts` | ✅ 5 scenarios |
+| Message Ordering | `tests/integration/ordering.test.ts` | ✅ 8 scenarios |
 | Flow Control | `tests/integration/flow-control.test.ts` | ✅ 13 scenarios |
 | Schema Validation | `tests/integration/schema-validation.test.ts` | ✅ 12 scenarios |
 | Dead Letter | `tests/integration/dead-letter.test.ts` | ✅ 6 scenarios |
@@ -467,26 +469,23 @@ Added comprehensive JSDoc documentation to three cloud-specific stub methods:
 | Subscription | `tests/compatibility/subscription-compat.test.ts` | ✅ 47/47 passing |
 | Message | `tests/compatibility/message-compat.test.ts` | ✅ 48/48 passing |
 
-**Total**: 483/483 tests passing (100% pass rate across all test types)
-**Core Functionality**: 428/428 unit+integration tests passing (100%)
+**Total**: 486/486 tests passing (100% pass rate across all test types)
+**Core Functionality**: 434/434 unit+integration tests passing (100%)
 
 ---
 
 ## Action Items by Priority
 
-### Next Sprint (P2) - API Compatibility
-1. **P2-4**: Add orderingKey support to Topic.publishJSON()
-
 ### Future (P3) - Documentation & Enhancements
-2. **P3-1**: Add @throws JSDoc to all public methods
-3. **P3-2**: Replace generic Error with InternalError in Publisher
-4. **P3-3**: Add JSDoc to ~60 public methods
-5. **P3-4**: Update spec for AckResponse values
-6. **P3-5**: Consider fixing circular dependency types
-7. **P3-6**: Document AVRO/ProtoBuf as intentional limitation
-8. **P3-7**: Fix Snapshot/IAM API signatures (Phase 10)
-9. **P3-8**: Consider messageOrdering validation
-10. **P3-9**: Add integration tests for advanced features
+1. **P3-1**: Add @throws JSDoc to all public methods
+2. **P3-2**: Replace generic Error with InternalError in Publisher
+3. **P3-3**: Add JSDoc to ~60 public methods
+4. **P3-4**: Update spec for AckResponse values
+5. **P3-5**: Consider fixing circular dependency types
+6. **P3-6**: Document AVRO/ProtoBuf as intentional limitation
+7. **P3-7**: Fix Snapshot/IAM API signatures (Phase 10)
+8. **P3-8**: Consider messageOrdering validation
+9. **P3-9**: Add integration tests for advanced features
 
 ---
 
@@ -539,10 +538,9 @@ bun test --watch
 
 **Key Findings**:
 - Core functionality 100% complete (all 104 AC passing)
-- 1 critical type definition missing (ackDeadline)
-- 5 API compatibility issues (TypeScript errors, return types, name normalization)
-- 9 documentation and enhancement opportunities
-- 98.3% overall test pass rate (8 failing compatibility tests)
+- All P1 and P2 issues resolved (0 critical or medium priority items remaining)
+- 9 documentation and enhancement opportunities remain (P3 low priority)
+- 100% test pass rate (486/486 tests passing)
 
 ---
 
@@ -550,6 +548,7 @@ bun test --watch
 
 | Date | Version | Author | Changes |
 |------|---------|--------|---------|
+| 2026-01-15 | 3.2 | Claude | P2-4 completed - publishJSON orderingKey support added, 10 issues remaining (0 P1, 0 P2, 9 P3) - All P2 work complete! |
 | 2026-01-15 | 3.1 | Claude | P2-3 completed - Message properties now runtime-readonly, 15 issues remaining (1 P1, 5 P2, 9 P3) |
 | 2026-01-15 | 3.0 | Claude | Deep analysis with 20 parallel agents - 16 issues identified (1 P1, 6 P2, 9 P3) |
 | 2026-01-15 | 2.0 | Claude | Comprehensive code review - 16 issues identified (0 P0, 4 P1, 6 P2, 6 P3) |

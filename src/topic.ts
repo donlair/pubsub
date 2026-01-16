@@ -71,9 +71,26 @@ export class Topic {
 		return this.publisher.publishMessage(message);
 	}
 
-	async publishJSON(json: object, attributes?: Attributes): Promise<string> {
+	async publishJSON(
+		json: object,
+		attributesOrOptions?: Attributes | { attributes?: Attributes; orderingKey?: string }
+	): Promise<string> {
 		const data = Buffer.from(JSON.stringify(json));
-		return this.publishMessage({ data, attributes });
+
+		if (
+			attributesOrOptions &&
+			typeof attributesOrOptions === 'object' &&
+			('orderingKey' in attributesOrOptions || 'attributes' in attributesOrOptions)
+		) {
+			const options = attributesOrOptions as { attributes?: Attributes; orderingKey?: string };
+			return this.publishMessage({
+				data,
+				attributes: options.attributes,
+				orderingKey: options.orderingKey
+			});
+		}
+
+		return this.publishMessage({ data, attributes: attributesOrOptions as Attributes });
 	}
 
 	setPublishOptions(options: PublishOptions): void {

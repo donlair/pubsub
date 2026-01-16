@@ -247,4 +247,141 @@ describe('Integration: Message Ordering', () => {
 			expect(received2).toEqual(['first', 'second']);
 		});
 	});
+
+	describe('publishJSON with orderingKey', () => {
+		test('should publish JSON messages with orderingKey option', async () => {
+			topic = pubsub.topic('user-events');
+			await topic.create();
+
+			topic.setPublishOptions({ messageOrdering: true });
+
+			const subscription = topic.subscription('event-processor', {
+				closeOptions: { behavior: 'NACK' }
+			});
+			await subscription.create();
+			subscription.setOptions({ enableMessageOrdering: true });
+			subscriptions.push(subscription);
+
+			const receivedEvents: Array<{ type: string; userId: string }> = [];
+
+			subscription.on('message', (message) => {
+				const event = JSON.parse(message.data.toString());
+				receivedEvents.push({ type: event.type, userId: message.orderingKey || '' });
+				message.ack();
+			});
+
+			subscription.on('error', (error) => {
+				console.error('Subscription error:', error);
+			});
+
+			subscription.open();
+
+			const userId = 'user-123';
+
+			await topic.publishJSON({ type: 'login', timestamp: Date.now() }, {
+				orderingKey: userId
+			});
+
+			await topic.publishJSON({ type: 'page_view', page: '/home', timestamp: Date.now() }, {
+				orderingKey: userId
+			});
+
+			await topic.publishJSON({ type: 'logout', timestamp: Date.now() }, {
+				orderingKey: userId
+			});
+
+			await new Promise((resolve) => setTimeout(resolve, 200));
+
+			expect(receivedEvents).toHaveLength(3);
+			expect(receivedEvents[0]).toEqual({ type: 'login', userId: 'user-123' });
+			expect(receivedEvents[1]).toEqual({ type: 'page_view', userId: 'user-123' });
+			expect(receivedEvents[2]).toEqual({ type: 'logout', userId: 'user-123' });
+		});
+
+		test('should support publishJSON with both attributes and orderingKey', async () => {
+			topic = pubsub.topic('user-events-attrs');
+			await topic.create();
+
+			topic.setPublishOptions({ messageOrdering: true });
+
+			const subscription = topic.subscription('event-processor-attrs', {
+				closeOptions: { behavior: 'NACK' }
+			});
+			await subscription.create();
+			subscription.setOptions({ enableMessageOrdering: true });
+			subscriptions.push(subscription);
+
+			const receivedMessages: Array<{ data: any; attrs: Record<string, string>; orderingKey: string }> = [];
+
+			subscription.on('message', (message) => {
+				const data = JSON.parse(message.data.toString());
+				receivedMessages.push({
+					data,
+					attrs: message.attributes,
+					orderingKey: message.orderingKey || ''
+				});
+				message.ack();
+			});
+
+			subscription.on('error', (error) => {
+				console.error('Subscription error:', error);
+			});
+
+			subscription.open();
+
+			await topic.publishJSON(
+				{ type: 'purchase', amount: 99.99 },
+				{
+					attributes: { source: 'web', version: '1.0' },
+					orderingKey: 'user-456'
+				}
+			);
+
+			await new Promise((resolve) => setTimeout(resolve, 200));
+
+			expect(receivedMessages).toHaveLength(1);
+			expect(receivedMessages[0]!.data).toEqual({ type: 'purchase', amount: 99.99 });
+			expect(receivedMessages[0]!.attrs).toEqual({ source: 'web', version: '1.0' });
+			expect(receivedMessages[0]!.orderingKey).toBe('user-456');
+		});
+
+		test('should maintain backward compatibility with attributes-only signature', async () => {
+			topic = pubsub.topic('backward-compat-topic');
+			await topic.create();
+
+			const subscription = topic.subscription('backward-compat-sub', {
+				closeOptions: { behavior: 'NACK' }
+			});
+			await subscription.create();
+			subscriptions.push(subscription);
+
+			const receivedMessages: Array<{ data: any; attrs: Record<string, string> }> = [];
+
+			subscription.on('message', (message) => {
+				const data = JSON.parse(message.data.toString());
+				receivedMessages.push({
+					data,
+					attrs: message.attributes
+				});
+				message.ack();
+			});
+
+			subscription.on('error', (error) => {
+				console.error('Subscription error:', error);
+			});
+
+			subscription.open();
+
+			await topic.publishJSON(
+				{ userId: 123, action: 'login' },
+				{ origin: 'test', timestamp: Date.now().toString() }
+			);
+
+			await new Promise((resolve) => setTimeout(resolve, 200));
+
+			expect(receivedMessages).toHaveLength(1);
+			expect(receivedMessages[0]!.data).toEqual({ userId: 123, action: 'login' });
+			expect(receivedMessages[0]!.attrs.origin).toBe('test');
+		});
+	});
 });
