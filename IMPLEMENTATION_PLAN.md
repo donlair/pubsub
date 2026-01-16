@@ -95,12 +95,11 @@ Optional enhancements, documentation gaps, and intentional limitations.
 **Progress**:
 - ✅ **PubSub**: 20 methods - COMPLETE (all methods now have JSDoc with @param, @returns, @throws, and examples)
 - ✅ **Topic**: 17 methods - COMPLETE (all methods now have JSDoc with @param, @returns, @throws, and examples)
-- **Subscription**: 15 methods - PENDING
+- ✅ **Subscription**: 15 methods - COMPLETE (all methods now have JSDoc with @param, @returns, @throws, and examples)
 - **Publisher**: 5 methods - PENDING
 - **MessageStream**: 5 methods - PENDING
 
 **Examples Without JSDoc**:
-- **Subscription**: create(), delete(), open(), close(), pause(), resume(), etc. (15 methods)
 - **Publisher**: publish(), publishMessage(), flush(), setPublishOptions(), resumePublishing() (5 methods)
 - **MessageStream**: start(), stop(), pause(), resume(), setOptions() (5 methods)
 

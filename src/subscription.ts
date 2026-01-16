@@ -89,6 +89,29 @@ export class Subscription extends EventEmitter {
 		return super.emit(event, ...args);
 	}
 
+	/**
+	 * Creates a new subscription.
+	 *
+	 * Registers the subscription with the MessageQueue and stores metadata. The subscription
+	 * must be associated with an existing topic. After creation, call `open()` to start
+	 * receiving messages via the 'message' event.
+	 *
+	 * @param options - Optional subscription configuration including ack deadline, flow control,
+	 *                  dead letter policy, retry policy, and message ordering
+	 * @returns Promise resolving to tuple of [Subscription, SubscriptionMetadata]
+	 * @throws {AlreadyExistsError} Code 6 - Subscription already exists
+	 * @throws {NotFoundError} Code 5 - Topic not found or not specified
+	 *
+	 * @example
+	 * ```typescript
+	 * const subscription = topic.subscription('my-sub');
+	 * const [sub, metadata] = await subscription.create({
+	 *   ackDeadlineSeconds: 30,
+	 *   flowControl: { maxMessages: 100 },
+	 *   enableMessageOrdering: true
+	 * });
+	 * ```
+	 */
 	async create(options?: CreateSubscriptionOptions): Promise<[Subscription, SubscriptionMetadata]> {
 		if (this.queue.subscriptionExists(this.name)) {
 			throw new AlreadyExistsError(`Subscription already exists: ${this.name}`);
@@ -130,6 +153,23 @@ export class Subscription extends EventEmitter {
 		return [this, this.metadata];
 	}
 
+	/**
+	 * Deletes the subscription.
+	 *
+	 * Automatically closes the subscription if open, then removes it from the MessageQueue.
+	 * After deletion, the subscription cannot be used and all subsequent operations will
+	 * throw NotFoundError.
+	 *
+	 * @param _gaxOptions - Optional call options (not used in local implementation)
+	 * @returns Promise resolving to tuple containing empty object
+	 * @throws {NotFoundError} Code 5 - Subscription not found
+	 *
+	 * @example
+	 * ```typescript
+	 * await subscription.delete();
+	 * // Subscription is now deleted and cannot be used
+	 * ```
+	 */
 	async delete(_gaxOptions?: CallOptions): Promise<[unknown]> {
 		if (this.isOpen) {
 			await this.close();
@@ -144,10 +184,43 @@ export class Subscription extends EventEmitter {
 		return [{}];
 	}
 
+	/**
+	 * Checks if the subscription exists.
+	 *
+	 * @param _options - Optional call options (not used in local implementation)
+	 * @returns Promise resolving to tuple containing boolean indicating existence
+	 *
+	 * @example
+	 * ```typescript
+	 * const [exists] = await subscription.exists();
+	 * if (!exists) {
+	 *   await subscription.create();
+	 * }
+	 * ```
+	 */
 	async exists(_options?: CallOptions): Promise<[boolean]> {
 		return [this.queue.subscriptionExists(this.name)];
 	}
 
+	/**
+	 * Gets the subscription, optionally creating it if it doesn't exist.
+	 *
+	 * Retrieves current subscription metadata from the MessageQueue. If the subscription
+	 * doesn't exist and autoCreate is true, creates it automatically.
+	 *
+	 * @param options - Options including autoCreate flag
+	 * @returns Promise resolving to tuple of [Subscription, SubscriptionMetadata]
+	 * @throws {NotFoundError} Code 5 - Subscription not found (when autoCreate is false)
+	 *
+	 * @example
+	 * ```typescript
+	 * // Get existing subscription
+	 * const [sub, metadata] = await subscription.get();
+	 *
+	 * // Get or create if doesn't exist
+	 * const [sub2, metadata2] = await subscription.get({ autoCreate: true });
+	 * ```
+	 */
 	async get(options?: GetSubscriptionOptions): Promise<[Subscription, SubscriptionMetadata]> {
 		if (!this.queue.subscriptionExists(this.name)) {
 			if (options?.autoCreate) {
@@ -170,6 +243,23 @@ export class Subscription extends EventEmitter {
 		return [this, this.metadata ?? {}];
 	}
 
+	/**
+	 * Gets the subscription's metadata.
+	 *
+	 * Retrieves current metadata including ack deadline, message ordering settings,
+	 * dead letter policy, retry policy, and other configuration from the MessageQueue.
+	 *
+	 * @param _options - Optional call options (not used in local implementation)
+	 * @returns Promise resolving to tuple of [SubscriptionMetadata, response object]
+	 * @throws {NotFoundError} Code 5 - Subscription not found
+	 *
+	 * @example
+	 * ```typescript
+	 * const [metadata] = await subscription.getMetadata();
+	 * console.log('Ack deadline:', metadata.ackDeadlineSeconds);
+	 * console.log('Ordering enabled:', metadata.enableMessageOrdering);
+	 * ```
+	 */
 	async getMetadata(_options?: CallOptions): Promise<[SubscriptionMetadata, unknown]> {
 		if (!this.queue.subscriptionExists(this.name)) {
 			throw new NotFoundError(`Subscription not found: ${this.name}`);
@@ -189,6 +279,25 @@ export class Subscription extends EventEmitter {
 		return [this.metadata ?? {}, {}];
 	}
 
+	/**
+	 * Updates the subscription's metadata.
+	 *
+	 * Merges provided metadata with existing metadata. Changes take effect immediately
+	 * for new messages. Does not affect messages already in-flight.
+	 *
+	 * @param metadata - Metadata fields to update (ackDeadlineSeconds, labels, etc.)
+	 * @param _options - Optional call options (not used in local implementation)
+	 * @returns Promise resolving to tuple of [updated SubscriptionMetadata, response object]
+	 * @throws {NotFoundError} Code 5 - Subscription not found
+	 *
+	 * @example
+	 * ```typescript
+	 * const [updated] = await subscription.setMetadata({
+	 *   ackDeadlineSeconds: 60,
+	 *   labels: { environment: 'production' }
+	 * });
+	 * ```
+	 */
 	async setMetadata(metadata: SubscriptionMetadata, _options?: CallOptions): Promise<[SubscriptionMetadata, unknown]> {
 		if (!this.queue.subscriptionExists(this.name)) {
 			throw new NotFoundError(`Subscription not found: ${this.name}`);
@@ -199,6 +308,27 @@ export class Subscription extends EventEmitter {
 		return [this.metadata, {}];
 	}
 
+	/**
+	 * Opens the subscription to start receiving messages.
+	 *
+	 * Creates a MessageStream and begins pulling messages from the topic. Messages are
+	 * delivered via 'message' events. Flow control limits are enforced to prevent
+	 * overwhelming the consumer. Multiple calls to open() are idempotent.
+	 *
+	 * @example
+	 * ```typescript
+	 * subscription.on('message', (message) => {
+	 *   console.log('Received:', message.data.toString());
+	 *   message.ack();
+	 * });
+	 *
+	 * subscription.on('error', (error) => {
+	 *   console.error('Error:', error);
+	 * });
+	 *
+	 * subscription.open();
+	 * ```
+	 */
 	open(): void {
 		if (this.isOpen) {
 			return;
@@ -213,6 +343,22 @@ export class Subscription extends EventEmitter {
 		this.messageStream.start();
 	}
 
+	/**
+	 * Closes the subscription to stop receiving messages.
+	 *
+	 * Stops the MessageStream and prevents new messages from being delivered. In-flight
+	 * messages may still be processed based on closeOptions behavior. Emits 'close' event
+	 * when complete. Multiple calls to close() are idempotent.
+	 *
+	 * @returns Promise that resolves when the subscription is fully closed
+	 *
+	 * @example
+	 * ```typescript
+	 * // Stop receiving messages
+	 * await subscription.close();
+	 * console.log('Subscription closed');
+	 * ```
+	 */
 	async close(): Promise<void> {
 		if (!this.isOpen) {
 			return;
@@ -225,6 +371,26 @@ export class Subscription extends EventEmitter {
 		}
 	}
 
+	/**
+	 * Updates subscription options.
+	 *
+	 * Merges provided options with existing configuration. Changes take effect immediately
+	 * for the MessageStream if subscription is open. Can update flow control, ack deadlines,
+	 * message ordering, and close behavior.
+	 *
+	 * @param options - Subscription options to update (flowControl, ackDeadlineSeconds, etc.)
+	 *
+	 * @example
+	 * ```typescript
+	 * subscription.setOptions({
+	 *   flowControl: {
+	 *     maxMessages: 500,
+	 *     maxBytes: 50 * 1024 * 1024
+	 *   },
+	 *   ackDeadlineSeconds: 60
+	 * });
+	 * ```
+	 */
 	setOptions(options: SubscriptionOptions): void {
 		this.options = {
 			...this.options,
@@ -257,24 +423,92 @@ export class Subscription extends EventEmitter {
 		}
 	}
 
+	/**
+	 * Pauses message delivery.
+	 *
+	 * Temporarily stops delivering new messages via 'message' events. In-flight messages
+	 * continue processing. Call resume() to restart delivery. Useful for backpressure
+	 * management or temporarily halting processing.
+	 *
+	 * @example
+	 * ```typescript
+	 * subscription.pause();
+	 * // Process backlog...
+	 * subscription.resume();
+	 * ```
+	 */
 	pause(): void {
 		if (this.messageStream) {
 			this.messageStream.pause();
 		}
 	}
 
+	/**
+	 * Resumes message delivery after pause.
+	 *
+	 * Restarts delivering messages via 'message' events. Only has effect if subscription
+	 * was previously paused. Safe to call multiple times.
+	 *
+	 * @example
+	 * ```typescript
+	 * subscription.pause();
+	 * // Handle temporary issue...
+	 * subscription.resume();
+	 * ```
+	 */
 	resume(): void {
 		if (this.messageStream) {
 			this.messageStream.resume();
 		}
 	}
 
+	/**
+	 * Acknowledges messages by their ack IDs.
+	 *
+	 * Marks messages as successfully processed. Acknowledged messages are removed from
+	 * the subscription and won't be redelivered. This is a batch operation - use it to
+	 * acknowledge multiple messages at once for efficiency.
+	 *
+	 * @param options - Object containing array of ack IDs to acknowledge
+	 * @returns Promise that resolves when all messages are acknowledged
+	 *
+	 * @example
+	 * ```typescript
+	 * const ackIds = messages.map(m => m.ackId);
+	 * await subscription.acknowledge({ ackIds });
+	 * ```
+	 */
 	async acknowledge(options: { ackIds: string[] }): Promise<void> {
 		for (const ackId of options.ackIds) {
 			this.queue.ack(ackId);
 		}
 	}
 
+	/**
+	 * Modifies the ack deadline for messages.
+	 *
+	 * Extends or shortens the acknowledgment deadline for messages. Use this when processing
+	 * takes longer than the initial ack deadline to prevent redelivery. Setting to 0
+	 * immediately makes messages available for redelivery (equivalent to nack).
+	 *
+	 * @param options - Object with ack IDs and new deadline in seconds (0-600)
+	 * @returns Promise that resolves when deadlines are modified
+	 *
+	 * @example
+	 * ```typescript
+	 * // Extend deadline for long-running processing
+	 * await subscription.modifyAckDeadline({
+	 *   ackIds: [message.ackId],
+	 *   ackDeadlineSeconds: 120
+	 * });
+	 *
+	 * // Make available for immediate redelivery (nack)
+	 * await subscription.modifyAckDeadline({
+	 *   ackIds: [message.ackId],
+	 *   ackDeadlineSeconds: 0
+	 * });
+	 * ```
+	 */
 	async modifyAckDeadline(options: { ackIds: string[]; ackDeadlineSeconds: number }): Promise<void> {
 		for (const ackId of options.ackIds) {
 			this.queue.modifyAckDeadline(ackId, options.ackDeadlineSeconds);
@@ -364,10 +598,49 @@ export class Subscription extends EventEmitter {
 		return [{}];
 	}
 
+	/**
+	 * Creates a snapshot reference object.
+	 *
+	 * Returns a Snapshot object that can be used with seek() method. This is a synchronous
+	 * helper method that creates a reference - it does not actually create or save a snapshot.
+	 * Use createSnapshot() to persist a snapshot.
+	 *
+	 * @param name - Name for the snapshot reference
+	 * @returns Snapshot object with the given name
+	 *
+	 * @example
+	 * ```typescript
+	 * const snapshot = subscription.snapshot('my-snapshot');
+	 * // Use with seek()
+	 * await subscription.seek(snapshot);
+	 * ```
+	 */
 	snapshot(name: string): Snapshot {
 		return { name };
 	}
 
+	/**
+	 * Pulls messages from the subscription (one-time pull).
+	 *
+	 * Performs a single pull operation to retrieve messages, as opposed to the streaming
+	 * pull provided by open(). Useful for batch processing or manual message retrieval.
+	 * Messages must be acknowledged using message.ack() or subscription.acknowledge().
+	 *
+	 * @param options - Pull options including maxMessages (default: 100)
+	 * @returns Promise resolving to tuple of [Message array, response object]
+	 * @throws {NotFoundError} Code 5 - Subscription not found
+	 *
+	 * @example
+	 * ```typescript
+	 * // Pull up to 10 messages
+	 * const [messages] = await subscription.pull({ maxMessages: 10 });
+	 *
+	 * for (const message of messages) {
+	 *   console.log('Processing:', message.data.toString());
+	 *   await message.ack();
+	 * }
+	 * ```
+	 */
 	async pull(options?: PullOptions): Promise<[Message[], unknown]> {
 		const [exists] = await this.exists();
 		if (!exists) {
