@@ -281,16 +281,85 @@ export class Subscription extends EventEmitter {
 		}
 	}
 
+	/**
+	 * Seeks the subscription to a snapshot or timestamp.
+	 *
+	 * **CLOUD-ONLY FEATURE - INTENTIONALLY STUBBED**
+	 *
+	 * This method is a stub that returns an empty response for API compatibility.
+	 * In Google Cloud Pub/Sub, seek allows replaying messages from a specific point:
+	 * - Seek to a snapshot to replay from a saved state
+	 * - Seek to a timestamp to replay messages published after that time
+	 *
+	 * Full implementation requires:
+	 * - Cloud Pub/Sub backend for message persistence
+	 * - Snapshot storage and retrieval
+	 * - Message replay from arbitrary points in time
+	 *
+	 * For local development, use message retention and manual message handling instead.
+	 *
+	 * @param _snapshot - Snapshot name, Snapshot object, or Date to seek to
+	 * @param _options - Optional call options
+	 * @returns Promise resolving to empty response
+	 */
 	async seek(_snapshot: string | Snapshot | Date, _options?: CallOptions): Promise<[unknown]> {
 		return [{}];
 	}
 
+	/**
+	 * Creates a snapshot of the subscription at its current state.
+	 *
+	 * **CLOUD-ONLY FEATURE - INTENTIONALLY STUBBED**
+	 *
+	 * This method is a stub that returns minimal objects for API compatibility.
+	 * In Google Cloud Pub/Sub, snapshots capture the subscription's acknowledgment state
+	 * for backup and replay scenarios.
+	 *
+	 * Full implementation requires:
+	 * - Cloud Pub/Sub backend for snapshot persistence
+	 * - Message acknowledgment state tracking
+	 * - Snapshot storage and lifecycle management
+	 *
+	 * For local development, consider using alternative backup strategies:
+	 * - Export unacknowledged messages to a file
+	 * - Use dead-letter topics for failed message retention
+	 * - Implement custom state persistence
+	 *
+	 * @param _name - Name for the snapshot
+	 * @param _options - Optional configuration (labels, etc.)
+	 * @returns Promise resolving to minimal Snapshot and metadata objects
+	 */
 	async createSnapshot(_name: string, _options?: CreateSnapshotOptions): Promise<[Snapshot, SnapshotMetadata]> {
 		const snapshot: Snapshot = { name: _name };
 		const metadata: SnapshotMetadata = { name: _name };
 		return [snapshot, metadata];
 	}
 
+	/**
+	 * Updates the push delivery configuration for the subscription.
+	 *
+	 * **CLOUD-ONLY FEATURE - INTENTIONALLY STUBBED**
+	 *
+	 * This method is a stub that returns an empty response for API compatibility.
+	 * In Google Cloud Pub/Sub, modifyPushConfig allows:
+	 * - Converting pull subscriptions to push subscriptions
+	 * - Updating HTTPS endpoint URLs
+	 * - Configuring authentication (OIDC tokens)
+	 * - Converting push subscriptions back to pull (empty pushEndpoint)
+	 *
+	 * Full implementation requires:
+	 * - Cloud infrastructure to make HTTPS POST requests
+	 * - Authentication token generation (OIDC)
+	 * - Push endpoint validation and monitoring
+	 * - Retry and backoff logic for failed pushes
+	 *
+	 * For local development, use pull subscriptions with the `open()` method instead.
+	 * Pull subscriptions provide the same functionality without requiring HTTPS endpoints.
+	 *
+	 * @param _config - Push configuration including endpoint URL and authentication
+	 * @param _options - Optional call options
+	 * @returns Promise resolving to empty response
+	 */
 	async modifyPushConfig(_config: PushConfig, _options?: CallOptions): Promise<[unknown]> {
 		return [{}];
 	}
