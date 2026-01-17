@@ -153,4 +153,5 @@ group('Ordering key routing', () => {
   });
 });
 
+// @ts-expect-error - percentiles option exists at runtime but not in types
 await run({ percentiles: true });

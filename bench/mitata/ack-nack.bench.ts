@@ -62,23 +62,23 @@ group('Lease creation', () => {
 
 group('Ack processing (simulated)', () => {
   const testLease = createLease('test-ack');
-  let inFlightCount = 100;
-  let inFlightBytes = 100 * 1024;
+  let _inFlightCount = 100;
+  let _inFlightBytes = 100 * 1024;
 
   bench('decrement counters', () => {
-    inFlightCount--;
-    inFlightBytes -= testLease.message.length;
-    inFlightCount++;
-    inFlightBytes += testLease.message.length;
+    _inFlightCount--;
+    _inFlightBytes -= testLease.message.length;
+    _inFlightCount++;
+    _inFlightBytes += testLease.message.length;
   });
 
   bench('full ack simulation', () => {
     const lease = leases.get('ack-500');
     if (lease) {
-      inFlightCount--;
-      inFlightBytes -= lease.message.length;
-      inFlightCount++;
-      inFlightBytes += lease.message.length;
+      _inFlightCount--;
+      _inFlightBytes -= lease.message.length;
+      _inFlightCount++;
+      _inFlightBytes += lease.message.length;
     }
   });
 });
@@ -131,4 +131,5 @@ group('Date operations', () => {
   });
 });
 
+// @ts-expect-error - percentiles option exists at runtime but not in types
 await run({ percentiles: true });

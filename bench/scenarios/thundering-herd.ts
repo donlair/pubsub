@@ -79,7 +79,7 @@ async function runThunderingHerd() {
         messagesPerPublisher: CONFIG.messagesPerPublisher,
         successCount,
         errorCount,
-        successRate: ((successCount / totalAttempted) * 100).toFixed(2) + '%',
+        successRate: `${((successCount / totalAttempted) * 100).toFixed(2)}%`,
       },
       {
         messagesPerSec,

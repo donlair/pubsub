@@ -79,7 +79,7 @@ export function captureMemory(): MemoryStats {
 export function printSummary(result: BenchmarkResult): void {
   const { scenario, config, metrics, success, errors } = result;
 
-  console.log('\n' + '='.repeat(60));
+  console.log(`\n${'='.repeat(60)}`);
   console.log(`Scenario: ${scenario}`);
   console.log('='.repeat(60));
 
@@ -115,7 +115,7 @@ export function printSummary(result: BenchmarkResult): void {
     }
   }
 
-  console.log('\n' + '='.repeat(60) + '\n');
+  console.log(`\n${'='.repeat(60)}\n`);
 }
 
 export async function saveResults(result: BenchmarkResult): Promise<string> {

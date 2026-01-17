@@ -121,7 +121,7 @@ async function runFanout() {
         totalPublished: publishedCount,
         totalReceived,
         expectedTotal,
-        deliveryRate: ((totalReceived / expectedTotal) * 100).toFixed(2) + '%',
+        deliveryRate: `${((totalReceived / expectedTotal) * 100).toFixed(2)}%`,
       },
       {
         messagesPerSec,

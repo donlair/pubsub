@@ -1,4 +1,5 @@
-import { PubSub } from 'pubsub';
+import { PubSub } from '../src';
+import type { Message } from '../src';
 
 const pubsub = new PubSub();
 
@@ -8,13 +9,13 @@ const subscriptionName = 'orders-worker';
 const [topic] = await pubsub.createTopic(topicName);
 const [subscription] = await pubsub.createSubscription(topicName, subscriptionName);
 
-subscription.on('message', (message) => {
+subscription.on('message', (message: Message) => {
   console.log('Received:', message.data.toString());
   console.log('Attributes:', message.attributes);
   message.ack();
 });
 
-subscription.on('error', (error) => {
+subscription.on('error', (error: Error) => {
   console.error('Subscription error:', error);
 });
 

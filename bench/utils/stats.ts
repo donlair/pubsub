@@ -54,8 +54,13 @@ export class Histogram {
 
 export function percentile(sortedValues: number[], p: number): number {
   if (sortedValues.length === 0) return 0;
-  const index = Math.ceil(sortedValues.length * p) - 1;
-  return sortedValues[Math.max(0, index)]!;
+
+  const index = (sortedValues.length - 1) * p;
+  const lower = Math.floor(index);
+  const upper = Math.ceil(index);
+  const weight = index - lower;
+
+  return sortedValues[lower]! * (1 - weight) + sortedValues[upper]! * weight;
 }
 
 export function calculateThroughput(messageCount: number, durationMs: number): number {

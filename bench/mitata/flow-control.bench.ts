@@ -56,17 +56,17 @@ group('Flow control checks', () => {
 });
 
 group('Counter updates', () => {
-  let count = 0;
-  let bytes = 0;
+  let _count = 0;
+  let _bytes = 0;
 
   bench('increment counters', () => {
-    count++;
-    bytes += 1024;
+    _count++;
+    _bytes += 1024;
   });
 
   bench('decrement counters', () => {
-    count--;
-    bytes -= 1024;
+    _count--;
+    _bytes -= 1024;
   });
 });
 
@@ -106,4 +106,5 @@ group('Comparison operations', () => {
   });
 });
 
+// @ts-expect-error - percentiles option exists at runtime but not in types
 await run({ percentiles: true });
