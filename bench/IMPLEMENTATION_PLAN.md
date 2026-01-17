@@ -383,7 +383,7 @@ heap.json
 | `bench/scenarios/fanout.ts` | ✅ Complete | Bun version check and E2E latency measurement implemented |
 | `bench/scenarios/thundering-herd.ts` | ✅ Complete | Bun version check implemented |
 | `bench/scenarios/soak.ts` | ⏸️ Deferred | Stub only (correct) |
-| `bench/scenarios/saturation.ts` | 📋 Planned | Load ramping, inflection detection |
+| `bench/scenarios/saturation.ts` | ✅ Complete | Load ramping with 10,000 messages per level, rate-based pacing |
 | `bench/mitata/serialization.bench.ts` | ✅ Complete | Buffer/JSON benchmarks - tests actual code paths |
 | `bench/mitata/batching.bench.ts` | ✅ Complete | Tests actual Publisher code - can detect regressions |
 | `bench/mitata/ack-nack.bench.ts` | ✅ Complete | Tests actual Message/MessageQueue code - can detect regressions |
@@ -497,6 +497,8 @@ heap.json
 
 13. **✅ COMPLETE - Implement compare.ts utility** (2026-01-17) - Implemented regression comparison utility with loadResult(), compareResults(), formatComparison(). CLI support with proper argument validation and exit codes. Comprehensive test suite with 21 tests covering all edge cases. JSDoc documentation for all public APIs.
 
+14. **✅ COMPLETE - Implement saturation.ts scenario** (2026-01-17) - Load ramping scenario implemented with 10,000 messages at each of 6 load levels (50%, 75%, 90%, 100%, 110%, 125%). Uses rate-based pacing to attempt target throughput. Detects inflection point where latency growth becomes exponential. Provides capacity planning metrics.
+
 ### 🔴 P0 - CRITICAL (Fix Immediately)
 
 (None - all P0 issues resolved)
@@ -511,11 +513,9 @@ heap.json
 
 ### 🟢 P3 - MEDIUM (Robustness/Completeness)
 
-14. **Implement reservoir sampling in `stats.ts`** - Add `maxSamples` constructor option. Required before soak test.
+15. **Implement reservoir sampling in `stats.ts`** - Add `maxSamples` constructor option. Required before soak test.
 
-15. **Create `version.ts` utility** - Extract Bun version check to shared module.
-
-16. **Implement `saturation.ts` scenario** - Load ramping (50%-125%) for capacity ceiling detection.
+16. **Create `version.ts` utility** - Extract Bun version check to shared module.
 
 ### ⚪ P4 - LOW (Documentation/Quality)
 
