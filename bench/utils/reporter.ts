@@ -4,6 +4,7 @@
  */
 
 import { cpus, totalmem, platform, arch } from 'node:os';
+import { mkdir } from 'node:fs/promises';
 import { heapStats } from 'bun:jsc';
 import type { LatencySummary } from './stats';
 
@@ -121,10 +122,21 @@ export function printSummary(result: BenchmarkResult): void {
 export async function saveResults(result: BenchmarkResult): Promise<string> {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const filename = `${result.scenario}-${timestamp}.json`;
-  const path = `${import.meta.dir}/../results/${filename}`;
+  const resultsDir = `${import.meta.dir}/../results`;
+  const path = `${resultsDir}/${filename}`;
 
-  await Bun.write(path, JSON.stringify(result, null, 2));
-  console.log(`Results saved to: bench/results/${filename}`);
+  try {
+    await mkdir(resultsDir, { recursive: true });
+  } catch (error) {
+    throw new Error(`Failed to create results directory: ${error instanceof Error ? error.message : String(error)}`);
+  }
+
+  try {
+    await Bun.write(path, JSON.stringify(result, null, 2));
+    console.log(`Results saved to: bench/results/${filename}`);
+  } catch (error) {
+    throw new Error(`Failed to save benchmark results to ${path}: ${error instanceof Error ? error.message : String(error)}`);
+  }
 
   return path;
 }

@@ -6,7 +6,7 @@ This document captures the implementation plan for the Pub/Sub library benchmark
 
 ## Review Status
 
-**Last Reviewed**: 2026-01-17 (P0 issue #1 resolved)
+**Last Reviewed**: 2026-01-17 (P0 issues #1, #2, #3 resolved)
 **Status**: Multiple issues discovered - see "Known Issues" section
 **Previous Status**: Approved with revisions (incorporated below)
 
@@ -370,7 +370,7 @@ heap.json
 |-----------|--------|-------|
 | `bench/utils/stats.ts` | ✅ Complete | Percentile calculation fixed with linear interpolation; comprehensive test suite added |
 | `bench/utils/stats.test.ts` | ✅ Complete | Comprehensive test suite with 23 tests |
-| `bench/utils/reporter.ts` | ⚠️ Needs Fix | Missing error handling and directory creation |
+| `bench/utils/reporter.ts` | ✅ Complete | Error handling and directory creation implemented |
 | `bench/utils/compare.ts` | 📋 Planned | Regression comparison utility |
 | `bench/utils/version.ts` | 📋 Planned | Bun version enforcement |
 | `bench/scenarios/throughput.ts` | ⚠️ Needs Fix | Missing Bun version check |
@@ -402,14 +402,18 @@ heap.json
 **Resolution**: Replaced with standard linear interpolation (R-7 method) and added comprehensive test suite with 23 tests covering edge cases, percentile calculations, and unit conversions. All tests passing.
 
 #### 2. Missing Error Handling in `reporter.ts`
+**Status**: ✅ RESOLVED (2026-01-17)
+
 **Location**: `saveResults()` function
 **Problem**: `Bun.write()` is not wrapped in try-catch. If write fails (permissions, disk space), the benchmark crashes without recovery.
-**Fix**: Add try-catch with meaningful error messages.
+**Resolution**: Added comprehensive try-catch error handling with meaningful error messages for directory creation and file writing failures.
 
 #### 3. Missing Directory Creation in `reporter.ts`
+**Status**: ✅ RESOLVED (2026-01-17)
+
 **Location**: `saveResults()` function
 **Problem**: Assumes `bench/results/` directory exists. First run fails if directory is missing.
-**Fix**: Check/create directory before writing.
+**Resolution**: Added directory existence check and creation with proper error handling before writing results.
 
 ### High Priority Issues (P1) - Spec Violations
 
@@ -465,9 +469,9 @@ if (Bun.version < MIN_BUN_VERSION) {
 
 ### 🔴 P0 - CRITICAL (Fix Immediately)
 
-2. **Add error handling to `reporter.ts` saveResults()** - Wrap `Bun.write()` in try-catch, provide meaningful error messages.
+2. **✅ COMPLETE - Add error handling to `reporter.ts` saveResults()`** (2026-01-17) - Wrapped `Bun.write()` in try-catch with meaningful error messages.
 
-3. **Add directory creation to `reporter.ts` saveResults()** - Ensure `bench/results/` exists before writing.
+3. **✅ COMPLETE - Add directory creation to `reporter.ts` saveResults()`** (2026-01-17) - Added directory existence check and creation before writing.
 
 ### 🟠 P1 - HIGH (Spec Violations)
 
