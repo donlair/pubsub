@@ -278,7 +278,7 @@ bench/
 
 **Known Issue**: 3 of 4 microbenchmarks test synthetic/mock implementations instead of actual library code paths. They cannot detect performance regressions in production code. See Known Issues section for details.
 
-### 10. Regression Comparison (`bench/utils/compare.ts`) - PLANNED
+### 10. Regression Comparison (`bench/utils/compare.ts`)
 
 **Purpose**: Compare benchmark results across commits for ±10% variance tracking
 
@@ -298,7 +298,11 @@ bun bench/utils/compare.ts results/throughput-baseline.json results/throughput-l
 - Memory delta
 - PASS/FAIL based on ±10% threshold
 
-**Status**: To be implemented
+**Status**: ✅ Complete
+- Implementation includes all required functions
+- CLI support with proper argument validation and exit codes
+- Comprehensive test suite with 21 tests covering all edge cases
+- JSDoc documentation for all public APIs
 
 ## Benchmark Profiles (Deferred)
 
@@ -371,7 +375,8 @@ heap.json
 | `bench/utils/stats.ts` | ✅ Complete | Percentile calculation fixed with linear interpolation; comprehensive test suite added |
 | `bench/utils/stats.test.ts` | ✅ Complete | Comprehensive test suite with 23 tests |
 | `bench/utils/reporter.ts` | ✅ Complete | Error handling and directory creation implemented |
-| `bench/utils/compare.ts` | 📋 Planned | Regression comparison utility |
+| `bench/utils/compare.ts` | ✅ Complete | Implementation includes loadResult(), compareResults(), formatComparison() |
+| `bench/utils/compare.test.ts` | ✅ Complete | Comprehensive test suite with 21 tests covering all edge cases |
 | `bench/utils/version.ts` | 📋 Planned | Bun version enforcement |
 | `bench/scenarios/throughput.ts` | ✅ Complete | Bun version check implemented |
 | `bench/scenarios/firehose.ts` | ✅ Complete | Bun version check implemented |
@@ -490,6 +495,8 @@ heap.json
 
 12. **✅ COMPLETE - Add timeout protection to throughput.ts** (2026-01-17) - Added Promise.race() with 60s timeout to prevent indefinite hangs if message flow stops. Includes proper timer cleanup with clearTimeout().
 
+13. **✅ COMPLETE - Implement compare.ts utility** (2026-01-17) - Implemented regression comparison utility with loadResult(), compareResults(), formatComparison(). CLI support with proper argument validation and exit codes. Comprehensive test suite with 21 tests covering all edge cases. JSDoc documentation for all public APIs.
+
 ### 🔴 P0 - CRITICAL (Fix Immediately)
 
 (None - all P0 issues resolved)
@@ -504,9 +511,7 @@ heap.json
 
 ### 🟢 P3 - MEDIUM (Robustness/Completeness)
 
-13. **Implement reservoir sampling in `stats.ts`** - Add `maxSamples` constructor option. Required before soak test.
-
-14. **Implement `compare.ts` utility** - Regression comparison for ±10% tracking. Load JSONs, calculate deltas, PASS/FAIL.
+14. **Implement reservoir sampling in `stats.ts`** - Add `maxSamples` constructor option. Required before soak test.
 
 15. **Create `version.ts` utility** - Extract Bun version check to shared module.
 
@@ -526,11 +531,11 @@ heap.json
 
 ### ⏸️ DEFERRED (Blocked/Future)
 
-22. **Implement `soak.ts` scenario** - 4-8 hour memory stability. *Blocked by: #13 reservoir sampling*.
+22. **Implement `soak.ts` scenario** - 4-8 hour memory stability. *Blocked by: #14 reservoir sampling*.
 
 23. **Benchmark profiles** - Message size mixes, concurrency matrices. *Better for CI phase*.
 
-24. **CI integration** - Automated regression detection. *Requires: #14 compare.ts*.
+24. **CI integration** - Automated regression detection. *Uses: compare.ts*.
 
 25. **Iteration support** - `--iterations=N` flag for statistical rigor.
 
