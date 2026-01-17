@@ -375,7 +375,7 @@ heap.json
 | `bench/utils/version.ts` | 📋 Planned | Bun version enforcement |
 | `bench/scenarios/throughput.ts` | ✅ Complete | Bun version check implemented |
 | `bench/scenarios/firehose.ts` | ⚠️ Needs Fix | Missing Bun version check |
-| `bench/scenarios/fanout.ts` | ⚠️ Needs Fix | Missing Bun version check; incorrect E2E latency measurement |
+| `bench/scenarios/fanout.ts` | ✅ Complete | Bun version check and E2E latency measurement implemented |
 | `bench/scenarios/thundering-herd.ts` | ⚠️ Needs Fix | Missing Bun version check |
 | `bench/scenarios/soak.ts` | ⏸️ Deferred | Stub only (correct) |
 | `bench/scenarios/saturation.ts` | 📋 Planned | Load ramping, inflection detection |
@@ -473,19 +473,19 @@ if (Bun.version < MIN_BUN_VERSION) {
 
 4. **✅ COMPLETE - Add Bun version check to `throughput.ts`** (2026-01-17) - Added MIN_BUN_VERSION check with warning per Plan §14-26.
 
+5. **✅ COMPLETE - Add Bun version check to `fanout.ts`** (2026-01-17) - Added MIN_BUN_VERSION check with warning matching other scenarios.
+
+6. **✅ COMPLETE - Fix E2E latency measurement in `fanout.ts`** (2026-01-17) - Fixed to track per-message acknowledgments across all 50 subscribers. Only records latency when all subscribers have acknowledged (not per-subscriber). Replaced fixed 2s timeout with Promise-based completion tracking. Added 30s timeout for safety. Reset pendingAcks and completedMessages after warmup.
+
 ### 🔴 P0 - CRITICAL (Fix Immediately)
 
 (None - all P0 issues resolved)
 
 ### 🟠 P1 - HIGH (Spec Violations)
 
-5. **Add Bun version check to `firehose.ts`** - Per Plan §14-26.
+7. **Add Bun version check to `firehose.ts`** - Per Plan §14-26.
 
-6. **Add Bun version check to `fanout.ts`** - Per Plan §14-26.
-
-7. **Add Bun version check to `thundering-herd.ts`** - Per Plan §14-26.
-
-8. **Fix E2E latency measurement in `fanout.ts`** - Track ack count per message ID, record latency when all 50 subscribers acknowledge.
+8. **Add Bun version check to `thundering-herd.ts`** - Per Plan §14-26.
 
 ### 🟡 P2 - HIGH (Benchmark Validity)
 

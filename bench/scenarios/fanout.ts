@@ -20,6 +20,13 @@ const CONFIG = {
   warmupMessages: 50,
 };
 
+const MIN_BUN_VERSION = '1.1.31';
+if (Bun.version < MIN_BUN_VERSION) {
+  console.warn(
+    `⚠️  Warning: Bun ${Bun.version} < ${MIN_BUN_VERSION}. Results may vary due to GC/runtime differences.`
+  );
+}
+
 async function runFanout() {
   const pubsub = new PubSub({ projectId: 'bench-fanout' });
   const histogram = new Histogram();
@@ -27,8 +34,20 @@ async function runFanout() {
   const subscriptions: Subscription[] = [];
   const receiveCounts = new Map<string, number>();
 
+  const expectedPublished = CONFIG.publishRatePerSec * CONFIG.durationSeconds;
+  const pendingAcks = new Map<
+    number,
+    { publishTimeNs: number; acks: Set<string> }
+  >();
+  let completedMessages = 0;
+
   try {
     const [topic] = await pubsub.createTopic('fanout-topic');
+
+    let resolveAllReceived: (() => void) | null = null;
+    const allReceived = new Promise<void>((resolve) => {
+      resolveAllReceived = resolve;
+    });
 
     console.log(`Creating ${CONFIG.subscriberCount} subscriptions...`);
     for (let i = 0; i < CONFIG.subscriberCount; i++) {
@@ -45,11 +64,31 @@ async function runFanout() {
           message.attributes.publishTimeNs ?? '0',
           10
         );
-        const latencyNs = Bun.nanoseconds() - publishTimeNs;
-        histogram.record(latencyNs);
+        const messageId = Number.parseInt(
+          message.attributes.messageId ?? '-1',
+          10
+        );
 
         message.ack();
         receiveCounts.set(subName, (receiveCounts.get(subName) ?? 0) + 1);
+
+        let pending = pendingAcks.get(messageId);
+        if (!pending) {
+          pending = { publishTimeNs, acks: new Set() };
+          pendingAcks.set(messageId, pending);
+        }
+        pending.acks.add(subName);
+
+        if (pending.acks.size === CONFIG.subscriberCount) {
+          const latencyNs = Bun.nanoseconds() - pending.publishTimeNs;
+          histogram.record(latencyNs);
+          pendingAcks.delete(messageId);
+          completedMessages++;
+
+          if (completedMessages === expectedPublished && resolveAllReceived) {
+            resolveAllReceived();
+          }
+        }
       });
 
       subscription.on('error', (error: Error) => {
@@ -71,6 +110,8 @@ async function runFanout() {
     for (const subName of receiveCounts.keys()) {
       receiveCounts.set(subName, 0);
     }
+    pendingAcks.clear();
+    completedMessages = 0;
 
     Bun.gc(true);
 
@@ -85,7 +126,10 @@ async function runFanout() {
       const publishTimeNs = Bun.nanoseconds();
       await topic.publishMessage({
         data: payload,
-        attributes: { publishTimeNs: publishTimeNs.toString() },
+        attributes: {
+          publishTimeNs: publishTimeNs.toString(),
+          messageId: publishedCount.toString(),
+        },
       });
       publishedCount++;
 
@@ -93,7 +137,20 @@ async function runFanout() {
     }
 
     console.log('Waiting for message delivery...');
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    await Promise.race([
+      allReceived,
+      new Promise<void>((_, reject) =>
+        setTimeout(
+          () =>
+            reject(
+              new Error(
+                `Timeout: only ${completedMessages}/${expectedPublished} messages completed`
+              )
+            ),
+          30_000
+        )
+      ),
+    ]);
 
     const measureEndTime = Bun.nanoseconds();
     const durationMs = (measureEndTime - startTime) / 1_000_000;
