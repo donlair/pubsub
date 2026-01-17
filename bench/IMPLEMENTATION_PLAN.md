@@ -381,7 +381,7 @@ heap.json
 | `bench/scenarios/saturation.ts` | 📋 Planned | Load ramping, inflection detection |
 | `bench/mitata/serialization.bench.ts` | ✅ Complete | Buffer/JSON benchmarks - tests actual code paths |
 | `bench/mitata/batching.bench.ts` | ✅ Complete | Tests actual Publisher code - can detect regressions |
-| `bench/mitata/ack-nack.bench.ts` | ⚠️ Needs Rewrite | Tests mock code, not actual Message/MessageQueue |
+| `bench/mitata/ack-nack.bench.ts` | ✅ Complete | Tests actual Message/MessageQueue code - can detect regressions |
 | `bench/mitata/flow-control.bench.ts` | ⚠️ Needs Rewrite | Tests mock code, not actual FlowControl classes |
 | `bench/README.md` | ✅ Complete | Usage documentation |
 | `package.json` updates | ✅ Complete | Scripts and mitata dep |
@@ -439,9 +439,10 @@ heap.json
 **Resolution**: Rewritten to test actual Publisher class. Now covers all batch triggers including maxMilliseconds time-based trigger. Can now detect performance regressions in actual Publisher batching logic.
 
 #### 7. `ack-nack.bench.ts` Tests Mock Code
+**Status**: ✅ RESOLVED (2026-01-17)
+
 **Problem**: Tests simulated Map/Set operations instead of actual `Message.ack()`, `Message.nack()`, `MessageQueue.ack()`, `MessageQueue.nack()` methods. Missing `modifyAckDeadline()` benchmarks entirely.
-**Impact**: Cannot detect performance regressions in actual message acknowledgment code.
-**Fix**: Import actual classes, benchmark real code paths.
+**Resolution**: Rewritten to test actual Message and MessageQueue classes. Now covers all message acknowledgment operations including modifyAckDeadline(). Can now detect performance regressions in actual acknowledgment code.
 
 #### 8. `flow-control.bench.ts` Tests Mock Code
 **Problem**: Tests standalone synthetic functions instead of actual `SubscriberFlowControl` and `PublisherFlowControl` classes. Also has dead code elimination issues (results discarded without `return`).
@@ -480,6 +481,8 @@ heap.json
 
 9. **✅ COMPLETE - Rewrite `batching.bench.ts`** (2026-01-17) - Rewritten to test actual Publisher class instead of mock code. Now covers all batch triggers including maxMilliseconds time-based trigger.
 
+10. **✅ COMPLETE - Rewrite `ack-nack.bench.ts`** (2026-01-17) - Rewritten to test actual Message and MessageQueue classes instead of mock code. Now covers all message acknowledgment operations including modifyAckDeadline(). Can detect performance regressions in actual acknowledgment code.
+
 ### 🔴 P0 - CRITICAL (Fix Immediately)
 
 (None - all P0 issues resolved)
@@ -489,8 +492,6 @@ heap.json
 (None - all P1 issues resolved)
 
 ### 🟡 P2 - HIGH (Benchmark Validity)
-
-10. **Rewrite `ack-nack.bench.ts`** - Import actual `Message` and `MessageQueue` classes, benchmark real `ack()`, `nack()`, `modifyAckDeadline()` methods.
 
 11. **Rewrite `flow-control.bench.ts`** - Import actual `SubscriberFlowControl` and `PublisherFlowControl` classes, benchmark real methods. Fix dead code elimination issues.
 
