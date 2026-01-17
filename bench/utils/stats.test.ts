@@ -171,6 +171,142 @@ describe('Histogram', () => {
     expect(summary.p50).toBe(1.0);
     expect(summary.max).toBe(1.5);
   });
+
+  describe('reservoir sampling', () => {
+    test('backward compatible - no maxSamples stores all values', () => {
+      const hist = new Histogram();
+      for (let i = 0; i < 1000; i++) {
+        hist.recordMs(i);
+      }
+      const summary = hist.summary();
+      expect(summary.count).toBe(1000);
+    });
+
+    test('respects maxSamples limit', () => {
+      const hist = new Histogram({ maxSamples: 100 });
+      for (let i = 0; i < 1000; i++) {
+        hist.recordMs(i);
+      }
+      const summary = hist.summary();
+      expect(summary.count).toBe(1000);
+    });
+
+    test('approximates percentiles within acceptable error for large datasets', () => {
+      const fullHist = new Histogram();
+      const sampledHist = new Histogram({ maxSamples: 1000 });
+
+      for (let i = 1; i <= 100_000; i++) {
+        fullHist.recordMs(i);
+        sampledHist.recordMs(i);
+      }
+
+      const fullSummary = fullHist.summary();
+      const sampledSummary = sampledHist.summary();
+
+      expect(sampledSummary.count).toBe(100_000);
+
+      const p50Error = Math.abs(sampledSummary.p50 - fullSummary.p50) / fullSummary.p50;
+      const p95Error = Math.abs(sampledSummary.p95 - fullSummary.p95) / fullSummary.p95;
+      const p99Error = Math.abs(sampledSummary.p99 - fullSummary.p99) / fullSummary.p99;
+
+      expect(p50Error).toBeLessThan(0.05);
+      expect(p95Error).toBeLessThan(0.05);
+      expect(p99Error).toBeLessThan(0.05);
+    });
+
+    test('uses constant memory with reservoir sampling', () => {
+      const hist = new Histogram({ maxSamples: 1000 });
+
+      for (let i = 0; i < 1_000_000; i++) {
+        hist.recordMs(Math.random() * 100);
+      }
+
+      const summary = hist.summary();
+      expect(summary.count).toBe(1_000_000);
+    });
+
+    test('getCount returns total seen, not sample size', () => {
+      const hist = new Histogram({ maxSamples: 10 });
+      for (let i = 0; i < 100; i++) {
+        hist.recordMs(i);
+      }
+      expect(hist.getCount()).toBe(100);
+    });
+
+    test('reset clears both samples and totalSeen', () => {
+      const hist = new Histogram({ maxSamples: 10 });
+      for (let i = 0; i < 100; i++) {
+        hist.recordMs(i);
+      }
+      expect(hist.getCount()).toBe(100);
+
+      hist.reset();
+      expect(hist.getCount()).toBe(0);
+
+      for (let i = 0; i < 5; i++) {
+        hist.recordMs(i);
+      }
+      expect(hist.getCount()).toBe(5);
+    });
+
+    test('handles edge case when maxSamples equals total samples', () => {
+      const hist = new Histogram({ maxSamples: 100 });
+      for (let i = 0; i < 100; i++) {
+        hist.recordMs(i);
+      }
+      const summary = hist.summary();
+      expect(summary.count).toBe(100);
+      expect(summary.min).toBe(0);
+      expect(summary.max).toBe(99);
+    });
+
+    test('maintains statistical properties across multiple runs', () => {
+      const results: number[] = [];
+
+      for (let run = 0; run < 10; run++) {
+        const hist = new Histogram({ maxSamples: 100 });
+        for (let i = 1; i <= 10_000; i++) {
+          hist.recordMs(i);
+        }
+        const summary = hist.summary();
+        results.push(summary.p50);
+      }
+
+      const mean = results.reduce((a, b) => a + b, 0) / results.length;
+      const expectedP50 = 5000.5;
+      const error = Math.abs(mean - expectedP50) / expectedP50;
+
+      expect(error).toBeLessThan(0.1);
+    });
+
+    test('record() and recordMs() both work with reservoir sampling', () => {
+      const hist = new Histogram({ maxSamples: 10 });
+
+      for (let i = 0; i < 50; i++) {
+        hist.record(i * 1_000_000);
+      }
+
+      for (let i = 50; i < 100; i++) {
+        hist.recordMs(i);
+      }
+
+      expect(hist.getCount()).toBe(100);
+      const summary = hist.summary();
+      expect(summary.count).toBe(100);
+    });
+
+    test('handles maxSamples = 1 edge case', () => {
+      const hist = new Histogram({ maxSamples: 1 });
+      for (let i = 0; i < 100; i++) {
+        hist.recordMs(i);
+      }
+
+      const summary = hist.summary();
+      expect(summary.count).toBe(100);
+      expect(summary.p50).toBeGreaterThanOrEqual(0);
+      expect(summary.p50).toBeLessThanOrEqual(99);
+    });
+  });
 });
 
 describe('calculateThroughput', () => {

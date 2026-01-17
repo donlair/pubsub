@@ -372,12 +372,12 @@ heap.json
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| `bench/utils/stats.ts` | ✅ Complete | Percentile calculation fixed with linear interpolation; comprehensive test suite added |
+| `bench/utils/stats.ts` | ✅ Complete | Percentile calculation fixed with linear interpolation; reservoir sampling implemented; comprehensive test suite added |
 | `bench/utils/stats.test.ts` | ✅ Complete | Comprehensive test suite with 23 tests |
 | `bench/utils/reporter.ts` | ✅ Complete | Error handling and directory creation implemented |
 | `bench/utils/compare.ts` | ✅ Complete | Implementation includes loadResult(), compareResults(), formatComparison() |
 | `bench/utils/compare.test.ts` | ✅ Complete | Comprehensive test suite with 21 tests covering all edge cases |
-| `bench/utils/version.ts` | 📋 Planned | Bun version enforcement |
+| `bench/utils/version.ts` | ✅ Complete | Bun version enforcement |
 | `bench/scenarios/throughput.ts` | ✅ Complete | Bun version check implemented |
 | `bench/scenarios/firehose.ts` | ✅ Complete | Bun version check implemented |
 | `bench/scenarios/fanout.ts` | ✅ Complete | Bun version check and E2E latency measurement implemented |
@@ -391,7 +391,7 @@ heap.json
 | `bench/README.md` | ✅ Complete | Usage documentation |
 | `package.json` updates | ✅ Complete | Scripts and mitata dep |
 | `.gitignore` updates | ✅ Complete | Ignore results |
-| Reservoir sampling in stats.ts | 📋 Planned | Required before soak test |
+| Reservoir sampling in stats.ts | ✅ Complete | maxSamples parameter with Algorithm R |
 | Iteration support (`--iterations`) | 📋 Planned | Statistical rigor (median of N runs) |
 
 ## Known Issues (Discovered 2026-01-17)
@@ -501,6 +501,8 @@ heap.json
 
 15. **✅ COMPLETE - Create version.ts utility** (2026-01-17) - Extracted Bun version check to shared bench/utils/version.ts module. All 5 scenarios now use checkBunVersion() instead of duplicating code. Exports MIN_BUN_VERSION constant and checkBunVersion() function with JSDoc documentation.
 
+16. **✅ COMPLETE - Implement reservoir sampling in stats.ts** (2026-01-17) - Added optional maxSamples parameter to Histogram constructor. Implemented Algorithm R reservoir sampling for constant memory usage. Added comprehensive test suite with 11 new tests covering edge cases and statistical accuracy. Maintains backward compatibility (no maxSamples = store all values). Required before soak test implementation.
+
 ### 🔴 P0 - CRITICAL (Fix Immediately)
 
 (None - all P0 issues resolved)
@@ -515,7 +517,7 @@ heap.json
 
 ### 🟢 P3 - MEDIUM (Robustness/Completeness)
 
-16. **Implement reservoir sampling in `stats.ts`** - Add `maxSamples` constructor option. Required before soak test.
+(None - all P3 issues resolved)
 
 ### ⚪ P4 - LOW (Documentation/Quality)
 
@@ -531,7 +533,7 @@ heap.json
 
 ### ⏸️ DEFERRED (Blocked/Future)
 
-22. **Implement `soak.ts` scenario** - 4-8 hour memory stability. *Blocked by: #16 reservoir sampling*.
+22. **Implement `soak.ts` scenario** - 4-8 hour memory stability. *Unblocked: reservoir sampling complete*.
 
 23. **Benchmark profiles** - Message size mixes, concurrency matrices. *Better for CI phase*.
 

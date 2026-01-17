@@ -15,17 +15,37 @@ export interface LatencySummary {
 
 export class Histogram {
   private samples: number[] = [];
+  private maxSamples: number | undefined;
+  private totalSeen = 0;
+
+  constructor(options?: { maxSamples?: number }) {
+    this.maxSamples = options?.maxSamples;
+  }
 
   record(valueNs: number): void {
-    this.samples.push(valueNs / 1_000_000);
+    this.recordMs(valueNs / 1_000_000);
   }
 
   recordMs(valueMs: number): void {
-    this.samples.push(valueMs);
+    this.totalSeen++;
+
+    if (this.maxSamples === undefined) {
+      this.samples.push(valueMs);
+      return;
+    }
+
+    if (this.samples.length < this.maxSamples) {
+      this.samples.push(valueMs);
+    } else {
+      const randomIndex = Math.floor(Math.random() * this.totalSeen);
+      if (randomIndex < this.maxSamples) {
+        this.samples[randomIndex] = valueMs;
+      }
+    }
   }
 
   getCount(): number {
-    return this.samples.length;
+    return this.totalSeen;
   }
 
   summary(): LatencySummary {
@@ -37,7 +57,7 @@ export class Histogram {
     const len = sorted.length;
 
     return {
-      count: len,
+      count: this.totalSeen,
       p50: percentile(sorted, 0.5),
       p95: percentile(sorted, 0.95),
       p99: percentile(sorted, 0.99),
@@ -49,6 +69,7 @@ export class Histogram {
 
   reset(): void {
     this.samples = [];
+    this.totalSeen = 0;
   }
 }
 
