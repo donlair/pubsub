@@ -382,7 +382,7 @@ heap.json
 | `bench/mitata/serialization.bench.ts` | ✅ Complete | Buffer/JSON benchmarks - tests actual code paths |
 | `bench/mitata/batching.bench.ts` | ✅ Complete | Tests actual Publisher code - can detect regressions |
 | `bench/mitata/ack-nack.bench.ts` | ✅ Complete | Tests actual Message/MessageQueue code - can detect regressions |
-| `bench/mitata/flow-control.bench.ts` | ⚠️ Needs Rewrite | Tests mock code, not actual FlowControl classes |
+| `bench/mitata/flow-control.bench.ts` | ✅ Complete | Tests actual SubscriberFlowControl and PublisherFlowControl classes |
 | `bench/README.md` | ✅ Complete | Usage documentation |
 | `package.json` updates | ✅ Complete | Scripts and mitata dep |
 | `.gitignore` updates | ✅ Complete | Ignore results |
@@ -445,9 +445,10 @@ heap.json
 **Resolution**: Rewritten to test actual Message and MessageQueue classes. Now covers all message acknowledgment operations including modifyAckDeadline(). Can now detect performance regressions in actual acknowledgment code.
 
 #### 8. `flow-control.bench.ts` Tests Mock Code
+**Status**: ✅ RESOLVED (2026-01-17)
+
 **Problem**: Tests standalone synthetic functions instead of actual `SubscriberFlowControl` and `PublisherFlowControl` classes. Also has dead code elimination issues (results discarded without `return`).
-**Impact**: Cannot detect performance regressions in actual flow control logic.
-**Fix**: Import actual classes, benchmark real `canAccept()`, `acquire()`, `release()` methods.
+**Resolution**: Rewritten to test actual SubscriberFlowControl and PublisherFlowControl classes instead of mock code. Fixed benchmark methodology issues: moved all setup outside benchmark functions, combined addMessage/removeMessage into cycle to avoid state corruption, and moved blocking benchmark setup outside. Can now detect performance regressions in actual flow control code.
 
 ### Medium Priority Issues (P3) - Robustness
 
@@ -483,6 +484,8 @@ heap.json
 
 10. **✅ COMPLETE - Rewrite `ack-nack.bench.ts`** (2026-01-17) - Rewritten to test actual Message and MessageQueue classes instead of mock code. Now covers all message acknowledgment operations including modifyAckDeadline(). Can detect performance regressions in actual acknowledgment code.
 
+11. **✅ COMPLETE - Rewrite `flow-control.bench.ts`** (2026-01-17) - Rewritten to test actual SubscriberFlowControl and PublisherFlowControl classes instead of mock code. Fixed benchmark methodology issues: moved all setup outside benchmark functions, combined addMessage/removeMessage into cycle to avoid state corruption, and moved blocking benchmark setup outside. Can now detect performance regressions in actual flow control code.
+
 ### 🔴 P0 - CRITICAL (Fix Immediately)
 
 (None - all P0 issues resolved)
@@ -493,7 +496,7 @@ heap.json
 
 ### 🟡 P2 - HIGH (Benchmark Validity)
 
-11. **Rewrite `flow-control.bench.ts`** - Import actual `SubscriberFlowControl` and `PublisherFlowControl` classes, benchmark real methods. Fix dead code elimination issues.
+(None - all P2 issues resolved)
 
 ### 🟢 P3 - MEDIUM (Robustness/Completeness)
 
