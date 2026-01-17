@@ -380,7 +380,7 @@ heap.json
 | `bench/scenarios/soak.ts` | ⏸️ Deferred | Stub only (correct) |
 | `bench/scenarios/saturation.ts` | 📋 Planned | Load ramping, inflection detection |
 | `bench/mitata/serialization.bench.ts` | ✅ Complete | Buffer/JSON benchmarks - tests actual code paths |
-| `bench/mitata/batching.bench.ts` | ⚠️ Needs Rewrite | Tests mock code, not actual Publisher |
+| `bench/mitata/batching.bench.ts` | ✅ Complete | Tests actual Publisher code - can detect regressions |
 | `bench/mitata/ack-nack.bench.ts` | ⚠️ Needs Rewrite | Tests mock code, not actual Message/MessageQueue |
 | `bench/mitata/flow-control.bench.ts` | ⚠️ Needs Rewrite | Tests mock code, not actual FlowControl classes |
 | `bench/README.md` | ✅ Complete | Usage documentation |
@@ -433,9 +433,10 @@ heap.json
 ### High Priority Issues (P2) - Benchmarks Testing Wrong Code
 
 #### 6. `batching.bench.ts` Tests Mock Code
-**Problem**: Creates synthetic `shouldPublishBatch()` and batch assembly functions instead of importing/testing actual `Publisher` class methods. Also missing time-based trigger (`maxMilliseconds`) coverage.
-**Impact**: Cannot detect performance regressions in actual Publisher batching logic.
-**Fix**: Import actual `Publisher` class, benchmark real `getBatch()`, `shouldPublishBatch()` methods.
+**Status**: ✅ RESOLVED (2026-01-17)
+
+**Problem**: Created synthetic `shouldPublishBatch()` and batch assembly functions instead of importing/testing actual `Publisher` class methods. Also missing time-based trigger (`maxMilliseconds`) coverage.
+**Resolution**: Rewritten to test actual Publisher class. Now covers all batch triggers including maxMilliseconds time-based trigger. Can now detect performance regressions in actual Publisher batching logic.
 
 #### 7. `ack-nack.bench.ts` Tests Mock Code
 **Problem**: Tests simulated Map/Set operations instead of actual `Message.ack()`, `Message.nack()`, `MessageQueue.ack()`, `MessageQueue.nack()` methods. Missing `modifyAckDeadline()` benchmarks entirely.
@@ -477,6 +478,8 @@ heap.json
 
 8. **✅ COMPLETE - Add Bun version check to `thundering-herd.ts`** (2026-01-17) - Added MIN_BUN_VERSION check with warning per Plan §14-26, matching pattern from other scenarios.
 
+9. **✅ COMPLETE - Rewrite `batching.bench.ts`** (2026-01-17) - Rewritten to test actual Publisher class instead of mock code. Now covers all batch triggers including maxMilliseconds time-based trigger.
+
 ### 🔴 P0 - CRITICAL (Fix Immediately)
 
 (None - all P0 issues resolved)
@@ -487,47 +490,45 @@ heap.json
 
 ### 🟡 P2 - HIGH (Benchmark Validity)
 
-8. **Rewrite `batching.bench.ts`** - Import actual `Publisher` class, benchmark real methods. Add `maxMilliseconds` trigger coverage.
+10. **Rewrite `ack-nack.bench.ts`** - Import actual `Message` and `MessageQueue` classes, benchmark real `ack()`, `nack()`, `modifyAckDeadline()` methods.
 
-9. **Rewrite `ack-nack.bench.ts`** - Import actual `Message` and `MessageQueue` classes, benchmark real `ack()`, `nack()`, `modifyAckDeadline()` methods.
-
-10. **Rewrite `flow-control.bench.ts`** - Import actual `SubscriberFlowControl` and `PublisherFlowControl` classes, benchmark real methods. Fix dead code elimination issues.
+11. **Rewrite `flow-control.bench.ts`** - Import actual `SubscriberFlowControl` and `PublisherFlowControl` classes, benchmark real methods. Fix dead code elimination issues.
 
 ### 🟢 P3 - MEDIUM (Robustness/Completeness)
 
-11. **Add timeout protection to `throughput.ts`** - Use `Promise.race()` with 60s timeout.
+12. **Add timeout protection to `throughput.ts`** - Use `Promise.race()` with 60s timeout.
 
-12. **Implement reservoir sampling in `stats.ts`** - Add `maxSamples` constructor option. Required before soak test.
+13. **Implement reservoir sampling in `stats.ts`** - Add `maxSamples` constructor option. Required before soak test.
 
-13. **Implement `compare.ts` utility** - Regression comparison for ±10% tracking. Load JSONs, calculate deltas, PASS/FAIL.
+14. **Implement `compare.ts` utility** - Regression comparison for ±10% tracking. Load JSONs, calculate deltas, PASS/FAIL.
 
-14. **Create `version.ts` utility** - Extract Bun version check to shared module.
+15. **Create `version.ts` utility** - Extract Bun version check to shared module.
 
-15. **Implement `saturation.ts` scenario** - Load ramping (50%-125%) for capacity ceiling detection.
+16. **Implement `saturation.ts` scenario** - Load ramping (50%-125%) for capacity ceiling detection.
 
 ### ⚪ P4 - LOW (Documentation/Quality)
 
-16. **Extract magic numbers in `reporter.ts`** - Define `const MB = 1_048_576`.
+17. **Extract magic numbers in `reporter.ts`** - Define `const MB = 1_048_576`.
 
-17. **Add JSDoc documentation to `stats.ts`** - Document units, algorithms, edge cases.
+18. **Add JSDoc documentation to `stats.ts`** - Document units, algorithms, edge cases.
 
-18. **Add JSDoc documentation to `reporter.ts`** - Document all public functions.
+19. **Add JSDoc documentation to `reporter.ts`** - Document all public functions.
 
-19. **Document warmup settling time in `throughput.ts`** - Explain 500ms magic number.
+20. **Document warmup settling time in `throughput.ts`** - Explain 500ms magic number.
 
-20. **Add input validation to `stats.ts`** - Check for NaN, Infinity, negative values.
+21. **Add input validation to `stats.ts`** - Check for NaN, Infinity, negative values.
 
 ### ⏸️ DEFERRED (Blocked/Future)
 
-21. **Implement `soak.ts` scenario** - 4-8 hour memory stability. *Blocked by: #12 reservoir sampling*.
+22. **Implement `soak.ts` scenario** - 4-8 hour memory stability. *Blocked by: #13 reservoir sampling*.
 
-22. **Benchmark profiles** - Message size mixes, concurrency matrices. *Better for CI phase*.
+23. **Benchmark profiles** - Message size mixes, concurrency matrices. *Better for CI phase*.
 
-23. **CI integration** - Automated regression detection. *Requires: #13 compare.ts*.
+24. **CI integration** - Automated regression detection. *Requires: #14 compare.ts*.
 
-24. **Iteration support** - `--iterations=N` flag for statistical rigor.
+25. **Iteration support** - `--iterations=N` flag for statistical rigor.
 
-25. **Container testing** - Resource limits per spec §268-279.
+26. **Container testing** - Resource limits per spec §268-279.
 
 ## Future Enhancements (Unchanged)
 
