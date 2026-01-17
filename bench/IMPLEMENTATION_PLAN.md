@@ -376,7 +376,7 @@ heap.json
 | `bench/scenarios/throughput.ts` | ✅ Complete | Bun version check implemented |
 | `bench/scenarios/firehose.ts` | ✅ Complete | Bun version check implemented |
 | `bench/scenarios/fanout.ts` | ✅ Complete | Bun version check and E2E latency measurement implemented |
-| `bench/scenarios/thundering-herd.ts` | ⚠️ Needs Fix | Missing Bun version check |
+| `bench/scenarios/thundering-herd.ts` | ✅ Complete | Bun version check implemented |
 | `bench/scenarios/soak.ts` | ⏸️ Deferred | Stub only (correct) |
 | `bench/scenarios/saturation.ts` | 📋 Planned | Load ramping, inflection detection |
 | `bench/mitata/serialization.bench.ts` | ✅ Complete | Buffer/JSON benchmarks - tests actual code paths |
@@ -418,15 +418,11 @@ heap.json
 ### High Priority Issues (P1) - Spec Violations
 
 #### 4. Missing Bun Version Check in All Scenarios
+**Status**: ✅ RESOLVED (2026-01-17)
+
 **Affected Files**: `throughput.ts`, `firehose.ts`, `fanout.ts`, `thundering-herd.ts`
 **Problem**: Plan §14-26 requires all scenarios check Bun version at startup and warn if < 1.1.31. None of the 4 implemented scenarios include this check.
-**Fix**: Add to each scenario:
-```typescript
-const MIN_BUN_VERSION = '1.1.31';
-if (Bun.version < MIN_BUN_VERSION) {
-  console.warn(`⚠️  Warning: Bun ${Bun.version} < ${MIN_BUN_VERSION}. Results may vary.`);
-}
-```
+**Resolution**: All four scenarios now have MIN_BUN_VERSION check implemented with warning message matching spec requirements.
 
 #### 5. Incorrect E2E Latency Measurement in `fanout.ts`
 **Location**: Message handler (line ~48)
@@ -479,13 +475,15 @@ if (Bun.version < MIN_BUN_VERSION) {
 
 7. **✅ COMPLETE - Add Bun version check to `firehose.ts`** (2026-01-17) - Added MIN_BUN_VERSION check with warning per Plan §14-26, matching pattern from fanout.ts.
 
+8. **✅ COMPLETE - Add Bun version check to `thundering-herd.ts`** (2026-01-17) - Added MIN_BUN_VERSION check with warning per Plan §14-26, matching pattern from other scenarios.
+
 ### 🔴 P0 - CRITICAL (Fix Immediately)
 
 (None - all P0 issues resolved)
 
 ### 🟠 P1 - HIGH (Spec Violations)
 
-7. **Add Bun version check to `thundering-herd.ts`** - Per Plan §14-26.
+(None - all P1 issues resolved)
 
 ### 🟡 P2 - HIGH (Benchmark Validity)
 
