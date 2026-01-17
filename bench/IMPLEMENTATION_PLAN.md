@@ -374,7 +374,7 @@ heap.json
 | `bench/utils/compare.ts` | 📋 Planned | Regression comparison utility |
 | `bench/utils/version.ts` | 📋 Planned | Bun version enforcement |
 | `bench/scenarios/throughput.ts` | ✅ Complete | Bun version check implemented |
-| `bench/scenarios/firehose.ts` | ⚠️ Needs Fix | Missing Bun version check |
+| `bench/scenarios/firehose.ts` | ✅ Complete | Bun version check implemented |
 | `bench/scenarios/fanout.ts` | ✅ Complete | Bun version check and E2E latency measurement implemented |
 | `bench/scenarios/thundering-herd.ts` | ⚠️ Needs Fix | Missing Bun version check |
 | `bench/scenarios/soak.ts` | ⏸️ Deferred | Stub only (correct) |
@@ -477,59 +477,59 @@ if (Bun.version < MIN_BUN_VERSION) {
 
 6. **✅ COMPLETE - Fix E2E latency measurement in `fanout.ts`** (2026-01-17) - Fixed to track per-message acknowledgments across all 50 subscribers. Only records latency when all subscribers have acknowledged (not per-subscriber). Replaced fixed 2s timeout with Promise-based completion tracking. Added 30s timeout for safety. Reset pendingAcks and completedMessages after warmup.
 
+7. **✅ COMPLETE - Add Bun version check to `firehose.ts`** (2026-01-17) - Added MIN_BUN_VERSION check with warning per Plan §14-26, matching pattern from fanout.ts.
+
 ### 🔴 P0 - CRITICAL (Fix Immediately)
 
 (None - all P0 issues resolved)
 
 ### 🟠 P1 - HIGH (Spec Violations)
 
-7. **Add Bun version check to `firehose.ts`** - Per Plan §14-26.
-
-8. **Add Bun version check to `thundering-herd.ts`** - Per Plan §14-26.
+7. **Add Bun version check to `thundering-herd.ts`** - Per Plan §14-26.
 
 ### 🟡 P2 - HIGH (Benchmark Validity)
 
-9. **Rewrite `batching.bench.ts`** - Import actual `Publisher` class, benchmark real methods. Add `maxMilliseconds` trigger coverage.
+8. **Rewrite `batching.bench.ts`** - Import actual `Publisher` class, benchmark real methods. Add `maxMilliseconds` trigger coverage.
 
-10. **Rewrite `ack-nack.bench.ts`** - Import actual `Message` and `MessageQueue` classes, benchmark real `ack()`, `nack()`, `modifyAckDeadline()` methods.
+9. **Rewrite `ack-nack.bench.ts`** - Import actual `Message` and `MessageQueue` classes, benchmark real `ack()`, `nack()`, `modifyAckDeadline()` methods.
 
-11. **Rewrite `flow-control.bench.ts`** - Import actual `SubscriberFlowControl` and `PublisherFlowControl` classes, benchmark real methods. Fix dead code elimination issues.
+10. **Rewrite `flow-control.bench.ts`** - Import actual `SubscriberFlowControl` and `PublisherFlowControl` classes, benchmark real methods. Fix dead code elimination issues.
 
 ### 🟢 P3 - MEDIUM (Robustness/Completeness)
 
-12. **Add timeout protection to `throughput.ts`** - Use `Promise.race()` with 60s timeout.
+11. **Add timeout protection to `throughput.ts`** - Use `Promise.race()` with 60s timeout.
 
-13. **Implement reservoir sampling in `stats.ts`** - Add `maxSamples` constructor option. Required before soak test.
+12. **Implement reservoir sampling in `stats.ts`** - Add `maxSamples` constructor option. Required before soak test.
 
-14. **Implement `compare.ts` utility** - Regression comparison for ±10% tracking. Load JSONs, calculate deltas, PASS/FAIL.
+13. **Implement `compare.ts` utility** - Regression comparison for ±10% tracking. Load JSONs, calculate deltas, PASS/FAIL.
 
-15. **Create `version.ts` utility** - Extract Bun version check to shared module.
+14. **Create `version.ts` utility** - Extract Bun version check to shared module.
 
-16. **Implement `saturation.ts` scenario** - Load ramping (50%-125%) for capacity ceiling detection.
+15. **Implement `saturation.ts` scenario** - Load ramping (50%-125%) for capacity ceiling detection.
 
 ### ⚪ P4 - LOW (Documentation/Quality)
 
-17. **Extract magic numbers in `reporter.ts`** - Define `const MB = 1_048_576`.
+16. **Extract magic numbers in `reporter.ts`** - Define `const MB = 1_048_576`.
 
-18. **Add JSDoc documentation to `stats.ts`** - Document units, algorithms, edge cases.
+17. **Add JSDoc documentation to `stats.ts`** - Document units, algorithms, edge cases.
 
-19. **Add JSDoc documentation to `reporter.ts`** - Document all public functions.
+18. **Add JSDoc documentation to `reporter.ts`** - Document all public functions.
 
-20. **Document warmup settling time in `throughput.ts`** - Explain 500ms magic number.
+19. **Document warmup settling time in `throughput.ts`** - Explain 500ms magic number.
 
-21. **Add input validation to `stats.ts`** - Check for NaN, Infinity, negative values.
+20. **Add input validation to `stats.ts`** - Check for NaN, Infinity, negative values.
 
 ### ⏸️ DEFERRED (Blocked/Future)
 
-22. **Implement `soak.ts` scenario** - 4-8 hour memory stability. *Blocked by: #13 reservoir sampling*.
+21. **Implement `soak.ts` scenario** - 4-8 hour memory stability. *Blocked by: #12 reservoir sampling*.
 
-23. **Benchmark profiles** - Message size mixes, concurrency matrices. *Better for CI phase*.
+22. **Benchmark profiles** - Message size mixes, concurrency matrices. *Better for CI phase*.
 
-24. **CI integration** - Automated regression detection. *Requires: #14 compare.ts*.
+23. **CI integration** - Automated regression detection. *Requires: #13 compare.ts*.
 
-25. **Iteration support** - `--iterations=N` flag for statistical rigor.
+24. **Iteration support** - `--iterations=N` flag for statistical rigor.
 
-26. **Container testing** - Resource limits per spec §268-279.
+25. **Container testing** - Resource limits per spec §268-279.
 
 ## Future Enhancements (Unchanged)
 
