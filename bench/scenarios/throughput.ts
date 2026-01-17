@@ -84,7 +84,19 @@ async function runThroughput() {
       });
     }
 
-    await allReceived;
+    let timeoutId: ReturnType<typeof setTimeout>;
+    const timeout = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => {
+        reject(
+          new Error(
+            `Timeout: Only received ${receivedCount}/${CONFIG.messageCount} messages after 60s`
+          )
+        );
+      }, 60_000);
+    });
+
+    await Promise.race([allReceived, timeout]);
+    clearTimeout(timeoutId!);
     const endTime = Bun.nanoseconds();
     const durationMs = (endTime - startTime) / 1_000_000;
 

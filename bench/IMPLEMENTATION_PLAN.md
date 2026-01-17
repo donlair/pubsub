@@ -453,8 +453,10 @@ heap.json
 ### Medium Priority Issues (P3) - Robustness
 
 #### 9. No Timeout Protection in `throughput.ts`
+**Status**: ✅ RESOLVED (2026-01-17)
+
 **Problem**: If message flow stops, the `allReceived` Promise never resolves and benchmark hangs indefinitely.
-**Fix**: Add timeout with `Promise.race()`.
+**Resolution**: Added Promise.race() with 60s timeout to prevent indefinite hangs if message flow stops. Includes proper timer cleanup with clearTimeout().
 
 #### 10. Unit Storage Inconsistency in `stats.ts`
 **Problem**: Plan says "Records values in nanoseconds" but code stores milliseconds internally (converts on input, not output).
@@ -486,6 +488,8 @@ heap.json
 
 11. **✅ COMPLETE - Rewrite `flow-control.bench.ts`** (2026-01-17) - Rewritten to test actual SubscriberFlowControl and PublisherFlowControl classes instead of mock code. Fixed benchmark methodology issues: moved all setup outside benchmark functions, combined addMessage/removeMessage into cycle to avoid state corruption, and moved blocking benchmark setup outside. Can now detect performance regressions in actual flow control code.
 
+12. **✅ COMPLETE - Add timeout protection to throughput.ts** (2026-01-17) - Added Promise.race() with 60s timeout to prevent indefinite hangs if message flow stops. Includes proper timer cleanup with clearTimeout().
+
 ### 🔴 P0 - CRITICAL (Fix Immediately)
 
 (None - all P0 issues resolved)
@@ -499,8 +503,6 @@ heap.json
 (None - all P2 issues resolved)
 
 ### 🟢 P3 - MEDIUM (Robustness/Completeness)
-
-12. **Add timeout protection to `throughput.ts`** - Use `Promise.race()` with 60s timeout.
 
 13. **Implement reservoir sampling in `stats.ts`** - Add `maxSamples` constructor option. Required before soak test.
 
