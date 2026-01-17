@@ -373,7 +373,7 @@ heap.json
 | `bench/utils/reporter.ts` | ✅ Complete | Error handling and directory creation implemented |
 | `bench/utils/compare.ts` | 📋 Planned | Regression comparison utility |
 | `bench/utils/version.ts` | 📋 Planned | Bun version enforcement |
-| `bench/scenarios/throughput.ts` | ⚠️ Needs Fix | Missing Bun version check |
+| `bench/scenarios/throughput.ts` | ✅ Complete | Bun version check implemented |
 | `bench/scenarios/firehose.ts` | ⚠️ Needs Fix | Missing Bun version check |
 | `bench/scenarios/fanout.ts` | ⚠️ Needs Fix | Missing Bun version check; incorrect E2E latency measurement |
 | `bench/scenarios/thundering-herd.ts` | ⚠️ Needs Fix | Missing Bun version check |
@@ -467,15 +467,17 @@ if (Bun.version < MIN_BUN_VERSION) {
 
 1. **✅ COMPLETE - Fix percentile calculation in `stats.ts`** (2026-01-17) - Replaced with standard linear interpolation algorithm (R-7 method). Added comprehensive test suite with 23 tests. All metrics now correct.
 
-### 🔴 P0 - CRITICAL (Fix Immediately)
-
 2. **✅ COMPLETE - Add error handling to `reporter.ts` saveResults()`** (2026-01-17) - Wrapped `Bun.write()` in try-catch with meaningful error messages.
 
 3. **✅ COMPLETE - Add directory creation to `reporter.ts` saveResults()`** (2026-01-17) - Added directory existence check and creation before writing.
 
-### 🟠 P1 - HIGH (Spec Violations)
+4. **✅ COMPLETE - Add Bun version check to `throughput.ts`** (2026-01-17) - Added MIN_BUN_VERSION check with warning per Plan §14-26.
 
-4. **Add Bun version check to `throughput.ts`** - Per Plan §14-26.
+### 🔴 P0 - CRITICAL (Fix Immediately)
+
+(None - all P0 issues resolved)
+
+### 🟠 P1 - HIGH (Spec Violations)
 
 5. **Add Bun version check to `firehose.ts`** - Per Plan §14-26.
 
