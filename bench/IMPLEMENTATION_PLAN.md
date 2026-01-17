@@ -499,6 +499,8 @@ heap.json
 
 14. **✅ COMPLETE - Implement saturation.ts scenario** (2026-01-17) - Load ramping scenario implemented with 10,000 messages at each of 6 load levels (50%, 75%, 90%, 100%, 110%, 125%). Uses rate-based pacing to attempt target throughput. Detects inflection point where latency growth becomes exponential. Provides capacity planning metrics.
 
+15. **✅ COMPLETE - Create version.ts utility** (2026-01-17) - Extracted Bun version check to shared bench/utils/version.ts module. All 5 scenarios now use checkBunVersion() instead of duplicating code. Exports MIN_BUN_VERSION constant and checkBunVersion() function with JSDoc documentation.
+
 ### 🔴 P0 - CRITICAL (Fix Immediately)
 
 (None - all P0 issues resolved)
@@ -513,9 +515,7 @@ heap.json
 
 ### 🟢 P3 - MEDIUM (Robustness/Completeness)
 
-15. **Implement reservoir sampling in `stats.ts`** - Add `maxSamples` constructor option. Required before soak test.
-
-16. **Create `version.ts` utility** - Extract Bun version check to shared module.
+16. **Implement reservoir sampling in `stats.ts`** - Add `maxSamples` constructor option. Required before soak test.
 
 ### ⚪ P4 - LOW (Documentation/Quality)
 
@@ -531,7 +531,7 @@ heap.json
 
 ### ⏸️ DEFERRED (Blocked/Future)
 
-22. **Implement `soak.ts` scenario** - 4-8 hour memory stability. *Blocked by: #14 reservoir sampling*.
+22. **Implement `soak.ts` scenario** - 4-8 hour memory stability. *Blocked by: #16 reservoir sampling*.
 
 23. **Benchmark profiles** - Message size mixes, concurrency matrices. *Better for CI phase*.
 

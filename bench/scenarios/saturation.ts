@@ -12,6 +12,7 @@ import type { Topic } from '../../src/topic';
 import type { Subscription } from '../../src/subscription';
 import { Histogram, calculateThroughput } from '../utils/stats';
 import { createResult, printSummary, saveResults } from '../utils/reporter';
+import { checkBunVersion } from '../utils/version';
 
 const CONFIG = {
   baselineRate: 10_000,
@@ -125,12 +126,7 @@ async function runLoadLevel(
 }
 
 async function runSaturation() {
-  const MIN_BUN_VERSION = '1.1.31';
-  if (Bun.version < MIN_BUN_VERSION) {
-    console.warn(
-      `⚠️  Warning: Bun ${Bun.version} < ${MIN_BUN_VERSION}. Results may vary due to GC/runtime differences.`
-    );
-  }
+  checkBunVersion();
 
   const pubsub = new PubSub({ projectId: 'bench-saturation' });
   const loadResults: LoadLevelResult[] = [];

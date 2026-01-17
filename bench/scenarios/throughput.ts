@@ -10,6 +10,7 @@ import { PubSub } from '../../src/pubsub';
 import type { Message } from '../../src/message';
 import { Histogram, calculateThroughput } from '../utils/stats';
 import { createResult, printSummary, saveResults } from '../utils/reporter';
+import { checkBunVersion } from '../utils/version';
 
 const CONFIG = {
   messageCount: 10_000,
@@ -18,12 +19,7 @@ const CONFIG = {
 };
 
 async function runThroughput() {
-  const MIN_BUN_VERSION = '1.1.31';
-  if (Bun.version < MIN_BUN_VERSION) {
-    console.warn(
-      `⚠️  Warning: Bun ${Bun.version} < ${MIN_BUN_VERSION}. Results may vary due to GC/runtime differences.`
-    );
-  }
+  checkBunVersion();
 
   const pubsub = new PubSub({ projectId: 'bench-throughput' });
   const histogram = new Histogram();

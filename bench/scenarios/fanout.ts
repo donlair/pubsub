@@ -12,6 +12,7 @@ import type { Message } from '../../src/message';
 import type { Subscription } from '../../src/subscription';
 import { Histogram, calculateThroughput } from '../utils/stats';
 import { createResult, printSummary, saveResults } from '../utils/reporter';
+import { checkBunVersion } from '../utils/version';
 
 const CONFIG = {
   subscriberCount: 50,
@@ -20,14 +21,9 @@ const CONFIG = {
   warmupMessages: 50,
 };
 
-const MIN_BUN_VERSION = '1.1.31';
-if (Bun.version < MIN_BUN_VERSION) {
-  console.warn(
-    `⚠️  Warning: Bun ${Bun.version} < ${MIN_BUN_VERSION}. Results may vary due to GC/runtime differences.`
-  );
-}
-
 async function runFanout() {
+  checkBunVersion();
+
   const pubsub = new PubSub({ projectId: 'bench-fanout' });
   const histogram = new Histogram();
   const errors: string[] = [];

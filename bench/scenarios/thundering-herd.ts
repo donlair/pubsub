@@ -10,6 +10,7 @@
 import { PubSub } from '../../src/pubsub';
 import { Histogram, calculateThroughput } from '../utils/stats';
 import { createResult, printSummary, saveResults } from '../utils/reporter';
+import { checkBunVersion } from '../utils/version';
 
 const CONFIG = {
   concurrentPublishers: 1000,
@@ -17,14 +18,9 @@ const CONFIG = {
   warmupPublishers: 50,
 };
 
-const MIN_BUN_VERSION = '1.1.31';
-if (Bun.version < MIN_BUN_VERSION) {
-  console.warn(
-    `⚠️  Warning: Bun ${Bun.version} < ${MIN_BUN_VERSION}. Results may vary due to GC/runtime differences.`
-  );
-}
-
 async function runThunderingHerd() {
+  checkBunVersion();
+
   const pubsub = new PubSub({ projectId: 'bench-herd' });
   const histogram = new Histogram();
   const errors: string[] = [];

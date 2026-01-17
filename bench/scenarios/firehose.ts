@@ -15,6 +15,7 @@ import {
   saveResults,
   type BenchmarkResult,
 } from '../utils/reporter';
+import { checkBunVersion } from '../utils/version';
 
 const PAYLOAD_SIZES = [
   { name: '1KB', bytes: 1024, targetP99: 50 },
@@ -27,14 +28,9 @@ const CONFIG = {
   warmupMessages: 100,
 };
 
-const MIN_BUN_VERSION = '1.1.31';
-if (Bun.version < MIN_BUN_VERSION) {
-  console.warn(
-    `⚠️  Warning: Bun ${Bun.version} < ${MIN_BUN_VERSION}. Results may vary due to GC/runtime differences.`
-  );
-}
-
 async function runFirehose(): Promise<BenchmarkResult[]> {
+  checkBunVersion();
+
   const results: BenchmarkResult[] = [];
 
   for (const payloadConfig of PAYLOAD_SIZES) {
