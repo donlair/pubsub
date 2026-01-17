@@ -9,11 +9,18 @@
     "format": "biome format --write .",
     "check": "biome check .",
     "check:fix": "biome check --write .",
-    "verify": "bun run typecheck && bun run lint && bun test"
+    "verify": "bun run typecheck && bun run lint && bun test",
+    "bench:throughput": "bun bench/scenarios/throughput.ts",
+    "bench:firehose": "bun bench/scenarios/firehose.ts",
+    "bench:fanout": "bun bench/scenarios/fanout.ts",
+    "bench:herd": "bun bench/scenarios/thundering-herd.ts",
+    "bench:micro": "bun bench/mitata/serialization.bench.ts && bun bench/mitata/batching.bench.ts && bun bench/mitata/ack-nack.bench.ts && bun bench/mitata/flow-control.bench.ts",
+    "bench:all": "bun run bench:throughput && bun run bench:firehose && bun run bench:fanout && bun run bench:herd"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.11",
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "mitata": "^1.0.10"
   },
   "peerDependencies": {
     "typescript": "^5"
