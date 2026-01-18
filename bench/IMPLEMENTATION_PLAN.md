@@ -15,12 +15,12 @@ Add Docker-based resource-constrained benchmarking to simulate cloud instance si
 
 ## Tasks
 
-### Phase 1: Profile Definitions
+### Phase 1: Profile Definitions ✓
 
-- [ ] Create `bench/utils/profiles.ts` with `ResourceProfile` interface
-- [ ] Define `PROFILES` map with micro, small, medium, native configurations
-- [ ] Export `getProfile()` and `listProfiles()` helper functions
-- [ ] Define `SCENARIO_BENCHMARKS` constant (excludes mitata microbenchmarks)
+- [x] Create `bench/utils/profiles.ts` with `ResourceProfile` interface
+- [x] Define `PROFILES` map with micro, small, medium, native configurations
+- [x] Export `getProfile()` and `listProfiles()` helper functions
+- [x] Define `SCENARIO_BENCHMARKS` constant (excludes mitata microbenchmarks)
 
 ### Phase 2: Reporter Modifications
 
@@ -72,7 +72,7 @@ Add Docker-based resource-constrained benchmarking to simulate cloud instance si
 
 | File | Action |
 |------|--------|
-| `bench/utils/profiles.ts` | Create |
+| `bench/utils/profiles.ts` | Create ✓ |
 | `bench/utils/reporter.ts` | Modify |
 | `bench/Dockerfile.bench` | Create |
 | `bench/run-constrained.sh` | Create |
