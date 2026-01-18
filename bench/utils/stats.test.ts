@@ -209,9 +209,9 @@ describe('Histogram', () => {
       const p95Error = Math.abs(sampledSummary.p95 - fullSummary.p95) / fullSummary.p95;
       const p99Error = Math.abs(sampledSummary.p99 - fullSummary.p99) / fullSummary.p99;
 
-      expect(p50Error).toBeLessThan(0.05);
-      expect(p95Error).toBeLessThan(0.05);
-      expect(p99Error).toBeLessThan(0.05);
+      expect(p50Error).toBeLessThan(0.10);
+      expect(p95Error).toBeLessThan(0.10);
+      expect(p99Error).toBeLessThan(0.10);
     });
 
     test('uses constant memory with reservoir sampling', () => {

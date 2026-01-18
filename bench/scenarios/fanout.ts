@@ -115,22 +115,28 @@ async function runFanout() {
       `Publishing at ${CONFIG.publishRatePerSec} msg/s for ${CONFIG.durationSeconds}s...`
     );
     const startTime = Bun.nanoseconds();
-    const endTime = Date.now() + CONFIG.durationSeconds * 1000;
     let publishedCount = 0;
 
-    while (Date.now() < endTime) {
+    const publishPromises: Promise<string>[] = [];
+    while (publishedCount < expectedPublished) {
       const publishTimeNs = Bun.nanoseconds();
-      await topic.publishMessage({
-        data: payload,
-        attributes: {
-          publishTimeNs: publishTimeNs.toString(),
-          messageId: publishedCount.toString(),
-        },
-      });
+      publishPromises.push(
+        topic.publishMessage({
+          data: payload,
+          attributes: {
+            publishTimeNs: publishTimeNs.toString(),
+            messageId: publishedCount.toString(),
+          },
+        })
+      );
       publishedCount++;
 
-      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+      if (publishedCount < expectedPublished) {
+        await new Promise((resolve) => setTimeout(resolve, intervalMs));
+      }
     }
+
+    await Promise.all(publishPromises);
 
     console.log('Waiting for message delivery...');
     await Promise.race([
