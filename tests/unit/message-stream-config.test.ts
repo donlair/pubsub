@@ -94,4 +94,38 @@ describe('MessageStream Configuration', () => {
 
     await subscription.close();
   });
+
+  test('higher throughput with aggressive settings', async () => {
+    const pubsub = new PubSub();
+    const topic = pubsub.topic('test-throughput');
+    await topic.create();
+
+    const subscription = topic.subscription('test-sub', {
+      streamingOptions: {
+        pullInterval: 1,
+        maxPullSize: 1000
+      }
+    });
+    await subscription.create();
+
+    const received: string[] = [];
+    subscription.on('message', (msg) => {
+      received.push(msg.data.toString());
+      msg.ack();
+    });
+
+    subscription.open();
+
+    const promises = [];
+    for (let i = 0; i < 10000; i++) {
+      promises.push(topic.publishMessage({
+        data: Buffer.from(`msg-${i}`)
+      }));
+    }
+    await Promise.all(promises);
+
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    expect(received.length).toBe(10000);
+  });
 });
