@@ -30,12 +30,12 @@ Add Docker-based resource-constrained benchmarking to simulate cloud instance si
 - [x] Modify `createResult()` to accept optional `profileName` parameter
 - [x] Modify `saveResults()` to include profile in filename when present
 
-### Phase 3: Docker Infrastructure
+### Phase 3: Docker Infrastructure ✓
 
-- [ ] Create `bench/Dockerfile.bench` with minimal Bun image
-- [ ] Create `bench/run-constrained.sh` orchestration script
-- [ ] Make shell script executable with `chmod +x`
-- [ ] Test Docker image builds successfully
+- [x] Create `bench/Dockerfile.bench` with minimal Bun image
+- [x] Create `bench/run-constrained.sh` orchestration script
+- [x] Make shell script executable with `chmod +x`
+- [x] Test Docker image builds successfully
 
 ### Phase 4: Scenario Updates
 
@@ -74,8 +74,8 @@ Add Docker-based resource-constrained benchmarking to simulate cloud instance si
 |------|--------|
 | `bench/utils/profiles.ts` | Create ✓ |
 | `bench/utils/reporter.ts` | Modify ✓ |
-| `bench/Dockerfile.bench` | Create |
-| `bench/run-constrained.sh` | Create |
+| `bench/Dockerfile.bench` | Create ✓ |
+| `bench/run-constrained.sh` | Create ✓ |
 | `bench/scenarios/throughput.ts` | Modify |
 | `bench/scenarios/firehose.ts` | Modify |
 | `bench/scenarios/fanout.ts` | Modify |

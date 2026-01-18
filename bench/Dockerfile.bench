@@ -1,0 +1,19 @@
+# Minimal Bun image for resource-constrained benchmarking
+# Build: docker build -t pubsub-bench -f bench/Dockerfile.bench .
+# Run:   docker run --rm --cpus="0.25" --memory="1g" -e BENCH_PROFILE=micro pubsub-bench
+
+FROM oven/bun:1
+
+WORKDIR /app
+
+# Copy package manifests first to cache dependencies
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile
+
+# Copy source and benchmark files
+COPY src/ ./src/
+COPY bench/ ./bench/
+
+# Default: run throughput benchmark with micro profile
+ENV BENCH_PROFILE=micro
+CMD ["bun", "bench/scenarios/throughput.ts"]
