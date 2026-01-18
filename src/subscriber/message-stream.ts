@@ -36,6 +36,9 @@ export class MessageStream {
 	private processingOrderingKeys = new Set<string>();
 	private pendingMessages: InternalMessage[] = [];
 
+	private readonly pullIntervalMs: number;
+	private readonly maxPullSize: number;
+
 	constructor(subscription: ISubscription, options: SubscriberOptions) {
 		this.subscription = subscription;
 		this.options = options;
@@ -47,6 +50,9 @@ export class MessageStream {
 			ackDeadlineSeconds: subscription.metadata?.ackDeadlineSeconds ?? 10,
 		});
 		this.messageQueue = MessageQueue.getInstance();
+
+		this.pullIntervalMs = options.streamingOptions?.pullInterval ?? 10;
+		this.maxPullSize = options.streamingOptions?.maxPullSize ?? 100;
 	}
 
 	/**
