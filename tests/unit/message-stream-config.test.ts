@@ -78,4 +78,20 @@ describe('MessageStream Configuration', () => {
 
     await subscription.close();
   });
+
+  test('calculateMaxPull should respect custom maxPullSize', async () => {
+    const subscription = topic.subscription(`test-calc-max-pull-${testCounter}`, {
+      flowControl: { maxMessages: 10000 },
+      streamingOptions: { maxPullSize: 250 },
+    });
+    await subscription.create();
+    subscription.open();
+
+    const messageStream = (subscription as any).messageStream;
+    const maxPull = messageStream.calculateMaxPull();
+
+    expect(maxPull).toBe(250);
+
+    await subscription.close();
+  });
 });
