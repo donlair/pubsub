@@ -63,6 +63,24 @@ export interface MessageStreamOptions {
    * @default 300000 (5 minutes)
    */
   timeout?: number;
+
+  /**
+   * Pull interval in milliseconds.
+   * Controls how frequently messages are pulled from the queue.
+   * Lower values = higher throughput, higher CPU usage.
+   * Higher values = lower CPU usage, higher latency.
+   * @default 10
+   */
+  pullInterval?: number;
+
+  /**
+   * Max messages per pull.
+   * Controls batch size for each pull operation.
+   * Higher values = higher throughput, larger latency spikes.
+   * Lower values = smoother latency, lower throughput.
+   * @default 100
+   */
+  maxPullSize?: number;
 }
 
 /**
@@ -175,7 +193,9 @@ export const DEFAULT_SUBSCRIBER_BATCH_OPTIONS: Required<BatchOptions> = {
  */
 export const DEFAULT_STREAMING_OPTIONS: Required<MessageStreamOptions> = {
   maxStreams: 5,
-  timeout: 300000 // 5 minutes
+  timeout: 300000,     // 5 minutes
+  pullInterval: 10,    // 10ms
+  maxPullSize: 100     // 100 messages
 };
 
 /**
