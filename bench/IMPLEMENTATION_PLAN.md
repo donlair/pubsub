@@ -6,9 +6,10 @@ This document captures the implementation plan for the Pub/Sub library benchmark
 
 ## Review Status
 
-**Last Reviewed**: 2026-01-17 (P0 issues #1, #2, #3 resolved)
-**Status**: Multiple issues discovered - see "Known Issues" section
-**Previous Status**: Approved with revisions (incorporated below)
+**Last Reviewed**: 2026-01-17 (Comprehensive 5-agent validation completed)
+**Status**: ⚠️ **NEEDS WORK** - 1 critical blocker (fanout scenario failure)
+**Validation Score**: 88.9% (8/9 benchmarks passing)
+**Previous Status**: Multiple P0-P3 issues resolved, all "✅ COMPLETE" claims verified
 
 ## Runtime Requirements
 
@@ -394,6 +395,111 @@ heap.json
 | Reservoir sampling in stats.ts | ✅ Complete | maxSamples parameter with Algorithm R |
 | Iteration support (`--iterations`) | 📋 Planned | Statistical rigor (median of N runs) |
 
+## Validation Results (2026-01-17)
+
+**Methodology**: 5 parallel validation agents executed simultaneously
+- Agent 1: Spec Compliance & Correctness
+- Agent 2: Test Coverage & Quality
+- Agent 3: Runtime Execution & Behavior
+- Agent 4: Code Quality & Best Practices
+- Agent 5: Integration & Regression Detection
+
+**Overall Status**: ⚠️ **NEEDS WORK** - 88.9% success rate (8/9 benchmarks)
+
+### Validation Summary
+
+| Category | Result | Status |
+|----------|--------|--------|
+| **Spec Compliance** | 97.3% (36/37 requirements) | ✅ PASS |
+| **Test Execution** | 53/54 tests pass | ⚠️ 1 flaky |
+| **Test Coverage** | 60% (missing 2 test files) | ⚠️ BELOW GOAL |
+| **TypeScript/Lint** | 0 errors, 0 `any` types | ✅ PASS |
+| **Scenarios** | 4/5 execute successfully | 🔴 **FAIL** |
+| **Microbenchmarks** | 4/4 execute successfully | ✅ PASS |
+| **Real Code Integration** | 3/4 test library code | ⚠️ PARTIAL |
+| **E2E Measurement** | Correct in fanout.ts | ✅ PASS |
+| **Regression Detection** | Can detect 2x slowdowns | ✅ PASS |
+
+### Critical Findings
+
+**🔴 BLOCKER: Fanout Scenario Failure**
+- Expected: 1,000 messages × 50 subscribers = 50,000 deliveries
+- Actual: Only 450/1,000 messages delivered (45% success rate)
+- Timeout: 30 seconds
+- Impact: Blocks multi-subscriber use cases
+- Status: **Requires immediate investigation**
+
+**✅ Strengths**:
+- All 16 "✅ COMPLETE" claims verified as TRUE
+- Zero HIGH-risk spec violations
+- All P0/P1/P2/P3 issues from initial review resolved
+- Correct E2E latency measurement implementation
+- All microbenchmarks test real library code (except serialization.bench.ts)
+- Can detect performance regressions (10% threshold configured)
+
+**⚠️ Issues Identified**:
+1. **High Priority**: Missing test files (reporter.test.ts, version.test.ts) - 60% coverage vs 90% goal
+2. **High Priority**: Flaky statistical test - p50 error occasionally exceeds 5% threshold (5.87% observed)
+3. **Medium Priority**: Statistical rigor missing - single-run results vs spec requirement of 5+ iterations
+4. **Medium Priority**: Firehose 1MB anomaly - 714K msg/s (7,800x higher than typical throughput)
+5. **Low Priority**: serialization.bench.ts tests primitives, not library code
+6. **Low Priority**: P4 issues remain unaddressed (0/5 complete)
+
+### Runtime Execution Results
+
+**Scenarios** (4/5 PASS):
+- ✅ Throughput: 91.66 msg/s, P99 11.74ms, 10,000 messages
+- ✅ Firehose: All 3 payload sizes complete (1KB: 88K msg/s, 10KB: 98K msg/s, 1MB: 714K msg/s)
+- 🔴 **Fanout: FAILED** - Only 450/1,000 messages, timeout after 30s
+- ✅ Thundering Herd: 297K msg/s, 1,000 concurrent publishers, 100% success
+- ✅ Saturation: 60,000 messages, inflection point detected at 75% load
+
+**Microbenchmarks** (4/4 PASS):
+- ✅ Serialization: Nanosecond to microsecond operations
+- ✅ Batching: All triggers work (count, size, time)
+- ✅ Ack/Nack: 2-3µs per operation, idempotency verified
+- ✅ Flow Control: Picosecond checks (zero performance impact)
+
+**Result Files**: 8 valid JSON files generated in `bench/results/`
+
+### Test Coverage Analysis
+
+**stats.test.ts**: 33 tests, 100% coverage ✅
+**compare.test.ts**: 21 tests, 81% coverage ✅
+**reporter.test.ts**: MISSING - 0% coverage ❌
+**version.test.ts**: MISSING - 0% coverage ❌
+
+**Overall Coverage**: ~60% of bench/utils files (below 90% goal)
+
+**Test Quality**:
+- ✅ No false positives identified
+- ✅ All tests use proper assertions
+- ✅ Comprehensive edge case coverage (empty arrays, NaN, Infinity, single elements)
+- ✅ Regression detection tests verify 10% threshold behavior
+- ⚠️ One flaky test: "approximates percentiles within acceptable error" (5.87% > 5% threshold)
+
+### Code Quality Assessment
+
+**TypeScript**: ✅ 0 compilation errors (`bun run typecheck`)
+**Lint**: ✅ 0 errors/warnings (`bun run lint`)
+**Type Safety**: ✅ 0 `any` types found
+**Error Handling**: ✅ EventEmitter listeners attached, timeout protection implemented
+**File Organization**: ✅ 100% compliant (kebab-case, proper suffixes)
+**JSDoc Coverage**: ⚠️ 40% (2/4 files documented)
+
+**P4 Issues Status**: 0/5 resolved
+- #17: Extract magic numbers in reporter.ts
+- #18: Add JSDoc to stats.ts
+- #19: Add JSDoc to reporter.ts
+- #20: Document 500ms warmup delay
+- #21: Add input validation to stats.ts
+
+### Detailed Validation Reports
+
+- **Main Report**: `/bench/VALIDATION_REPORT.md` (comprehensive 500+ line analysis)
+- **Runtime Details**: `/bench/RUNTIME_EXECUTION_REPORT.md`
+- **Integration Analysis**: `/bench/INTEGRATION_VALIDATION_REPORT.md`
+
 ## Known Issues (Discovered 2026-01-17)
 
 ### Critical Issues (P0) - Correctness Problems
@@ -467,6 +573,123 @@ heap.json
 **Problem**: Plan says "Records values in nanoseconds" but code stores milliseconds internally (converts on input, not output).
 **Note**: This is functional but inconsistent with documentation.
 
+### New Issues (Discovered 2026-01-17 Validation)
+
+#### 11. Fanout Scenario Multi-Subscriber Delivery Failure
+**Status**: 🔴 **CRITICAL - P0** (Validation blocker)
+**Discovered**: 2026-01-17 (Agent 3: Runtime Execution validation)
+
+**Location**: `bench/scenarios/fanout.ts`
+**Problem**: Only 450/1,000 messages successfully delivered to all 50 subscribers (45% success rate). Benchmark times out after 30 seconds with partial delivery.
+**Expected**: All 1,000 messages should be delivered to all 50 subscribers (50,000 total deliveries).
+**Impact**:
+- Blocks validation of multi-subscriber routing efficiency
+- Indicates severe EventEmitter or MessageQueue routing issue
+- Blocks production use for fan-out workloads
+
+**Hypothesis**:
+1. EventEmitter `maxListeners` may be limiting to Node.js default (10 listeners)
+2. MessageQueue routing logic may not properly handle 50 concurrent subscriptions
+3. Possible race condition in message delivery to multiple subscribers
+4. Message leak or dropped messages in routing layer
+
+**Investigation Steps**:
+1. Check if `EventEmitter.setMaxListeners()` needs to be called
+2. Add debug logging to track message routing and delivery counts
+3. Test with fewer subscribers (10, 20, 30) to find failure threshold
+4. Review `MessageQueue._routeMessage()` for multi-subscriber handling bugs
+5. Check for memory pressure or GC pauses during execution
+
+**Success Criteria**: All 1,000 messages delivered to all 50 subscribers with P99 latency < 100ms
+
+---
+
+#### 12. Missing Test Coverage for Reporter and Version Utilities
+**Status**: ⚠️ **HIGH - P1** (Quality gate)
+**Discovered**: 2026-01-17 (Agent 2: Test Coverage validation)
+
+**Location**: `bench/utils/reporter.ts`, `bench/utils/version.ts`
+**Problem**: No test files exist for these utilities, resulting in 0% coverage for ~135 lines of code.
+**Current Coverage**: 60% overall (stats.ts: 100%, compare.ts: 81%, reporter.ts: 0%, version.ts: 0%)
+**Target Coverage**: 90%
+
+**Missing Tests**:
+
+**reporter.test.ts** (~120 lines untested):
+- `captureEnvironment()` - Verify all fields present
+- `captureMemory()` - Verify heap calculations
+- `saveResults()` - Test success and error cases
+- `printSummary()` - Verify output structure
+- Git hash extraction (git available and unavailable scenarios)
+
+**version.test.ts** (~15 lines untested):
+- `checkBunVersion()` - Version below minimum (should warn)
+- `checkBunVersion()` - Version at/above minimum (no warning)
+- Warning message format verification
+
+**Impact**: Core utilities untested, potential bugs undetected
+**Effort**: 1-2 hours
+
+---
+
+#### 13. Flaky Statistical Test in stats.test.ts
+**Status**: ⚠️ **HIGH - P1** (CI blocker)
+**Discovered**: 2026-01-17 (Agent 4: Code Quality validation)
+
+**Location**: `bench/utils/stats.test.ts:212`
+**Test**: "approximates percentiles within acceptable error for large datasets"
+**Problem**: Test occasionally fails when reservoir sampling produces error rates slightly above 5% threshold (5.87% observed).
+**Root Cause**: Probabilistic algorithm has inherent randomness; 5% tolerance is too tight.
+
+**Fix**: Increase tolerance from 5% to 10%
+```typescript
+// Line 212
+expect(p50Error).toBeLessThan(0.10); // Changed from 0.05
+```
+
+**Impact**: CI failures due to randomness, despite algorithm being statistically sound
+**Effort**: 15 minutes (1-line change + verification)
+
+---
+
+#### 14. Firehose 1MB Payload Throughput Anomaly
+**Status**: ⚠️ **MEDIUM - P2** (Validation concern)
+**Discovered**: 2026-01-17 (Agent 3: Runtime Execution validation)
+
+**Location**: `bench/scenarios/firehose.ts`
+**Problem**: 1MB payload reports 714K msg/s throughput, which is 7,800x higher than typical throughput (91 msg/s).
+**Observation**: Other payload sizes show realistic throughput (1KB: 88K msg/s, 10KB: 98K msg/s).
+
+**Hypothesis**:
+1. May indicate synchronous fast-path bypassing normal flow control
+2. Could be measurement artifact (timing bug)
+3. Possible batching optimization kicking in for large payloads
+4. May not be fully serializing/processing 1MB payloads
+
+**Investigation**:
+- Add detailed logging to track actual bytes/second
+- Verify 1MB buffers are fully allocated and processed
+- Check if Publisher is taking fast-path for large messages
+- Measure memory usage during 1MB firehose
+
+**Impact**: Questions validity of 1MB payload benchmarking
+**Effort**: 1-2 hours investigation
+
+---
+
+#### 15. Serialization Microbenchmark Doesn't Test Library Code
+**Status**: 🟢 **LOW - P3** (Quality improvement)
+**Discovered**: 2026-01-17 (Agent 5: Integration validation)
+
+**Location**: `bench/mitata/serialization.bench.ts`
+**Problem**: Tests primitive Buffer/JSON operations instead of actual library serialization code paths.
+**Current**: Benchmarks `Buffer.from()`, `JSON.stringify()` directly
+**Desired**: Benchmark actual `topic.publishMessage()` to catch library-specific bugs
+
+**Impact**: Cannot detect performance regressions in library serialization layer
+**Benefit**: Would catch bugs in message attribute validation, ordering key handling, etc.
+**Effort**: 1 hour rewrite
+
 ## Prioritized Task List
 
 ### ✅ Completed Tasks
@@ -503,45 +726,124 @@ heap.json
 
 16. **✅ COMPLETE - Implement reservoir sampling in stats.ts** (2026-01-17) - Added optional maxSamples parameter to Histogram constructor. Implemented Algorithm R reservoir sampling for constant memory usage. Added comprehensive test suite with 11 new tests covering edge cases and statistical accuracy. Maintains backward compatibility (no maxSamples = store all values). Required before soak test implementation.
 
-### 🔴 P0 - CRITICAL (Fix Immediately)
+### 🔴 P0 - CRITICAL (Validation Blockers - Fix Immediately)
 
-(None - all P0 issues resolved)
+17. **🔴 URGENT - Investigate and fix fanout scenario multi-subscriber delivery failure (Issue #11)**
+   - **Status**: BLOCKING validation, 45% message delivery rate
+   - **Steps**:
+     1. Add debug logging to track message routing and delivery counts per subscriber
+     2. Test with 10, 20, 30 subscribers to find failure threshold
+     3. Check EventEmitter `maxListeners` setting
+     4. Review `MessageQueue._routeMessage()` for routing bugs
+     5. Check for memory pressure or race conditions
+   - **Expected**: All 1,000 messages delivered to all 50 subscribers
+   - **Estimated effort**: 2-4 hours (investigation + fix + verification)
 
-### 🟠 P1 - HIGH (Spec Violations)
+### 🟠 P1 - HIGH (Quality Gates - Fix Before CI Integration)
 
-(None - all P1 issues resolved)
+18. **Add missing test files: reporter.test.ts (Issue #12)**
+   - **Coverage**: 0% → 90%+ target
+   - **Tests needed**:
+     - `captureEnvironment()` - Verify all fields present
+     - `captureMemory()` - Verify heap calculations
+     - `saveResults()` - Test success and error cases (file I/O)
+     - `printSummary()` - Verify output structure
+     - Git hash extraction (git available and unavailable)
+   - **Estimated effort**: 1 hour
 
-### 🟡 P2 - HIGH (Benchmark Validity)
+19. **Add missing test files: version.test.ts (Issue #12)**
+   - **Coverage**: 0% → 100% target
+   - **Tests needed**:
+     - Version below minimum (should warn to console)
+     - Version at/above minimum (no warning)
+     - Warning message format verification
+   - **Estimated effort**: 30 minutes
 
-(None - all P2 issues resolved)
+20. **Fix flaky statistical test in stats.test.ts (Issue #13)**
+   - **Location**: Line 212
+   - **Fix**: Change `expect(p50Error).toBeLessThan(0.05)` → `toBeLessThan(0.10)`
+   - **Rationale**: Probabilistic algorithm has inherent randomness; 10% tolerance is appropriate
+   - **Estimated effort**: 15 minutes (change + run 100x to verify)
 
-### 🟢 P3 - MEDIUM (Robustness/Completeness)
+### 🟡 P2 - MEDIUM (Investigation/Enhancement)
 
-(None - all P3 issues resolved)
+21. **Investigate firehose 1MB throughput anomaly (Issue #14)**
+   - **Observation**: 714K msg/s (7,800x higher than typical)
+   - **Investigation**:
+     - Add byte/sec logging to verify actual data processed
+     - Check if Publisher fast-paths large messages
+     - Verify 1MB buffers fully allocated
+     - Measure memory usage during execution
+   - **Estimated effort**: 1-2 hours
 
-### ⚪ P4 - LOW (Documentation/Quality)
+### 🟢 P3 - LOW (Quality Improvements)
 
-17. **Extract magic numbers in `reporter.ts`** - Define `const MB = 1_048_576`.
+22. **Rewrite serialization.bench.ts to test library code (Issue #15)**
+   - **Current**: Tests primitive `Buffer.from()`, `JSON.stringify()`
+   - **Target**: Test actual `topic.publishMessage()` serialization
+   - **Benefit**: Catch library-specific bugs (attribute validation, ordering keys)
+   - **Estimated effort**: 1 hour
 
-18. **Add JSDoc documentation to `stats.ts`** - Document units, algorithms, edge cases.
+### ⚪ P4 - LOW (Documentation/Quality - Nice to Have)
 
-19. **Add JSDoc documentation to `reporter.ts`** - Document all public functions.
+23. **Extract magic numbers in `reporter.ts`** - Define `const MB = 1_048_576`.
 
-20. **Document warmup settling time in `throughput.ts`** - Explain 500ms magic number.
+24. **Add JSDoc documentation to `stats.ts`** - Document units, algorithms, edge cases.
 
-21. **Add input validation to `stats.ts`** - Check for NaN, Infinity, negative values.
+25. **Add JSDoc documentation to `reporter.ts`** - Document all public functions.
 
-### ⏸️ DEFERRED (Blocked/Future)
+26. **Document warmup settling time in `throughput.ts`** - Explain 500ms magic number.
 
-22. **Implement `soak.ts` scenario** - 4-8 hour memory stability. *Unblocked: reservoir sampling complete*.
+27. **Add input validation to `stats.ts`** - Check for NaN, Infinity, negative values.
 
-23. **Benchmark profiles** - Message size mixes, concurrency matrices. *Better for CI phase*.
+### ⏸️ DEFERRED (Future Enhancements)
 
-24. **CI integration** - Automated regression detection. *Uses: compare.ts*.
+28. **Implement `soak.ts` scenario** - 4-8 hour memory stability. *Unblocked: reservoir sampling complete*.
 
-25. **Iteration support** - `--iterations=N` flag for statistical rigor.
+29. **Benchmark profiles** - Message size mixes, concurrency matrices. *Better for CI phase*.
 
-26. **Container testing** - Resource limits per spec §268-279.
+30. **CI integration** - Automated regression detection. *Uses: compare.ts*.
+
+31. **Iteration support** - `--iterations=N` flag for statistical rigor (Spec §251 requirement).
+
+32. **Container testing** - Resource limits per spec §268-279.
+
+## Next Steps Summary
+
+### Immediate Actions (Estimated: 3-6 hours to VALIDATED status)
+
+**Path to Validation**:
+1. 🔴 **Fix fanout scenario** (Issue #11, Task #17) → 2-4 hours
+   - This is the ONLY blocker preventing VALIDATED status
+   - Investigate multi-subscriber delivery failure
+   - Fix EventEmitter/MessageQueue routing issue
+
+2. 🟠 **Add test coverage** (Issue #12, Tasks #18-19) → 1.5 hours
+   - Create `reporter.test.ts` (~1 hour)
+   - Create `version.test.ts` (~30 minutes)
+   - Achieve >90% coverage goal
+
+3. 🟠 **Fix flaky test** (Issue #13, Task #20) → 15 minutes
+   - One-line tolerance adjustment
+   - Run 100x to verify stability
+
+**Once Complete**: Benchmark suite ready for CI integration and production use
+
+### Post-Validation Improvements (Optional)
+
+4. 🟡 **Investigate firehose anomaly** (Issue #14, Task #21) → 1-2 hours
+   - Validate 1MB payload measurements
+   - Not blocking, but important for accuracy
+
+5. 🟢 **Enhance serialization benchmark** (Issue #15, Task #22) → 1 hour
+   - Test library code instead of primitives
+   - Improves regression detection
+
+### Long-term (CI Phase)
+
+- Implement `--iterations=N` flag (Task #31) - Spec requirement for statistical rigor
+- CI integration with automated regression detection (Task #30)
+- Soak test implementation (Task #28) - Now unblocked with reservoir sampling
 
 ## Future Enhancements (Unchanged)
 
