@@ -58,7 +58,7 @@ export class MessageStream {
 	/**
 	 * Starts the streaming pull operation for this subscription.
 	 *
-	 * Begins continuously pulling messages from the MessageQueue at 10ms intervals
+	 * Begins continuously pulling messages from the MessageQueue at the configured interval
 	 * and emitting them to the subscription via 'message' events. Messages are subject
 	 * to flow control limits and ordering guarantees. If the subscription does not exist
 	 * in the MessageQueue, emits a NotFoundError via the 'error' event.
@@ -103,7 +103,7 @@ export class MessageStream {
 
 		this.isRunning = true;
 		this.isPaused = false;
-		this.pullInterval = setInterval(() => this.pullMessages(), 10);
+		this.pullInterval = setInterval(() => this.pullMessages(), this.pullIntervalMs);
 	}
 
 	/**
@@ -241,7 +241,7 @@ export class MessageStream {
 	 * Resumes message flow after a pause().
 	 *
 	 * Restarts pulling messages from the MessageQueue that was halted by pause().
-	 * Message delivery resumes immediately on the next pull interval (10ms). This
+	 * Message delivery resumes immediately on the next pull interval. This
 	 * method has no effect if the stream is not currently paused.
 	 *
 	 * @example
