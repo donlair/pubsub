@@ -29,13 +29,13 @@ bench/
 ├── utils/
 │   ├── stats.ts          # Histogram, percentile calculations
 │   ├── reporter.ts       # JSON/text output, environment capture
-│   └── compare.ts        # Regression comparison (planned)
+│   └── compare.ts        # Regression comparison
 ├── scenarios/
 │   ├── throughput.ts     # Baseline: 1 topic, 1 subscriber
 │   ├── firehose.ts       # Ingestion: 1 topic, 0 subscribers
 │   ├── fanout.ts         # Routing: 1 topic, 50 subscribers
 │   ├── thundering-herd.ts # Connection storm: 1000 concurrent publishers
-│   ├── saturation.ts     # Capacity ceiling detection (planned)
+│   ├── saturation.ts     # Capacity ceiling detection
 │   └── soak.ts           # Memory stability: 4-8 hours (deferred)
 ├── mitata/
 │   ├── serialization.bench.ts  # Buffer/JSON hot paths
@@ -108,7 +108,7 @@ bun bench/scenarios/thundering-herd.ts
 bun bench/scenarios/soak.ts  # Not yet implemented
 ```
 
-### Saturation Point (Capacity Ceiling) - Planned
+### Saturation Point (Capacity Ceiling)
 
 **Purpose**: Identify throughput ceiling for capacity planning.
 
@@ -117,10 +117,10 @@ bun bench/scenarios/soak.ts  # Not yet implemented
 **Success criteria**: Document inflection point where latency growth becomes exponential
 
 ```bash
-bun bench/scenarios/saturation.ts  # Not yet implemented
+bun bench/scenarios/saturation.ts
 ```
 
-## Regression Comparison - Planned
+## Regression Comparison
 
 Compare benchmark results across commits to detect performance regressions:
 
@@ -330,8 +330,6 @@ await Bun.write('heap.json', JSON.stringify(snapshot, null, 2));
 | Limitation | Workaround | Status |
 |------------|------------|--------|
 | Single-run execution | Run manually 5+ times, report median | Planned: `--iterations` flag |
-| No regression comparison | Compare JSON files manually | Planned: `compare.ts` utility |
-| Saturation detection | Use throughput at different loads | Planned: `saturation.ts` scenario |
 | Soak test | N/A | Deferred |
 
 ## Contributing
