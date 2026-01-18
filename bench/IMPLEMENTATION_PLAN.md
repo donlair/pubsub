@@ -45,13 +45,13 @@ Add Docker-based resource-constrained benchmarking to simulate cloud instance si
 - [x] Update `bench/scenarios/thundering-herd.ts` to read `BENCH_PROFILE` env var
 - [x] Update `bench/scenarios/saturation.ts` to read `BENCH_PROFILE` env var
 
-### Phase 5: Package Scripts
+### Phase 5: Package Scripts ✓
 
-- [ ] Add `bench:constrained` script to package.json
-- [ ] Add `bench:constrained:micro` script
-- [ ] Add `bench:constrained:small` script
-- [ ] Add `bench:constrained:medium` script
-- [ ] Add `bench:docker:build` script
+- [x] Add `bench:constrained` script to package.json
+- [x] Add `bench:constrained:micro` script
+- [x] Add `bench:constrained:small` script
+- [x] Add `bench:constrained:medium` script
+- [x] Add `bench:docker:build` script
 
 ### Phase 6: Documentation
 
@@ -76,12 +76,12 @@ Add Docker-based resource-constrained benchmarking to simulate cloud instance si
 | `bench/utils/reporter.ts` | Modify ✓ |
 | `bench/Dockerfile.bench` | Create ✓ |
 | `bench/run-constrained.sh` | Create ✓ |
-| `bench/scenarios/throughput.ts` | Modify |
-| `bench/scenarios/firehose.ts` | Modify |
-| `bench/scenarios/fanout.ts` | Modify |
-| `bench/scenarios/thundering-herd.ts` | Modify |
-| `bench/scenarios/saturation.ts` | Modify |
-| `package.json` | Modify |
+| `bench/scenarios/throughput.ts` | Modify ✓ |
+| `bench/scenarios/firehose.ts` | Modify ✓ |
+| `bench/scenarios/fanout.ts` | Modify ✓ |
+| `bench/scenarios/thundering-herd.ts` | Modify ✓ |
+| `bench/scenarios/saturation.ts` | Modify ✓ |
+| `package.json` | Modify ✓ |
 | `bench/README.md` | Modify |
 
 ## Design Notes

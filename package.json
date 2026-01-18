@@ -16,7 +16,12 @@
     "bench:herd": "bun bench/scenarios/thundering-herd.ts",
     "bench:saturation": "bun bench/scenarios/saturation.ts",
     "bench:micro": "bun bench/mitata/serialization.bench.ts && bun bench/mitata/batching.bench.ts && bun bench/mitata/ack-nack.bench.ts && bun bench/mitata/flow-control.bench.ts",
-    "bench:all": "bun run bench:throughput && bun run bench:firehose && bun run bench:fanout && bun run bench:herd && bun run bench:saturation"
+    "bench:all": "bun run bench:throughput && bun run bench:firehose && bun run bench:fanout && bun run bench:herd && bun run bench:saturation",
+    "bench:docker:build": "docker build -t pubsub-bench -f bench/Dockerfile.bench .",
+    "bench:constrained": "bash bench/run-constrained.sh",
+    "bench:constrained:micro": "bash bench/run-constrained.sh micro all",
+    "bench:constrained:small": "bash bench/run-constrained.sh small all",
+    "bench:constrained:medium": "bash bench/run-constrained.sh medium all"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.11",
