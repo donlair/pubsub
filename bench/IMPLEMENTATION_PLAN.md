@@ -53,12 +53,12 @@ Add Docker-based resource-constrained benchmarking to simulate cloud instance si
 - [x] Add `bench:constrained:medium` script
 - [x] Add `bench:docker:build` script
 
-### Phase 6: Documentation
+### Phase 6: Documentation ✓
 
-- [ ] Update `bench/README.md` with containerized benchmarks section
-- [ ] Document available profiles and usage
-- [ ] Document result file naming convention
-- [ ] Add architecture note (ARM64 vs x86_64)
+- [x] Update `bench/README.md` with containerized benchmarks section
+- [x] Document available profiles and usage
+- [x] Document result file naming convention
+- [x] Add architecture note (ARM64 vs x86_64)
 
 ### Phase 7: Verification
 
@@ -82,7 +82,7 @@ Add Docker-based resource-constrained benchmarking to simulate cloud instance si
 | `bench/scenarios/thundering-herd.ts` | Modify ✓ |
 | `bench/scenarios/saturation.ts` | Modify ✓ |
 | `package.json` | Modify ✓ |
-| `bench/README.md` | Modify |
+| `bench/README.md` | Modify ✓ |
 
 ## Design Notes
 

@@ -176,6 +176,82 @@ bun bench/mitata/ack-nack.bench.ts
 bun bench/mitata/flow-control.bench.ts
 ```
 
+## Containerized Benchmarks
+
+Docker-based benchmarking simulates resource-constrained cloud instances for capacity planning. See [dockerized-benchmarking.md](../docs/dockerized-benchmarking.md) for design rationale.
+
+### Resource Profiles
+
+| Profile | CPU | Memory | Simulates |
+|---------|-----|--------|-----------|
+| `micro` | 0.25 | 1GB | GCP e2-micro, AWS t3.micro |
+| `small` | 0.5 | 2GB | GCP e2-small, AWS t3.small |
+| `medium` | 1.0 | 4GB | GCP e2-medium, AWS t3.medium |
+| `native` | unlimited | unlimited | Host machine (baseline) |
+
+### Quick Start
+
+```bash
+# Build the Docker image
+bun run bench:docker:build
+
+# Run all scenarios with micro profile (default)
+bun run bench:constrained:micro
+
+# Run all scenarios with small profile
+bun run bench:constrained:small
+
+# Run all scenarios with medium profile
+bun run bench:constrained:medium
+
+# Run specific scenario with specific profile
+bash bench/run-constrained.sh micro throughput
+bash bench/run-constrained.sh small fanout
+```
+
+### Available Scripts
+
+| Script | Description |
+|--------|-------------|
+| `bench:docker:build` | Build Docker image for constrained benchmarks |
+| `bench:constrained` | Run with default profile (micro) |
+| `bench:constrained:micro` | All scenarios at 0.25 CPU / 1GB |
+| `bench:constrained:small` | All scenarios at 0.5 CPU / 2GB |
+| `bench:constrained:medium` | All scenarios at 1.0 CPU / 4GB |
+
+### Result Files
+
+Containerized benchmarks include the profile in the filename:
+
+- **Native runs**: `throughput-2026-01-18T10-30-00.json`
+- **Constrained runs**: `throughput-micro-2026-01-18T10-30-00.json`
+
+Results include Docker profile metadata in the `environment` section:
+
+```json
+{
+  "environment": {
+    "bunVersion": "1.1.38",
+    "cpuCores": 10,
+    "dockerProfile": {
+      "name": "micro",
+      "cpu": 0.25,
+      "memory": "1GB"
+    }
+  }
+}
+```
+
+### Architecture Note
+
+**ARM64 vs x86_64**: Apple Silicon Macs run ARM64 containers natively. Cloud instances (e2-micro, t3.micro) use x86_64. Cross-architecture emulation via `--platform linux/amd64` is extremely slow and invalidates benchmark results.
+
+Use Docker CPU/memory limits as relative performance indicators, not absolute cloud performance predictions. A 4x slowdown under `micro` profile suggests the workload needs at least a small instance, but actual cloud performance requires validation on real instances.
+
+### Excluded Benchmarks
+
+Microbenchmarks (`bench/mitata/*.bench.ts`) are excluded from containerized runs. Docker scheduling overhead disproportionately affects tight-loop benchmarks, producing unreliable results.
+
 ## Output Format
 
 ### Console Output
