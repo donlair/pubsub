@@ -105,6 +105,7 @@ async function runThroughput() {
     const latency = histogram.summary();
     const messagesPerSec = calculateThroughput(CONFIG.messageCount, durationMs);
 
+    const profileName = process.env.BENCH_PROFILE;
     const result = createResult(
       'throughput',
       {
@@ -118,7 +119,8 @@ async function runThroughput() {
         durationMs,
       },
       errors.length === 0 && receivedCount === CONFIG.messageCount,
-      errors
+      errors,
+      profileName
     );
 
     printSummary(result);

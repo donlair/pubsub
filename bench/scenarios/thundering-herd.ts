@@ -75,6 +75,7 @@ async function runThunderingHerd() {
     const messagesPerSec = calculateThroughput(successCount, durationMs);
     const success = errorCount === 0;
 
+    const profileName = process.env.BENCH_PROFILE;
     const result = createResult(
       'thundering-herd',
       {
@@ -90,7 +91,8 @@ async function runThunderingHerd() {
         durationMs,
       },
       success,
-      errors.length > 0 ? errors.slice(0, 10) : undefined
+      errors.length > 0 ? errors.slice(0, 10) : undefined,
+      profileName
     );
 
     printSummary(result);

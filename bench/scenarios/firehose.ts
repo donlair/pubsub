@@ -81,6 +81,7 @@ async function runFirehose(): Promise<BenchmarkResult[]> {
       );
       const success = latency.p99 < payloadConfig.targetP99;
 
+      const profileName = process.env.BENCH_PROFILE;
       const result = createResult(
         `firehose-${payloadConfig.name}`,
         {
@@ -97,7 +98,8 @@ async function runFirehose(): Promise<BenchmarkResult[]> {
         success && errors.length === 0,
         success
           ? errors
-          : [...errors, `P99 (${latency.p99.toFixed(2)}ms) exceeded target (${payloadConfig.targetP99}ms)`]
+          : [...errors, `P99 (${latency.p99.toFixed(2)}ms) exceeded target (${payloadConfig.targetP99}ms)`],
+        profileName
       );
 
       printSummary(result);

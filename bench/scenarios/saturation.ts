@@ -242,6 +242,7 @@ async function runSaturation() {
 
     const overallThroughput = calculateThroughput(totalMessages, totalDuration);
 
+    const profileName = process.env.BENCH_PROFILE;
     const benchmarkResult = createResult(
       'saturation',
       {
@@ -279,7 +280,8 @@ async function runSaturation() {
         durationMs: totalDuration,
       },
       errors.length === 0,
-      errors
+      errors,
+      profileName
     );
 
     printSummary(benchmarkResult);

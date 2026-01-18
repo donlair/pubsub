@@ -37,13 +37,13 @@ Add Docker-based resource-constrained benchmarking to simulate cloud instance si
 - [x] Make shell script executable with `chmod +x`
 - [x] Test Docker image builds successfully
 
-### Phase 4: Scenario Updates
+### Phase 4: Scenario Updates ✓
 
-- [ ] Update `bench/scenarios/throughput.ts` to read `BENCH_PROFILE` env var
-- [ ] Update `bench/scenarios/firehose.ts` to read `BENCH_PROFILE` env var
-- [ ] Update `bench/scenarios/fanout.ts` to read `BENCH_PROFILE` env var
-- [ ] Update `bench/scenarios/thundering-herd.ts` to read `BENCH_PROFILE` env var
-- [ ] Update `bench/scenarios/saturation.ts` to read `BENCH_PROFILE` env var
+- [x] Update `bench/scenarios/throughput.ts` to read `BENCH_PROFILE` env var
+- [x] Update `bench/scenarios/firehose.ts` to read `BENCH_PROFILE` env var
+- [x] Update `bench/scenarios/fanout.ts` to read `BENCH_PROFILE` env var
+- [x] Update `bench/scenarios/thundering-herd.ts` to read `BENCH_PROFILE` env var
+- [x] Update `bench/scenarios/saturation.ts` to read `BENCH_PROFILE` env var
 
 ### Phase 5: Package Scripts
 

@@ -171,6 +171,7 @@ async function runFanout() {
     const messagesPerSec = calculateThroughput(totalReceived, durationMs);
     const success = latency.p99 < 100;
 
+    const profileName = process.env.BENCH_PROFILE;
     const result = createResult(
       'fanout',
       {
@@ -190,7 +191,8 @@ async function runFanout() {
       success && errors.length === 0,
       success
         ? errors
-        : [...errors, `P99 (${latency.p99.toFixed(2)}ms) exceeded target (100ms)`]
+        : [...errors, `P99 (${latency.p99.toFixed(2)}ms) exceeded target (100ms)`],
+      profileName
     );
 
     printSummary(result);
