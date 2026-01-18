@@ -48,4 +48,34 @@ describe('MessageStream Configuration', () => {
 
     await subscription.close();
   });
+
+  test('should respect custom pull interval', async () => {
+    const subscription = topic.subscription(`test-sub-custom-interval-${testCounter}`, {
+      streamingOptions: {
+        pullInterval: 5,
+      },
+    });
+    await subscription.create();
+    await subscription.open();
+
+    const messageStream = (subscription as any).messageStream;
+    expect(messageStream.pullIntervalMs).toBe(5);
+
+    await subscription.close();
+  });
+
+  test('should respect custom max pull size', async () => {
+    const subscription = topic.subscription(`test-sub-custom-size-${testCounter}`, {
+      streamingOptions: {
+        maxPullSize: 500,
+      },
+    });
+    await subscription.create();
+    await subscription.open();
+
+    const messageStream = (subscription as any).messageStream;
+    expect(messageStream.maxPullSize).toBe(500);
+
+    await subscription.close();
+  });
 });
