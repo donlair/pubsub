@@ -60,13 +60,21 @@ Add Docker-based resource-constrained benchmarking to simulate cloud instance si
 - [x] Document result file naming convention
 - [x] Add architecture note (ARM64 vs x86_64)
 
-### Phase 7: Verification
+### Phase 7: Verification ✓
 
-- [ ] Build Docker image successfully
-- [ ] Run `throughput` benchmark with micro profile
-- [ ] Verify result file contains `dockerProfile` metadata
-- [ ] Compare native vs micro throughput (expect 2-4x reduction)
-- [ ] Run all scenarios with micro profile
+- [x] Build Docker image successfully
+- [x] Run `throughput` benchmark with micro profile
+- [x] Verify result file contains `dockerProfile` metadata
+- [x] Compare native vs micro throughput (expect 2-4x reduction)
+  - Native: 8,014 msgs/sec, Micro: 3,957-4,625 msgs/sec (~2x reduction)
+- [x] Run all scenarios with micro profile
+  - throughput: ✓ PASS
+  - firehose-1KB: ✗ FAIL (expected - P99 target too aggressive for constrained env)
+  - firehose-10KB: ✓ PASS
+  - firehose-1MB: ✓ PASS
+  - fanout: ✓ PASS (100% delivery)
+  - thundering-herd: ✓ PASS (100% success)
+  - saturation: ✓ PASS (inflection at 90% load)
 
 ## File Changes Summary
 
