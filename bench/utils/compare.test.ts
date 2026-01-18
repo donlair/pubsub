@@ -39,7 +39,10 @@ const createMockResult = (overrides: Partial<BenchmarkResult> = {}): BenchmarkRe
 
 describe('loadResult', () => {
 	test('loads valid benchmark result', async () => {
-		const result = await loadResult('bench/results/throughput-2026-01-17T22-18-48-308Z.json');
+		const testPath = '/tmp/claude/valid-benchmark.json';
+		await Bun.write(testPath, JSON.stringify(createMockResult()));
+
+		const result = await loadResult(testPath);
 
 		expect(result.scenario).toBe('throughput');
 		expect(result.metrics).toBeDefined();

@@ -7,6 +7,13 @@ import { cpus, totalmem, platform, arch } from 'node:os';
 import { mkdir } from 'node:fs/promises';
 import { heapStats } from 'bun:jsc';
 import type { LatencySummary } from './stats';
+import { getProfile } from './profiles';
+
+export interface DockerProfile {
+  name: string;
+  cpu: number;
+  memory: string;
+}
 
 export interface Environment {
   bunVersion: string;
@@ -17,6 +24,7 @@ export interface Environment {
   arch: string;
   timestamp: string;
   commitHash?: string;
+  dockerProfile?: DockerProfile;
 }
 
 export interface MemoryStats {
@@ -64,6 +72,21 @@ export function captureEnvironment(): Environment {
     timestamp: new Date().toISOString(),
     commitHash,
   };
+}
+
+export function captureEnvironmentWithProfile(profileName?: string): Environment {
+  const env = captureEnvironment();
+
+  if (profileName) {
+    const profile = getProfile(profileName);
+    env.dockerProfile = {
+      name: profile.name,
+      cpu: profile.cpu,
+      memory: profile.memory,
+    };
+  }
+
+  return env;
 }
 
 export function captureMemory(): MemoryStats {
@@ -121,7 +144,10 @@ export function printSummary(result: BenchmarkResult): void {
 
 export async function saveResults(result: BenchmarkResult): Promise<string> {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const filename = `${result.scenario}-${timestamp}.json`;
+  const profilePart = result.environment.dockerProfile
+    ? `-${result.environment.dockerProfile.name}`
+    : '';
+  const filename = `${result.scenario}${profilePart}-${timestamp}.json`;
   const resultsDir = `${import.meta.dir}/../results`;
   const path = `${resultsDir}/${filename}`;
 
@@ -146,12 +172,13 @@ export function createResult(
   config: Record<string, unknown>,
   metrics: Omit<BenchmarkMetrics, 'memory'>,
   success: boolean,
-  errors?: string[]
+  errors?: string[],
+  profileName?: string
 ): BenchmarkResult {
   return {
     scenario,
     config,
-    environment: captureEnvironment(),
+    environment: captureEnvironmentWithProfile(profileName),
     metrics: {
       ...metrics,
       memory: captureMemory(),

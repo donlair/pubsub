@@ -22,13 +22,13 @@ Add Docker-based resource-constrained benchmarking to simulate cloud instance si
 - [x] Export `getProfile()` and `listProfiles()` helper functions
 - [x] Define `SCENARIO_BENCHMARKS` constant (excludes mitata microbenchmarks)
 
-### Phase 2: Reporter Modifications
+### Phase 2: Reporter Modifications ✓
 
-- [ ] Add `DockerProfile` interface to `bench/utils/reporter.ts`
-- [ ] Add optional `dockerProfile` field to `Environment` interface
-- [ ] Create `captureEnvironmentWithProfile(profileName?: string)` function
-- [ ] Modify `createResult()` to accept optional `profileName` parameter
-- [ ] Modify `saveResults()` to include profile in filename when present
+- [x] Add `DockerProfile` interface to `bench/utils/reporter.ts`
+- [x] Add optional `dockerProfile` field to `Environment` interface
+- [x] Create `captureEnvironmentWithProfile(profileName?: string)` function
+- [x] Modify `createResult()` to accept optional `profileName` parameter
+- [x] Modify `saveResults()` to include profile in filename when present
 
 ### Phase 3: Docker Infrastructure
 
@@ -73,7 +73,7 @@ Add Docker-based resource-constrained benchmarking to simulate cloud instance si
 | File | Action |
 |------|--------|
 | `bench/utils/profiles.ts` | Create ✓ |
-| `bench/utils/reporter.ts` | Modify |
+| `bench/utils/reporter.ts` | Modify ✓ |
 | `bench/Dockerfile.bench` | Create |
 | `bench/run-constrained.sh` | Create |
 | `bench/scenarios/throughput.ts` | Modify |
