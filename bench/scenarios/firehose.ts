@@ -55,11 +55,20 @@ async function runFirehose(): Promise<BenchmarkResult[]> {
       console.log(`Publishing ${CONFIG.messagesPerSize} messages...`);
       const startTime = Bun.nanoseconds();
 
+      const publishPromises: Promise<number>[] = [];
       for (let i = 0; i < CONFIG.messagesPerSize; i++) {
         const opStart = Bun.nanoseconds();
-        await topic.publishMessage({ data: payload });
-        const opEnd = Bun.nanoseconds();
-        histogram.record(opEnd - opStart);
+        publishPromises.push(
+          topic.publishMessage({ data: payload }).then(() => {
+            const opEnd = Bun.nanoseconds();
+            return opEnd - opStart;
+          })
+        );
+      }
+
+      const publishTimes = await Promise.all(publishPromises);
+      for (const time of publishTimes) {
+        histogram.record(time);
       }
 
       const endTime = Bun.nanoseconds();

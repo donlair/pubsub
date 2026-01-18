@@ -72,13 +72,17 @@ async function runThroughput() {
     console.log(`Publishing ${CONFIG.messageCount} messages...`);
     const startTime = Bun.nanoseconds();
 
+    const publishPromises: Promise<string>[] = [];
     for (let i = 0; i < CONFIG.messageCount; i++) {
       const publishTimeNs = Bun.nanoseconds();
-      await topic.publishMessage({
-        data: payload,
-        attributes: { publishTimeNs: publishTimeNs.toString() },
-      });
+      publishPromises.push(
+        topic.publishMessage({
+          data: payload,
+          attributes: { publishTimeNs: publishTimeNs.toString() },
+        })
+      );
     }
+    await Promise.all(publishPromises);
 
     let timeoutId: ReturnType<typeof setTimeout>;
     const timeout = new Promise<never>((_, reject) => {
