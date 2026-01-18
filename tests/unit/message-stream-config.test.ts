@@ -96,11 +96,7 @@ describe('MessageStream Configuration', () => {
   });
 
   test('higher throughput with aggressive settings', async () => {
-    const pubsub = new PubSub();
-    const topic = pubsub.topic('test-throughput');
-    await topic.create();
-
-    const subscription = topic.subscription('test-sub', {
+    const subscription = topic.subscription(`test-throughput-${testCounter}`, {
       streamingOptions: {
         pullInterval: 1,
         maxPullSize: 1000
@@ -112,6 +108,10 @@ describe('MessageStream Configuration', () => {
     subscription.on('message', (msg) => {
       received.push(msg.data.toString());
       msg.ack();
+    });
+
+    subscription.on('error', (err) => {
+      throw err;
     });
 
     subscription.open();
@@ -127,5 +127,6 @@ describe('MessageStream Configuration', () => {
     await new Promise(resolve => setTimeout(resolve, 500));
 
     expect(received.length).toBe(10000);
+    await subscription.close();
   });
 });
