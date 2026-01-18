@@ -422,7 +422,7 @@ export class MessageStream {
 
 		const remaining = Math.max(0, maxMessages - inFlightCount);
 
-		return Math.min(remaining, 100);
+		return Math.min(remaining, this.maxPullSize);
 	}
 
 	/**
