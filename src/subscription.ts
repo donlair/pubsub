@@ -53,6 +53,7 @@ export class Subscription extends EventEmitter {
 			minAckDeadline: options?.minAckDeadline ?? 10,
 			maxAckDeadline: options?.maxAckDeadline ?? 600,
 			maxExtensionTime: options?.maxExtensionTime ?? 3600,
+			streamingOptions: options?.streamingOptions,
 			closeOptions: options?.closeOptions
 		};
 
