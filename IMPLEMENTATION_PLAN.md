@@ -229,12 +229,15 @@ This plan addresses remaining gaps identified through systematic comparison of s
 
 ### Low Priority
 
-#### 14. Fix spec to match Google API for AckResponse
-- **Location**: `specs/04-message.md:58-64`
-- **Gap**: Spec defines AckResponse as numeric enum (0, 3, 7, 9, 13) but Google uses strings
+#### ~~14. Fix spec to match Google API for AckResponse~~ **[COMPLETED]**
+- **Status**: COMPLETED
+- **Location**: `specs/04-message.md:58-66`, `research/04-message-api.md:168-193`
+- **Changes**: Updated specs/04-message.md and research/04-message-api.md to use string constants instead of numeric enum
+- **Files Modified**:
+  - `specs/04-message.md` (lines 58-66) - Changed AckResponse from numeric enum to string constants
+  - `research/04-message-api.md` (lines 168-193) - Updated documentation to reflect string values
+- **Verification**: All AckResponse compatibility tests pass (7/7 tests)
 - **Google API**: `'SUCCESS'`, `'INVALID'`, `'PERMISSION_DENIED'`, `'FAILED_PRECONDITION'`, `'OTHER'`
-- **Impact**: Spec misleads implementers, conflicts with API compatibility requirement
-- **Fix**: Update spec to document string values matching Google's actual API
 - **Reference**: https://github.com/googleapis/nodejs-pubsub/blob/main/src/subscriber.ts
 
 #### 16. Improve allowExcessMessages handling

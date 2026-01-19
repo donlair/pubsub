@@ -166,20 +166,22 @@ async ackWithResponse(): Promise<AckResponse>
 **Returns:** Promise resolving to acknowledgment status
 
 **AckResponse Values:**
-- `0` - Success
-- `1` - Permission denied
-- `2` - Failed precondition
-- `3` - Invalid ack ID
-- Other codes indicate transient failures
+- `'SUCCESS'` - Acknowledgment successful
+- `'INVALID'` - Invalid ack ID
+- `'PERMISSION_DENIED'` - Insufficient permissions
+- `'FAILED_PRECONDITION'` - Subscription state issue
+- `'OTHER'` - Other transient failures
 
 **Example:**
 ```typescript
+import { AckResponses } from '@google-cloud/pubsub';
+
 subscription.on('message', async (message) => {
   try {
     await processMessage(message);
 
     const response = await message.ackWithResponse();
-    if (response === 0) {
+    if (response === AckResponses.Success) {
       console.log('Ack confirmed');
     } else {
       console.error('Ack failed with code:', response);
