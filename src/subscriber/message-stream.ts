@@ -15,7 +15,7 @@ import { MessageQueue } from '../internal/message-queue';
 import { Message } from '../message';
 import { SubscriberFlowControl } from './flow-control';
 import { LeaseManager } from './lease-manager';
-import { NotFoundError } from '../types/errors';
+import { NotFoundError, InvalidArgumentError } from '../types/errors';
 
 /**
  * Convert Duration to seconds.
@@ -216,16 +216,20 @@ export class MessageStream {
 			for (const message of this.inFlightMessages.values()) {
 				try {
 					message.nack();
-				} catch {
-					// Ignore errors for already-expired leases during cleanup
+				} catch (error) {
+					if (!(error instanceof InvalidArgumentError)) {
+						console.error('Unexpected error during cleanup NACK:', error);
+					}
 				}
 			}
 			for (const pendingMsg of this.pendingMessages) {
 				if (pendingMsg.ackId) {
 					try {
 						this.messageQueue.nack(pendingMsg.ackId);
-					} catch {
-						// Ignore errors for already-expired leases during cleanup
+					} catch (error) {
+						if (!(error instanceof InvalidArgumentError)) {
+							console.error('Unexpected error during cleanup NACK:', error);
+						}
 					}
 				}
 			}

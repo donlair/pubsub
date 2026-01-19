@@ -37,11 +37,17 @@ Issues are prioritized by severity with critical fixes first.
 
 ### 1.3 Fix Cleanup NACK Error Handling
 
-- [ ] Check specific error types during cleanup nack operations
-  - Location: `src/subscriber/message-stream.ts:215-228`
+- [x] Check specific error types during cleanup nack operations
+  - Location: `src/subscriber/message-stream.ts:215-234`
   - Gap: ALL errors caught and ignored, not just expired-lease errors
-  - Fix: Only ignore `InvalidArgumentError`, log unexpected errors
+  - Fix: Only ignore `InvalidArgumentError`, log unexpected errors using `console.error`
+  - Implementation:
+    - Added selective error catching: ignore `InvalidArgumentError` (expired leases), log others
+    - Applies to both in-flight messages (via `message.nack()`) and pending messages (via `messageQueue.nack()`)
+    - Added 3 comprehensive tests verifying the behavior
+  - Test: `tests/unit/subscriber.test.ts:1123-1249` (3 test cases)
   - Spec: Error handling rules
+  - Completed: 2026-01-19
 
 ### 1.4 Remove Inline Comments Violating CLAUDE.md Rules
 

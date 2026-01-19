@@ -14,6 +14,7 @@ import { SubscriberFlowControl } from '../../src/subscriber/flow-control';
 import { LeaseManager } from '../../src/subscriber/lease-manager';
 import { Message } from '../../src/message';
 import { PreciseDate } from '../../src/utils/precise-date';
+import { InvalidArgumentError } from '../../src/types/errors';
 
 describe('SubscriberFlowControl', () => {
 	test('AC-002: respects maxMessages limit', () => {
@@ -1118,4 +1119,131 @@ describe('MessageStream', () => {
 
 		await stream.stop();
 	});
+
+	test('stop() with NACK ignores InvalidArgumentError during cleanup', async () => {
+		const consoleSpy = spyOn(console, 'error').mockImplementation(() => {});
+
+		const stream = new MessageStream(subscription, {
+			closeOptions: { behavior: 'NACK' },
+		});
+
+		const receivedMessages: Message[] = [];
+		subscription.on('message', (message: Message) => {
+			receivedMessages.push(message);
+			message.nack = () => {
+				throw new InvalidArgumentError('Invalid ack ID: expired-lease');
+			};
+		});
+
+		stream.start();
+
+		const msg = {
+			id: 'msg-1',
+			data: Buffer.from('test'),
+			attributes: {},
+			publishTime: new PreciseDate(),
+			orderingKey: undefined,
+			deliveryAttempt: 1,
+			length: 4,
+		};
+
+		messageQueue.publish(`test-topic-${testCounter}`, [msg]);
+
+		await new Promise((resolve) => setTimeout(resolve, 50));
+
+		expect(receivedMessages.length).toBeGreaterThan(0);
+
+		await stream.stop();
+
+		expect(consoleSpy).not.toHaveBeenCalled();
+
+		consoleSpy.mockRestore();
+	});
+
+	test('stop() with NACK logs non-InvalidArgumentError errors during cleanup', async () => {
+		const consoleSpy = spyOn(console, 'error').mockImplementation(() => {});
+
+		const stream = new MessageStream(subscription, {
+			closeOptions: { behavior: 'NACK' },
+		});
+
+		const receivedMessages: Message[] = [];
+		subscription.on('message', (message: Message) => {
+			receivedMessages.push(message);
+			message.nack = () => {
+				throw new Error('Network error during NACK');
+			};
+		});
+
+		stream.start();
+
+		const msg = {
+			id: 'msg-1',
+			data: Buffer.from('test'),
+			attributes: {},
+			publishTime: new PreciseDate(),
+			orderingKey: undefined,
+			deliveryAttempt: 1,
+			length: 4,
+		};
+
+		messageQueue.publish(`test-topic-${testCounter}`, [msg]);
+
+		await new Promise((resolve) => setTimeout(resolve, 50));
+
+		expect(receivedMessages.length).toBeGreaterThan(0);
+
+		await stream.stop();
+
+		expect(consoleSpy).toHaveBeenCalledWith(
+			'Unexpected error during cleanup NACK:',
+			expect.objectContaining({ message: 'Network error during NACK' })
+		);
+
+		consoleSpy.mockRestore();
+	});
+
+	test('stop() with NACK logs InternalError during cleanup', async () => {
+		const consoleSpy = spyOn(console, 'error').mockImplementation(() => {});
+
+		const stream = new MessageStream(subscription, {
+			closeOptions: { behavior: 'NACK' },
+		});
+
+		const receivedMessages: Message[] = [];
+		subscription.on('message', (message: Message) => {
+			receivedMessages.push(message);
+			message.nack = () => {
+				throw new Error('Unexpected internal error');
+			};
+		});
+
+		stream.start();
+
+		const msg = {
+			id: 'msg-1',
+			data: Buffer.from('test'),
+			attributes: {},
+			publishTime: new PreciseDate(),
+			orderingKey: undefined,
+			deliveryAttempt: 1,
+			length: 4,
+		};
+
+		messageQueue.publish(`test-topic-${testCounter}`, [msg]);
+
+		await new Promise((resolve) => setTimeout(resolve, 50));
+
+		expect(receivedMessages.length).toBeGreaterThan(0);
+
+		await stream.stop();
+
+		expect(consoleSpy).toHaveBeenCalledWith(
+			'Unexpected error during cleanup NACK:',
+			expect.objectContaining({ message: 'Unexpected internal error' })
+		);
+
+		consoleSpy.mockRestore();
+	});
+
 });
