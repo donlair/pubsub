@@ -3,7 +3,7 @@
  * Tests all 13 acceptance criteria from specs/07-message-queue.md
  */
 
-import { test, expect, beforeEach, describe } from 'bun:test';
+import { test, expect, beforeEach, describe, spyOn } from 'bun:test';
 import { MessageQueue } from '../../src/internal/message-queue';
 import type { InternalMessage } from '../../src/internal/types';
 
@@ -1543,6 +1543,93 @@ describe('MessageQueue', () => {
       queue.nack(ackId);
 
       expect((queue as any).ackIdCreationTimes.has(ackId)).toBe(false);
+    });
+  });
+
+  describe('Queue Size Warning Logging (BR-022)', () => {
+    test('warns when message count limit reached', () => {
+      queue.registerTopic('test-topic');
+      queue.registerSubscription('test-sub', 'test-topic');
+
+      const warnSpy = spyOn(console, 'warn').mockImplementation(() => {});
+
+      const queueState = (queue as any).queues.get('test-sub');
+      queueState.queueSize = 10000;
+
+      const message: InternalMessage = {
+        id: 'msg-1',
+        data: Buffer.from('test'),
+        attributes: {},
+        publishTime: new Date() as any,
+        orderingKey: undefined,
+        deliveryAttempt: 1,
+        length: 100,
+      };
+
+      queue.publish('test-topic', [message]);
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Queue capacity reached for subscription test-sub'),
+      );
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('10000 messages'));
+
+      warnSpy.mockRestore();
+    });
+
+    test('warns when byte limit reached', () => {
+      queue.registerTopic('test-topic');
+      queue.registerSubscription('test-sub', 'test-topic');
+
+      const warnSpy = spyOn(console, 'warn').mockImplementation(() => {});
+
+      const queueState = (queue as any).queues.get('test-sub');
+      queueState.queueBytes = 100 * 1024 * 1024;
+
+      const message: InternalMessage = {
+        id: 'msg-1',
+        data: Buffer.from('test'),
+        attributes: {},
+        publishTime: new Date() as any,
+        orderingKey: undefined,
+        deliveryAttempt: 1,
+        length: 100,
+      };
+
+      queue.publish('test-topic', [message]);
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Queue capacity reached for subscription test-sub'),
+      );
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('104857600 bytes'));
+
+      warnSpy.mockRestore();
+    });
+
+    test('does not warn when limits not reached', () => {
+      queue.registerTopic('test-topic');
+      queue.registerSubscription('test-sub', 'test-topic');
+
+      const warnSpy = spyOn(console, 'warn').mockImplementation(() => {});
+
+      const queueState = (queue as any).queues.get('test-sub');
+      queueState.queueSize = 100;
+      queueState.queueBytes = 1000;
+
+      const message: InternalMessage = {
+        id: 'msg-1',
+        data: Buffer.from('test'),
+        attributes: {},
+        publishTime: new Date() as any,
+        orderingKey: undefined,
+        deliveryAttempt: 1,
+        length: 100,
+      };
+
+      queue.publish('test-topic', [message]);
+
+      expect(warnSpy).not.toHaveBeenCalled();
+
+      warnSpy.mockRestore();
     });
   });
 });

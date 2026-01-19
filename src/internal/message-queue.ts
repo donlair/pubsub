@@ -258,6 +258,9 @@ export class MessageQueue {
         if (queue) {
           // BR-022: Check queue size limits (10,000 messages or 100MB)
           if (queue.queueSize >= 10000 || queue.queueBytes >= 100 * 1024 * 1024) {
+            console.warn(
+              `Queue capacity reached for subscription ${sub.name}: ${queue.queueSize} messages, ${queue.queueBytes} bytes`,
+            );
             continue;
           }
 

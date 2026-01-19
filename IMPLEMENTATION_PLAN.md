@@ -118,13 +118,18 @@ This plan addresses remaining gaps identified through systematic comparison of s
 
 ### Medium Priority
 
-#### 8. Add queue size warning logging
-- **Location**: `src/internal/message-queue.ts:253-255`
-- **Gap**: Silent rejection when queue limits hit (10,000 messages or 100MB)
+#### 8. Add queue size warning logging **[COMPLETED]**
+- **Status**: COMPLETED
+- **Location**: `src/internal/message-queue.ts:261-263`
+- **Implementation**: Added `console.warn()` when queue capacity exceeded
+- **Changes**:
+  - Added warning message with subscription name, message count, and byte count
+  - Logs: `Queue capacity reached for subscription ${sub.name}: ${queue.queueSize} messages, ${queue.queueBytes} bytes`
+- **Test Coverage**: 3 new tests in `tests/unit/message-queue.test.ts` (lines 1549-1634)
+  - Warns when message count limit reached (10,000)
+  - Warns when byte limit reached (100MB)
+  - Does not warn when limits not reached
 - **Spec**: `specs/07-message-queue.md` BR-022
-- **Research**: See "Implementation Details" → Item 8 for implementation example
-- **Impact**: Message drops hard to debug
-- **Fix**: Add `console.warn()` when capacity exceeded
 
 #### 9. Implement ack/nack batching
 - **Location**: `src/subscriber/` (new file `ack-manager.ts`)
