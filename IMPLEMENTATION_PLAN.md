@@ -90,15 +90,19 @@ Issues are prioritized by severity with critical fixes first.
 
 ### 2.2 Add Warning Log for FailedPreconditionError in ack/nack
 
-- [ ] Add `console.warn` before silent return in `ack()` method
+- [x] Add `console.warn` before silent return in `ack()` method
   - Location: `src/message.ts:118-127`
   - Gap: `FailedPreconditionError` silently swallowed, user thinks ack succeeded
-  - Fix: Add warning log before return
+  - Fix: Added `console.warn(\`Ack ignored: ${error.message}\`)` before return
+  - Test: Added 4 comprehensive tests in `tests/unit/message.test.ts:924-1084`
+  - Completed: 2026-01-19
 
-- [ ] Add `console.warn` before silent return in `nack()` method
+- [x] Add `console.warn` before silent return in `nack()` method
   - Location: `src/message.ts:133-146`
   - Gap: Same issue as ack()
-  - Fix: Add warning log before return
+  - Fix: Added `console.warn(\`Nack ignored: ${error.message}\`)` before return
+  - Test: Covered by same test suite
+  - Completed: 2026-01-19
 
 ### 2.3 Fix modAckWithResponse Error Classification
 

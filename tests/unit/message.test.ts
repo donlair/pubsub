@@ -4,7 +4,7 @@
  * Tests all 15 acceptance criteria.
  */
 
-import { test, expect, describe, beforeEach } from 'bun:test';
+import { test, expect, describe, beforeEach, spyOn } from 'bun:test';
 import { Message } from '../../src/message';
 import { PreciseDate } from '../../src/utils/precise-date';
 import { AckResponses } from '../../src/types/message';
@@ -917,6 +917,168 @@ describe('Message', () => {
 				1,
 			);
 			expect(redelivered).toHaveLength(1);
+		});
+	});
+
+	describe('FailedPreconditionError warning logs', () => {
+		test('ack should log warning when subscription deleted', () => {
+			messageQueue.publish('projects/test/topics/test-topic', [
+				{
+					id: 'msg-1',
+					data: Buffer.from('test'),
+					attributes: {},
+					publishTime: new PreciseDate(),
+					orderingKey: undefined,
+					deliveryAttempt: 1,
+					length: 4,
+				},
+			]);
+
+			const messages = messageQueue.pull(
+				'projects/test/subscriptions/test-sub',
+				1,
+			);
+			const internalMsg = messages[0];
+			if (!internalMsg) throw new Error('No message');
+
+			const message = new Message(
+				internalMsg.id,
+				internalMsg.ackId || 'ack-1',
+				internalMsg.data,
+				internalMsg.attributes,
+				internalMsg.publishTime,
+				{ name: 'test-sub' },
+			);
+
+			const warnSpy = spyOn(console, 'warn').mockImplementation(() => {});
+
+			messageQueue.unregisterSubscription('projects/test/subscriptions/test-sub');
+
+			message.ack();
+
+			expect(warnSpy).toHaveBeenCalledWith(
+				'Ack ignored: Subscription no longer exists: projects/test/subscriptions/test-sub',
+			);
+
+			warnSpy.mockRestore();
+		});
+
+		test('nack should log warning when subscription deleted', () => {
+			messageQueue.publish('projects/test/topics/test-topic', [
+				{
+					id: 'msg-1',
+					data: Buffer.from('test'),
+					attributes: {},
+					publishTime: new PreciseDate(),
+					orderingKey: undefined,
+					deliveryAttempt: 1,
+					length: 4,
+				},
+			]);
+
+			const messages = messageQueue.pull(
+				'projects/test/subscriptions/test-sub',
+				1,
+			);
+			const internalMsg = messages[0];
+			if (!internalMsg) throw new Error('No message');
+
+			const message = new Message(
+				internalMsg.id,
+				internalMsg.ackId || 'ack-1',
+				internalMsg.data,
+				internalMsg.attributes,
+				internalMsg.publishTime,
+				{ name: 'test-sub' },
+			);
+
+			const warnSpy = spyOn(console, 'warn').mockImplementation(() => {});
+
+			messageQueue.unregisterSubscription('projects/test/subscriptions/test-sub');
+
+			message.nack();
+
+			expect(warnSpy).toHaveBeenCalledWith(
+				'Nack ignored: Subscription no longer exists: projects/test/subscriptions/test-sub',
+			);
+
+			warnSpy.mockRestore();
+		});
+
+		test('ack should not throw error when subscription deleted', () => {
+			messageQueue.publish('projects/test/topics/test-topic', [
+				{
+					id: 'msg-1',
+					data: Buffer.from('test'),
+					attributes: {},
+					publishTime: new PreciseDate(),
+					orderingKey: undefined,
+					deliveryAttempt: 1,
+					length: 4,
+				},
+			]);
+
+			const messages = messageQueue.pull(
+				'projects/test/subscriptions/test-sub',
+				1,
+			);
+			const internalMsg = messages[0];
+			if (!internalMsg) throw new Error('No message');
+
+			const message = new Message(
+				internalMsg.id,
+				internalMsg.ackId || 'ack-1',
+				internalMsg.data,
+				internalMsg.attributes,
+				internalMsg.publishTime,
+				{ name: 'test-sub' },
+			);
+
+			const warnSpy = spyOn(console, 'warn').mockImplementation(() => {});
+
+			messageQueue.unregisterSubscription('projects/test/subscriptions/test-sub');
+
+			expect(() => message.ack()).not.toThrow();
+
+			warnSpy.mockRestore();
+		});
+
+		test('nack should not throw error when subscription deleted', () => {
+			messageQueue.publish('projects/test/topics/test-topic', [
+				{
+					id: 'msg-1',
+					data: Buffer.from('test'),
+					attributes: {},
+					publishTime: new PreciseDate(),
+					orderingKey: undefined,
+					deliveryAttempt: 1,
+					length: 4,
+				},
+			]);
+
+			const messages = messageQueue.pull(
+				'projects/test/subscriptions/test-sub',
+				1,
+			);
+			const internalMsg = messages[0];
+			if (!internalMsg) throw new Error('No message');
+
+			const message = new Message(
+				internalMsg.id,
+				internalMsg.ackId || 'ack-1',
+				internalMsg.data,
+				internalMsg.attributes,
+				internalMsg.publishTime,
+				{ name: 'test-sub' },
+			);
+
+			const warnSpy = spyOn(console, 'warn').mockImplementation(() => {});
+
+			messageQueue.unregisterSubscription('projects/test/subscriptions/test-sub');
+
+			expect(() => message.nack()).not.toThrow();
+
+			warnSpy.mockRestore();
 		});
 	});
 });

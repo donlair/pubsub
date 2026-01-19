@@ -120,6 +120,7 @@ export class Message implements MessageProperties {
 			queue.ack(this.ackId);
 		} catch (error) {
 			if (error instanceof FailedPreconditionError) {
+				console.warn(`Ack ignored: ${error.message}`);
 				return;
 			}
 			throw error;
@@ -139,6 +140,7 @@ export class Message implements MessageProperties {
 			queue.nack(this.ackId);
 		} catch (error) {
 			if (error instanceof FailedPreconditionError) {
+				console.warn(`Nack ignored: ${error.message}`);
 				return;
 			}
 			throw error;
