@@ -17,11 +17,13 @@ Issues are prioritized by severity with critical fixes first.
 
 ### 1.1 Add Error Handling to Periodic Cleanup Timer
 
-- [ ] Add try-catch to `startPeriodicCleanup()` timer callback
-  - Location: `src/internal/message-queue.ts:739-744`
+- [x] Add try-catch to `startPeriodicCleanup()` timer callback
+  - Location: `src/internal/message-queue.ts:739-747`
   - Gap: `runCleanup()` errors propagate silently, potentially stopping cleanup permanently
-  - Fix: Wrap in try-catch with `console.error` logging
+  - Fix: Wrapped in try-catch with `console.error` logging
   - Spec: Error handling rules in `.claude/rules/error-handling.md`
+  - Test: Added test in `tests/unit/message-queue.test.ts:1548-1590`
+  - Completed: 2026-01-19
 
 ### 1.2 Add Error Logging to Message Stream Stop
 

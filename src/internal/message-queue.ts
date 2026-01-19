@@ -738,7 +738,11 @@ export class MessageQueue {
 
   private startPeriodicCleanup(): void {
     this.cleanupTimer = setInterval(() => {
-      this.runCleanup();
+      try {
+        this.runCleanup();
+      } catch (error) {
+        console.error('Error during periodic cleanup:', error);
+      }
     }, 60000);
     this.cleanupTimer.unref();
   }

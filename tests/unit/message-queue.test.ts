@@ -1544,6 +1544,50 @@ describe('MessageQueue', () => {
 
       expect((queue as any).ackIdCreationTimes.has(ackId)).toBe(false);
     });
+
+    test('logs errors in cleanup timer without stopping cleanup', () => {
+      const consoleSpy = spyOn(console, 'error').mockImplementation(() => {});
+      const originalStartPeriodicCleanup = (MessageQueue.prototype as any).startPeriodicCleanup;
+      const originalRunCleanup = (MessageQueue.prototype as any).runCleanup;
+      let capturedCallback: (() => void) | undefined;
+
+      (MessageQueue.prototype as any).startPeriodicCleanup = function() {
+        this.cleanupTimer = setInterval(() => {
+          try {
+            this.runCleanup();
+          } catch (error) {
+            console.error('Error during periodic cleanup:', error);
+          }
+        }, 60000);
+        capturedCallback = () => {
+          try {
+            this.runCleanup();
+          } catch (error) {
+            console.error('Error during periodic cleanup:', error);
+          }
+        };
+        this.cleanupTimer.unref();
+      };
+
+      (MessageQueue.prototype as any).runCleanup = () => {
+        throw new Error('Simulated cleanup error');
+      };
+
+      MessageQueue.resetForTesting();
+      MessageQueue.getInstance();
+
+      if (capturedCallback) {
+        capturedCallback();
+      }
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Error during periodic cleanup:',
+        expect.any(Error)
+      );
+
+      (MessageQueue.prototype as any).startPeriodicCleanup = originalStartPeriodicCleanup;
+      (MessageQueue.prototype as any).runCleanup = originalRunCleanup;
+    });
   });
 
   describe('Queue Size Warning Logging (BR-022)', () => {
