@@ -311,12 +311,28 @@ This plan addresses remaining gaps identified through systematic comparison of s
 - **Verification**: TypeScript compilation PASS, Biome lint PASS, all PubSub tests PASS (53/53)
 - **Note**: Opaque pass-through property for gRPC-specific configuration; no runtime behavior in this in-memory implementation
 
-#### 20. Improve exactly-once delivery logic
-- **Location**: `src/message.ts:166-197`
-- **Gap**: `ackWithResponse()` always returns SUCCESS or INVALID
+#### ~~20. Improve exactly-once delivery logic~~ **[COMPLETED]**
+- **Status**: COMPLETED
+- **Location**: `src/message.ts:180-224`, `src/types/errors.ts:68,101`, `src/internal/message-queue.ts:527-584`
+- **Implementation**: Enhanced `ackWithResponse()` and `nackWithResponse()` to return full range of error codes
+- **Changes**:
+  - Modified `ackWithResponse()` to catch and classify errors from MessageQueue.ack()
+  - Modified `nackWithResponse()` to catch and classify errors from MessageQueue.nack()
+  - Returns `SUCCESS` (0) when operation succeeds
+  - Returns `INVALID` (3) when ack ID is invalid (InvalidArgumentError)
+  - Returns `FAILED_PRECONDITION` (9) when subscription no longer exists (FailedPreconditionError)
+  - Returns `OTHER` (13) for any other unexpected errors
+  - MessageQueue.ack() and nack() now throw typed errors for better classification
+- **Test Coverage**: 6 tests in `tests/unit/message.test.ts` (lines 558-667)
+  - AC-011: ackWithResponse returns SUCCESS on normal ack
+  - AC-012: nackWithResponse returns SUCCESS on normal nack
+  - AC-013: ackWithResponse returns INVALID on double ack
+  - AC-015: ackWithResponse returns FAILED_PRECONDITION when subscription deleted
+  - AC-015: ackWithResponse returns SUCCESS when queue is intact
+  - AC-015: nackWithResponse returns FAILED_PRECONDITION when subscription deleted
+- **Compatibility Tests**: 4 additional tests in `tests/compatibility/message-compat.test.ts` (lines 271-363)
 - **Spec**: `specs/04-message.md` BR-010
 - **Research**: See "Implementation Details" → Item 18 for expected behavior
-- **Impact**: Can't test exactly-once error handling
 
 #### 21. Add gaxOpts runtime usage
 - **Location**: Various files (topic.ts, subscription.ts, pubsub.ts)
