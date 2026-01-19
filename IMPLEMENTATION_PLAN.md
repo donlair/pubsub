@@ -17,13 +17,15 @@ This plan addresses remaining gaps identified through systematic comparison of s
 
 ### Critical Priority
 
-#### 1. Fix AckResponse to use numeric gRPC codes
-- **Location**: `src/types/message.ts:70-76`
-- **Gap**: Uses string values (`'SUCCESS'`, `'INVALID'`) instead of numeric gRPC codes (0, 3, 7, 9, 13)
-- **Spec**: `specs/04-message.md` defines numeric AckResponse enum
-- **Research**: See "Implementation Details" → Item 1 for exact numeric mapping
-- **Impact**: API compatibility break - code using numeric comparisons will fail
-- **Fix**: Change `AckResponses` to: `Success: 0`, `Invalid: 3`, `PermissionDenied: 7`, `FailedPrecondition: 9`, `Other: 13`
+#### ~~1. Fix AckResponse to use numeric gRPC codes~~ **[REJECTED - API Compatibility]**
+- **Status**: WILL NOT IMPLEMENT
+- **Reason**: Google Cloud Pub/Sub uses **string values**, not numeric codes
+- **Evidence**:
+  - Google's source: https://github.com/googleapis/nodejs-pubsub/blob/main/src/subscriber.ts
+  - Values: `'SUCCESS'`, `'INVALID'`, `'PERMISSION_DENIED'`, `'FAILED_PRECONDITION'`, `'OTHER'`
+  - Research docs (`research/11-typescript-types.md:1496-1508`) correctly document string values
+- **Action Required**: Update `specs/04-message.md` to match Google's actual API (use strings, not numeric codes)
+- **Current Implementation**: CORRECT - uses string values as per Google API
 
 #### 2. Fix default retry backoff bug
 - **Location**: `src/internal/message-queue.ts:636-653`
@@ -128,39 +130,47 @@ This plan addresses remaining gaps identified through systematic comparison of s
 
 ### Low Priority
 
-#### 14. Improve allowExcessMessages handling
+#### 14. Fix spec to match Google API for AckResponse
+- **Location**: `specs/04-message.md:58-64`
+- **Gap**: Spec defines AckResponse as numeric enum (0, 3, 7, 9, 13) but Google uses strings
+- **Google API**: `'SUCCESS'`, `'INVALID'`, `'PERMISSION_DENIED'`, `'FAILED_PRECONDITION'`, `'OTHER'`
+- **Impact**: Spec misleads implementers, conflicts with API compatibility requirement
+- **Fix**: Update spec to document string values matching Google's actual API
+- **Reference**: https://github.com/googleapis/nodejs-pubsub/blob/main/src/subscriber.ts
+
+#### 16. Improve allowExcessMessages handling
 - **Location**: `src/subscriber/message-stream.ts`
 - **Gap**: May not correctly handle "mid-pull" scenario
 - **Spec**: `specs/06-subscriber.md` BR-004
 - **Research**: See "Implementation Details" → Item 14 for behavior examples
 - **Impact**: Minor behavior inconsistency
 
-#### 15. Add useLegacyFlowControl support
+#### 17. Add useLegacyFlowControl support
 - **Location**: `src/subscriber/message-stream.ts`
 - **Gap**: Type defined but never referenced
 - **Spec**: `specs/06-subscriber.md`
 - **Impact**: Option has no effect
 
-#### 16. Add streaming timeout enforcement
+#### 18. Add streaming timeout enforcement
 - **Location**: `src/subscriber/message-stream.ts`
 - **Gap**: `MessageStreamOptions.timeout` type exists but no enforcement
 - **Spec**: `specs/06-subscriber.md`
 - **Impact**: Streams never timeout
 
-#### 17. Add clientConfig property to PubSubOptions
+#### 19. Add clientConfig property to PubSubOptions
 - **Location**: `src/types/pubsub.ts`
 - **Gap**: Missing per Google API
 - **Spec**: Google Cloud Pub/Sub API compatibility
 - **Impact**: Some configuration patterns incompatible
 
-#### 18. Improve exactly-once delivery logic
+#### 20. Improve exactly-once delivery logic
 - **Location**: `src/message.ts:166-197`
 - **Gap**: `ackWithResponse()` always returns SUCCESS or INVALID
 - **Spec**: `specs/04-message.md` BR-010
 - **Research**: See "Implementation Details" → Item 18 for expected behavior
 - **Impact**: Can't test exactly-once error handling
 
-#### 19. Add gaxOpts runtime usage
+#### 21. Add gaxOpts runtime usage
 - **Location**: Various files (topic.ts, subscription.ts, pubsub.ts)
 - **Gap**: Types defined but never used at runtime
 - **Spec**: Google Cloud Pub/Sub API compatibility
@@ -168,7 +178,7 @@ This plan addresses remaining gaps identified through systematic comparison of s
 - **Impact**: gRPC options have no effect
 - **Note**: N/A for in-memory implementation; document as no-op
 
-#### 20. Add enableOpenTelemetryTracing instrumentation
+#### 22. Add enableOpenTelemetryTracing instrumentation
 - **Location**: `src/pubsub.ts`
 - **Gap**: Option defined but no tracing implementation
 - **Spec**: Google Cloud Pub/Sub API compatibility
