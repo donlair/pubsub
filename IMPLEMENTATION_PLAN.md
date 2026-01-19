@@ -107,14 +107,16 @@ This plan addresses remaining gaps identified through systematic comparison of s
 - **Spec**: `specs/06-subscriber.md` - `SubscriberCloseOptions.timeout`
 - **Research**: See "Implementation Details" → Item 6 for timeout details
 
-#### 7. Implement automatic ack deadline extension
-- **Location**: `src/subscriber/lease-manager.ts`
-- **Gap**: Only manual extension via `modifyAckDeadline()` implemented
-- **Spec**: `specs/06-subscriber.md` BR-005
-- **Research**: ⚠️ See "Implementation Details" → Item 7 (NOT a Google API feature)
-- **Impact**: Messages redeliver during long-running processing
-- **Fix**: Add periodic check (every `minAckDeadline`/2), auto-extend deadlines, respect `maxExtensionTime`
-- **Note**: Consider removing or documenting as convenience feature
+#### ~~7. Implement automatic ack deadline extension~~ **[REJECTED - NOT A GOOGLE API FEATURE]**
+- **Status**: WILL NOT IMPLEMENT
+- **Reason**: Google Cloud Pub/Sub does NOT provide automatic ack deadline extension
+- **Evidence**:
+  - Research docs (Item 7) confirm applications must manually call `message.modifyAckDeadline()` in `setInterval`
+  - BR-005 in spec is about redelivery when deadline expires, NOT automatic extension
+  - Official @google-cloud/pubsub library requires manual extension pattern
+- **API Compatibility**: Adding automatic extension would violate API compatibility requirement
+- **Current Implementation**: CORRECT - provides `modifyAckDeadline()` for manual extension
+- **Developer Pattern**: Applications implement extension via `setInterval(() => message.modifyAckDeadline(60), 30000)`
 
 ### Medium Priority
 
@@ -131,13 +133,24 @@ This plan addresses remaining gaps identified through systematic comparison of s
   - Does not warn when limits not reached
 - **Spec**: `specs/07-message-queue.md` BR-022
 
-#### 9. Implement ack/nack batching
-- **Location**: `src/subscriber/` (new file `ack-manager.ts`)
-- **Gap**: `BatchOptions` type exists but no batching implementation
-- **Spec**: `specs/06-subscriber.md` BR-011
-- **Research**: See "Implementation Details" → Item 9 for defaults (3000 msgs, 100ms)
-- **Impact**: Higher latency on high-volume ack operations
-- **Fix**: Create `AckManager` class (default: 3000 messages or 100ms), integrate with `MessageStream`
+#### ~~9. Implement ack/nack batching~~ **[PARTIAL - Infrastructure Complete]**
+- **Status**: INFRASTRUCTURE IMPLEMENTED, INTEGRATION DEFERRED
+- **Location**: `src/subscriber/ack-manager.ts` (new file), `tests/unit/ack-manager.test.ts`
+- **Implementation**: Created `AckManager` class with full batching logic
+- **Batching Triggers**: Count-based (maxMessages), time-based (maxMilliseconds)
+- **Features Implemented**:
+  - Separate ack and nack batches with independent timers
+  - Batch flushing when maxMessages reached or maxMilliseconds elapsed
+  - Manual flush() method for graceful shutdown
+  - Promise-based API for batch completion tracking
+  - Proper error handling with per-promise rejection
+  - **Test Coverage**: 10 comprehensive tests (AC-001 through AC-008)
+- **Integration Challenge**: Google Cloud Pub/Sub's `message.ack()` is synchronous (returns void), but batching requires async behavior (Promise resolution on batch flush). Integrating AckManager with MessageStream breaks API compatibility and causes existing tests to fail.
+- **Next Steps**:
+  1. Design async-compatible integration that maintains sync API (e.g., fire-and-forget with completion callbacks)
+  2. Or: Make batching opt-in with feature flag, keeping default behavior synchronous
+  3. Or: Accept minor API incompatibility and update all affected tests
+- **Current State**: AckManager ready for use, MessageStream integration reverted to preserve stability
 
 #### 10. Implement maxStreams for concurrent pull
 - **Location**: `src/subscriber/message-stream.ts`
