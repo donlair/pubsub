@@ -522,4 +522,121 @@ describe('MessageStream', () => {
 
 		await stream.stop();
 	});
+
+	test('Stop respects closeOptions timeout (number format)', async () => {
+		const stream = new MessageStream(subscription, {
+			closeOptions: { behavior: 'WAIT', timeout: 1 },
+		});
+
+		subscription.on('message', async (message: Message) => {
+			await new Promise((resolve) => setTimeout(resolve, 3000));
+			message.ack();
+		});
+
+		stream.start();
+
+		messageQueue.publish(`test-topic-${testCounter}`, [
+			{
+				id: 'msg-1',
+				data: Buffer.from('test'),
+				attributes: {},
+				publishTime: new PreciseDate(),
+				orderingKey: undefined,
+				deliveryAttempt: 1,
+				length: 4,
+			},
+		]);
+
+		await new Promise((resolve) => setTimeout(resolve, 10));
+
+		const start = Date.now();
+		await stream.stop();
+		const elapsed = (Date.now() - start) / 1000;
+
+		expect(elapsed).toBeLessThan(2);
+		expect(elapsed).toBeGreaterThan(0.8);
+	}, { timeout: 5000 });
+
+	test('Stop respects closeOptions timeout (Duration object format)', async () => {
+		const stream = new MessageStream(subscription, {
+			closeOptions: { behavior: 'WAIT', timeout: { seconds: 2 } },
+		});
+
+		subscription.on('message', async (message: Message) => {
+			await new Promise((resolve) => setTimeout(resolve, 5000));
+			message.ack();
+		});
+
+		stream.start();
+
+		messageQueue.publish(`test-topic-${testCounter}`, [
+			{
+				id: 'msg-1',
+				data: Buffer.from('test'),
+				attributes: {},
+				publishTime: new PreciseDate(),
+				orderingKey: undefined,
+				deliveryAttempt: 1,
+				length: 4,
+			},
+		]);
+
+		await new Promise((resolve) => setTimeout(resolve, 10));
+
+		const start = Date.now();
+		await stream.stop();
+		const elapsed = (Date.now() - start) / 1000;
+
+		expect(elapsed).toBeLessThan(3);
+		expect(elapsed).toBeGreaterThan(1.8);
+	}, { timeout: 6000 });
+
+	test('Stop defaults to maxExtensionTime when timeout not specified', async () => {
+		const stream = new MessageStream(subscription, {
+			maxExtensionTime: 2,
+			closeOptions: { behavior: 'WAIT' },
+		});
+
+		subscription.on('message', async (message: Message) => {
+			await new Promise((resolve) => setTimeout(resolve, 5000));
+			message.ack();
+		});
+
+		stream.start();
+
+		messageQueue.publish(`test-topic-${testCounter}`, [
+			{
+				id: 'msg-1',
+				data: Buffer.from('test'),
+				attributes: {},
+				publishTime: new PreciseDate(),
+				orderingKey: undefined,
+				deliveryAttempt: 1,
+				length: 4,
+			},
+		]);
+
+		await new Promise((resolve) => setTimeout(resolve, 10));
+
+		const start = Date.now();
+		await stream.stop();
+		const elapsed = (Date.now() - start) / 1000;
+
+		expect(elapsed).toBeLessThan(3);
+		expect(elapsed).toBeGreaterThan(1.8);
+	}, { timeout: 6000 });
+
+	test('Stop completes immediately if no in-flight messages', async () => {
+		const stream = new MessageStream(subscription, {
+			closeOptions: { behavior: 'WAIT', timeout: 60 },
+		});
+
+		stream.start();
+
+		const start = Date.now();
+		await stream.stop();
+		const elapsed = Date.now() - start;
+
+		expect(elapsed).toBeLessThan(100);
+	});
 });

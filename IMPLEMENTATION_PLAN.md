@@ -90,13 +90,22 @@ This plan addresses remaining gaps identified through systematic comparison of s
 - **Spec**: `specs/07-message-queue.md` - Performance considerations
 - **Note**: 10-minute expiration consistent with Google Cloud Pub/Sub ack ID validity window
 
-#### 6. Fix close timeout configuration
-- **Location**: `src/subscriber/message-stream.ts:535-545`
-- **Gap**: Hard-coded 30s timeout, should respect `closeOptions.timeout` (default: 3600s)
+#### 6. Fix close timeout configuration **[COMPLETED]**
+- **Status**: COMPLETED
+- **Location**: `src/subscriber/message-stream.ts:535-560`
+- **Implementation**: Modified `waitForInFlight()` to respect `closeOptions.timeout` with fallback to `maxExtensionTime`
+- **Changes**:
+  - Added `durationToSeconds()` helper function (lines 21-30)
+  - Added `Duration` type import (line 13)
+  - Modified `waitForInFlight()` to read timeout from `closeOptions.timeout` or fall back to `maxExtensionTime` (default: 3600s)
+  - Properly handles both number format (seconds) and Duration object format ({ seconds, nanos })
+- **Test Coverage**: 4 new tests in `tests/unit/subscriber.test.ts` (lines 525-651)
+  - Number format timeout (1 second)
+  - Duration object format timeout ({ seconds: 2 })
+  - Fallback to maxExtensionTime when timeout not specified
+  - Immediate completion when no in-flight messages
 - **Spec**: `specs/06-subscriber.md` - `SubscriberCloseOptions.timeout`
 - **Research**: See "Implementation Details" → Item 6 for timeout details
-- **Impact**: Subscriptions close too quickly, unexpected message nacks
-- **Fix**: Read timeout from options or fall back to `maxExtensionTime`
 
 #### 7. Implement automatic ack deadline extension
 - **Location**: `src/subscriber/lease-manager.ts`

@@ -10,11 +10,24 @@ import type { EventEmitter } from 'node:events';
 import type { SubscriberOptions } from '../types/subscriber';
 import type { SubscriptionMetadata } from '../types/subscription';
 import type { InternalMessage } from '../internal/types';
+import type { Duration } from '../types/common';
 import { MessageQueue } from '../internal/message-queue';
 import { Message } from '../message';
 import { SubscriberFlowControl } from './flow-control';
 import { LeaseManager } from './lease-manager';
 import { NotFoundError } from '../types/errors';
+
+/**
+ * Convert Duration to seconds.
+ */
+function durationToSeconds(duration: Duration): number {
+	if (typeof duration === 'number') {
+		return duration;
+	}
+	const seconds = duration.seconds ?? 0;
+	const nanos = duration.nanos ?? 0;
+	return seconds + nanos / 1e9;
+}
 
 interface ISubscription extends EventEmitter {
 	name: string;
@@ -533,7 +546,11 @@ export class MessageStream {
 	 * Wait for all in-flight messages to complete.
 	 */
 	private async waitForInFlight(): Promise<void> {
-		const timeout = 30000;
+		const configuredTimeout = this.options.closeOptions?.timeout;
+		const timeoutSeconds = configuredTimeout
+			? durationToSeconds(configuredTimeout)
+			: durationToSeconds(this.options.maxExtensionTime ?? 3600);
+		const timeout = timeoutSeconds * 1000;
 		const start = Date.now();
 
 		while (this.inFlightMessages.size > 0) {
