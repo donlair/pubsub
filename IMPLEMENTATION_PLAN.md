@@ -50,13 +50,26 @@ This plan addresses remaining gaps identified through systematic comparison of s
 - **Spec**: `specs/07-message-queue.md` - Performance considerations (line 650)
 - **Note**: Cleanup only removes orphaned leases (expired + not in subscription queue) to avoid interfering with normal nack/redelivery flow
 
-#### 4. Implement message retention enforcement
-- **Location**: `src/internal/message-queue.ts`
-- **Gap**: No enforcement of 7-day retention (configurable via `messageRetentionDuration`)
-- **Spec**: `specs/07-message-queue.md` - Performance considerations
-- **Research**: See "Implementation Details" → Item 4 for retention details (default 7 days)
-- **Impact**: Messages never expire, eventual memory exhaustion
-- **Fix**: During periodic cleanup, remove messages older than retention period
+#### 4. Implement message retention enforcement **[COMPLETED]**
+- **Status**: COMPLETED
+- **Location**: `src/internal/message-queue.ts` (lines 760-807)
+- **Implementation**: Added `cleanupExpiredMessages()` method called during periodic cleanup
+- **Changes**:
+  - Created `cleanupExpiredMessages(now: number)` method that enforces retention across all queue types
+  - Created `durationToMilliseconds()` helper to convert Duration types to milliseconds
+  - Created `updateQueueMetrics()` helper to recalculate queue size and bytes after cleanup
+  - Removes expired messages from main queue, ordering queues, and backoff queue
+  - Default retention: 7 days (604800 seconds), configurable via `messageRetentionDuration`
+  - Supports both number format (seconds) and object format `{ seconds, nanos }`
+  - Updates queue metrics (size/bytes) only when messages are removed
+- **Test Coverage**: 7 new tests in `tests/unit/message-queue.test.ts` (lines 1199-1428)
+  - Default 7-day retention enforcement
+  - Custom retention period enforcement
+  - Ordering queue cleanup
+  - Backoff queue cleanup
+  - Number format retention handling
+  - Messages within retention period not removed
+- **Spec**: `specs/07-message-queue.md` - Performance considerations (line 651)
 
 #### 5. Implement ack ID garbage collection
 - **Location**: `src/internal/message-queue.ts`

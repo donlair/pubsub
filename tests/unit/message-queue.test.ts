@@ -1195,5 +1195,236 @@ describe('MessageQueue', () => {
 
       (MessageQueue.prototype as any).runCleanup = originalRunCleanup;
     }, { timeout: 65000 });
+
+    test('Removes expired messages during cleanup (default 7-day retention)', () => {
+      queue.registerTopic('test-topic');
+      queue.registerSubscription('test-sub', 'test-topic', {
+        ackDeadlineSeconds: 10
+      } as any);
+
+      const eightDaysAgo = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
+      const oneDayAgo = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000);
+
+      const messages: InternalMessage[] = [
+        {
+          id: 'msg-old',
+          data: Buffer.from('old'),
+          attributes: {},
+          publishTime: eightDaysAgo as any,
+          orderingKey: undefined,
+          deliveryAttempt: 1,
+          length: 3
+        },
+        {
+          id: 'msg-recent',
+          data: Buffer.from('recent'),
+          attributes: {},
+          publishTime: oneDayAgo as any,
+          orderingKey: undefined,
+          deliveryAttempt: 1,
+          length: 6
+        }
+      ];
+
+      queue.publish('test-topic', messages);
+
+      const subQueue = (queue as any).queues.get('test-sub');
+      expect(subQueue.messages.length).toBe(2);
+
+      (queue as any).runCleanup();
+
+      expect(subQueue.messages.length).toBe(1);
+      expect(subQueue.messages[0]!.id).toBe('msg-recent');
+    });
+
+    test('Removes expired messages with custom retention period', () => {
+      queue.registerTopic('test-topic');
+      queue.registerSubscription('test-sub', 'test-topic', {
+        ackDeadlineSeconds: 10,
+        messageRetentionDuration: { seconds: 3600 }
+      } as any);
+
+      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+      const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+
+      const messages: InternalMessage[] = [
+        {
+          id: 'msg-old',
+          data: Buffer.from('old'),
+          attributes: {},
+          publishTime: twoHoursAgo as any,
+          orderingKey: undefined,
+          deliveryAttempt: 1,
+          length: 3
+        },
+        {
+          id: 'msg-recent',
+          data: Buffer.from('recent'),
+          attributes: {},
+          publishTime: thirtyMinutesAgo as any,
+          orderingKey: undefined,
+          deliveryAttempt: 1,
+          length: 6
+        }
+      ];
+
+      queue.publish('test-topic', messages);
+
+      const subQueue = (queue as any).queues.get('test-sub');
+      expect(subQueue.messages.length).toBe(2);
+
+      (queue as any).runCleanup();
+
+      expect(subQueue.messages.length).toBe(1);
+      expect(subQueue.messages[0]!.id).toBe('msg-recent');
+    });
+
+    test('Removes expired messages from ordering queues', () => {
+      queue.registerTopic('test-topic');
+      queue.registerSubscription('test-sub', 'test-topic', {
+        ackDeadlineSeconds: 10,
+        enableMessageOrdering: true,
+        messageRetentionDuration: { seconds: 3600 }
+      } as any);
+
+      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+      const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+
+      const messages: InternalMessage[] = [
+        {
+          id: 'msg-old-1',
+          data: Buffer.from('old1'),
+          attributes: {},
+          publishTime: twoHoursAgo as any,
+          orderingKey: 'key-1',
+          deliveryAttempt: 1,
+          length: 4
+        },
+        {
+          id: 'msg-recent-1',
+          data: Buffer.from('recent1'),
+          attributes: {},
+          publishTime: thirtyMinutesAgo as any,
+          orderingKey: 'key-1',
+          deliveryAttempt: 1,
+          length: 7
+        },
+        {
+          id: 'msg-old-2',
+          data: Buffer.from('old2'),
+          attributes: {},
+          publishTime: twoHoursAgo as any,
+          orderingKey: 'key-2',
+          deliveryAttempt: 1,
+          length: 4
+        }
+      ];
+
+      queue.publish('test-topic', messages);
+
+      const subQueue = (queue as any).queues.get('test-sub');
+      expect(subQueue.orderingQueues!.get('key-1')!.length).toBe(2);
+      expect(subQueue.orderingQueues!.get('key-2')!.length).toBe(1);
+
+      (queue as any).runCleanup();
+
+      expect(subQueue.orderingQueues!.get('key-1')!.length).toBe(1);
+      expect(subQueue.orderingQueues!.get('key-1')![0]!.id).toBe('msg-recent-1');
+      expect(subQueue.orderingQueues!.has('key-2')).toBe(false);
+    });
+
+    test('Removes expired messages from backoff queue', () => {
+      queue.registerTopic('test-topic');
+      queue.registerSubscription('test-sub', 'test-topic', {
+        ackDeadlineSeconds: 1,
+        messageRetentionDuration: { seconds: 3600 }
+      } as any);
+
+      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+
+      const messages: InternalMessage[] = [
+        {
+          id: 'msg-old',
+          data: Buffer.from('old'),
+          attributes: {},
+          publishTime: twoHoursAgo as any,
+          orderingKey: undefined,
+          deliveryAttempt: 1,
+          length: 3
+        }
+      ];
+
+      queue.publish('test-topic', messages);
+      queue.pull('test-sub', 10);
+      const subQueue = (queue as any).queues.get('test-sub');
+      const ackId = Array.from(subQueue.inFlight.keys())[0] as string;
+      queue.nack(ackId);
+
+      expect(subQueue.backoffQueue.size).toBe(1);
+
+      (queue as any).runCleanup();
+
+      expect(subQueue.backoffQueue.size).toBe(0);
+    });
+
+    test('Handles retention with number format (seconds only)', () => {
+      queue.registerTopic('test-topic');
+      queue.registerSubscription('test-sub', 'test-topic', {
+        ackDeadlineSeconds: 10,
+        messageRetentionDuration: 3600
+      } as any);
+
+      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+
+      const messages: InternalMessage[] = [
+        {
+          id: 'msg-old',
+          data: Buffer.from('old'),
+          attributes: {},
+          publishTime: twoHoursAgo as any,
+          orderingKey: undefined,
+          deliveryAttempt: 1,
+          length: 3
+        }
+      ];
+
+      queue.publish('test-topic', messages);
+      const subQueue = (queue as any).queues.get('test-sub');
+      expect(subQueue.messages.length).toBe(1);
+
+      (queue as any).runCleanup();
+
+      expect(subQueue.messages.length).toBe(0);
+    });
+
+    test('Does not remove messages within retention period', () => {
+      queue.registerTopic('test-topic');
+      queue.registerSubscription('test-sub', 'test-topic', {
+        ackDeadlineSeconds: 10,
+        messageRetentionDuration: { seconds: 86400 }
+      } as any);
+
+      const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
+
+      const messages: InternalMessage[] = [
+        {
+          id: 'msg-valid',
+          data: Buffer.from('valid'),
+          attributes: {},
+          publishTime: twelveHoursAgo as any,
+          orderingKey: undefined,
+          deliveryAttempt: 1,
+          length: 5
+        }
+      ];
+
+      queue.publish('test-topic', messages);
+      const subQueue = (queue as any).queues.get('test-sub');
+      expect(subQueue.messages.length).toBe(1);
+
+      (queue as any).runCleanup();
+
+      expect(subQueue.messages.length).toBe(1);
+    });
   });
 });

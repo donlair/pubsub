@@ -753,6 +753,98 @@ export class MessageQueue {
         this.leases.delete(ackId);
       }
     }
+
+    this.cleanupExpiredMessages(now);
+  }
+
+  private cleanupExpiredMessages(now: number): void {
+    for (const [subscriptionName, subscription] of this.subscriptions.entries()) {
+      const retentionDuration = subscription.messageRetentionDuration ?? { seconds: 604800 };
+      const retentionMs = this.durationToMilliseconds(retentionDuration);
+      const expirationTime = now - retentionMs;
+
+      const queue = this.queues.get(subscriptionName);
+      if (!queue) {
+        continue;
+      }
+
+      const isExpired = (message: InternalMessage): boolean => {
+        const publishTimeMs = message.publishTime.getTime();
+        return publishTimeMs < expirationTime;
+      };
+
+      let totalRemoved = 0;
+
+      const beforeMessageCount = queue.messages.length;
+      queue.messages = queue.messages.filter(msg => !isExpired(msg));
+      totalRemoved += beforeMessageCount - queue.messages.length;
+
+      if (queue.orderingQueues) {
+        for (const [orderingKey, messages] of queue.orderingQueues.entries()) {
+          const beforeLength = messages.length;
+          const filtered = messages.filter(msg => !isExpired(msg));
+          totalRemoved += beforeLength - filtered.length;
+          if (filtered.length === 0) {
+            queue.orderingQueues.delete(orderingKey);
+          } else {
+            queue.orderingQueues.set(orderingKey, filtered);
+          }
+        }
+      }
+
+      const beforeBackoffSize = queue.backoffQueue.size;
+      for (const [messageId, entry] of queue.backoffQueue.entries()) {
+        if (isExpired(entry.message)) {
+          queue.backoffQueue.delete(messageId);
+        }
+      }
+      totalRemoved += beforeBackoffSize - queue.backoffQueue.size;
+
+      if (totalRemoved > 0) {
+        this.updateQueueMetrics(subscriptionName);
+      }
+    }
+  }
+
+  private durationToMilliseconds(duration: { seconds?: number; nanos?: number } | number): number {
+    if (typeof duration === 'number') {
+      return duration * 1000;
+    }
+    const seconds = duration.seconds ?? 0;
+    const nanos = duration.nanos ?? 0;
+    return seconds * 1000 + nanos / 1_000_000;
+  }
+
+  private updateQueueMetrics(subscriptionName: string): void {
+    const queue = this.queues.get(subscriptionName);
+    if (!queue) {
+      return;
+    }
+
+    let totalSize = 0;
+    let totalBytes = 0;
+
+    for (const message of queue.messages) {
+      totalSize++;
+      totalBytes += message.length;
+    }
+
+    if (queue.orderingQueues) {
+      for (const messages of queue.orderingQueues.values()) {
+        for (const message of messages) {
+          totalSize++;
+          totalBytes += message.length;
+        }
+      }
+    }
+
+    for (const entry of queue.backoffQueue.values()) {
+      totalSize++;
+      totalBytes += entry.message.length;
+    }
+
+    queue.queueSize = totalSize;
+    queue.queueBytes = totalBytes;
   }
 
   /**
