@@ -183,13 +183,34 @@ This plan addresses remaining gaps identified through systematic comparison of s
 - **Spec**: `specs/09-ordering.md` AC-011, AC-012
 - **Note**: Tests verify pause/resume behavior but do not test the automatic pause-on-error trigger (implementation limitation)
 
-#### 12. Add tests for schema operations
-- **Location**: `tests/unit/pubsub.test.ts` or new file
-- **Gap**: `pubsub.listSchemas()` (AC-009) and `pubsub.validateSchema()` (AC-010) incomplete
-- **Spec**: `specs/08-schema.md`
-- **Research**: See "Implementation Details" → Item 12 for API signatures
-- **Impact**: Schema operations may have untested edge cases
-- **Fix**: Add comprehensive schema validation and listing tests
+#### ~~12. Add tests for schema operations~~ **[COMPLETED]**
+- **Status**: COMPLETED
+- **Location**: `tests/unit/schema.test.ts` (lines 424-699)
+- **Implementation**: Added 18 comprehensive edge case tests
+- **Changes**:
+  - **listSchemas() tests** (6 tests):
+    - Empty schema list handling
+    - Default view parameter (BASIC view, no definition)
+    - BASIC view excludes definition property
+    - FULL view includes definition property
+    - Multiple schemas listing
+    - Different schema types (JSON, AVRO)
+  - **validateSchema() tests** (12 tests):
+    - Empty definition string rejection
+    - Syntax error rejection
+    - Complex valid JSON schema acceptance
+    - AVRO schema validation (validates JSON structure only)
+    - Invalid AVRO schema rejection (malformed JSON)
+    - Protocol Buffer schema acceptance (no validation)
+    - Array constraints validation
+    - Enum values validation
+    - Pattern constraints validation
+    - Invalid JSON Schema type property rejection
+    - Large schema definitions (100 properties)
+- **Test Coverage**: All 39 schema tests passing (from 24 to 39 tests)
+- **Code Review**: Addressed inline type import issue, removed 3 duplicate tests, renamed confusing test
+- **Verification**: TypeScript compilation PASS, Biome lint PASS, all tests PASS
+- **Spec Satisfied**: `specs/08-schema.md` AC-009 (listSchemas) and AC-010 (validateSchema)
 
 #### 13. Improve error classification for ordering key pause
 - **Location**: `src/publisher/publisher.ts:236-242, 554-558`
