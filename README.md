@@ -381,35 +381,37 @@ const pubsub = new PubSub({
 
 ## Performance Characteristics
 
-This library is optimized for **local development and testing**, not high-throughput production:
+Optimized for **local development and testing**, not high-throughput production.
 
-- **Default throughput**: ~9K messages/second (10ms pull interval, 100 msg batches)
-- **Tunable range**: ~100 msg/s (conservative) to ~100K+ msg/s (aggressive)
-- **Publishing**: 200-400K messages/second (in-memory writes)
-- **End-to-End**: ~9K messages/second (publish → subscribe → ack)
-- **Burst Capacity**: 262K messages/second (1,000 concurrent publishers)
-- **Fan-out**: 5,000 deliveries/second (100 msg/s × 50 subscribers)
-- **Latency**: < 30ms P99 for typical workloads
-- **Memory**: < 100MB for typical usage
+### Measured Performance
 
-**Tuning examples:**
-```typescript
-// High throughput mode (batch processing)
-streamingOptions: { pullInterval: 1, maxPullSize: 1000 }
+| Environment | Simulates | Throughput | P99 Latency |
+|-------------|-----------|------------|-------------|
+| **Native** | Dev machine | 8,000 msg/s | 1,200ms |
+| **Micro** | t3.micro / e2-micro | 4,000 msg/s | 2,300ms |
 
-// Low CPU mode (background jobs)
-streamingOptions: { pullInterval: 100, maxPullSize: 50 }
+*10K messages, 1KB payload. Run `bun run bench:constrained:<profile>` to measure other profiles.*
+
+### Capacity Planning
+
+```bash
+bun run bench:constrained:micro   # 0.25 CPU, 1GB
+bun run bench:constrained:small   # 0.5 CPU, 2GB
+bun run bench:constrained:medium  # 1.0 CPU, 4GB
 ```
 
-**Best For**:
-- Local development and testing
-- CI/CD pipelines
-- Low-to-medium traffic workloads (< 5K msg/s with defaults)
-- Prototyping event-driven architectures
+**Rule of thumb**: Choose an instance with 2-3x headroom over your target throughput.
 
-**Not For**:
-- High-throughput production (> 10K msg/s sustained without tuning)
-- Durable message storage (in-memory only)
+### Best For
+
+- Local development, testing, CI/CD
+- Prototyping event-driven architectures
+- Workloads < 5K msg/s
+
+### Not For
+
+- High-throughput production (> 10K msg/s sustained)
+- Durable message storage
 - Multi-datacenter replication
 
 ## Limitations
