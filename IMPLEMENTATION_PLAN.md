@@ -265,11 +265,26 @@ This plan addresses remaining gaps identified through systematic comparison of s
 - **Spec**: `specs/06-subscriber.md`
 - **Impact**: Option has no effect
 
-#### 18. Add streaming timeout enforcement
-- **Location**: `src/subscriber/message-stream.ts`
-- **Gap**: `MessageStreamOptions.timeout` type exists but no enforcement
-- **Spec**: `specs/06-subscriber.md`
-- **Impact**: Streams never timeout
+#### ~~18. Add streaming timeout enforcement~~ **[COMPLETED]**
+- **Status**: COMPLETED
+- **Location**: `src/subscriber/message-stream.ts` (lines 46, 55, 76, 128-137, 185-189)
+- **Implementation**: Added timeout timer that stops stream and emits error when timeout expires
+- **Changes**:
+  - Added `timeoutTimer` property to track timeout
+  - Added `timeoutMs` readonly property initialized from `streamingOptions.timeout` (default: 300000ms / 5 minutes)
+  - Enhanced `durationToSeconds()` helper to support all DurationLike fields (days, hours, minutes, seconds, nanos)
+  - Start timeout timer in `start()` method (only if timeout > 0)
+  - Clear timeout timer in `stop()` method
+  - On timeout: emit error event and call `stop()`
+- **Test Coverage**: 5 new tests in `tests/unit/subscriber.test.ts`
+  - Default timeout of 5 minutes
+  - Custom timeout enforcement
+  - Timer cleanup on early stop
+  - Timeout disabled when set to 0
+  - Duration object support with minutes field (for closeOptions.timeout)
+- **Spec**: `specs/06-subscriber.md` - MessageStreamOptions.timeout
+- **Research**: `research/07-subscriber-config.md:182,220` - Default 300000ms (5 minutes)
+- **Verification**: TypeScript compilation PASS, Biome lint PASS (3 info warnings for bracket notation), all subscriber tests PASS (30/30)
 
 #### 19. Add clientConfig property to PubSubOptions
 - **Location**: `src/types/pubsub.ts`

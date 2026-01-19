@@ -24,9 +24,12 @@ function durationToSeconds(duration: Duration): number {
 	if (typeof duration === 'number') {
 		return duration;
 	}
+	const days = duration.days ?? 0;
+	const hours = duration.hours ?? 0;
+	const minutes = duration.minutes ?? 0;
 	const seconds = duration.seconds ?? 0;
 	const nanos = duration.nanos ?? 0;
-	return seconds + nanos / 1e9;
+	return days * 86400 + hours * 3600 + minutes * 60 + seconds + nanos / 1e9;
 }
 
 interface ISubscription extends EventEmitter {
@@ -44,6 +47,7 @@ export class MessageStream {
 	private isRunning = false;
 	private isPaused = false;
 	private pullIntervals: Array<ReturnType<typeof setInterval>> = [];
+	private timeoutTimer?: ReturnType<typeof setTimeout>;
 	private inFlightMessages = new Map<string, Message>();
 	private orderingQueues = new Map<string, Message[]>();
 	private processingOrderingKeys = new Set<string>();
@@ -52,6 +56,7 @@ export class MessageStream {
 	private readonly pullIntervalMs: number;
 	private readonly maxPullSize: number;
 	private readonly maxStreams: number;
+	private readonly timeoutMs: number;
 
 	constructor(subscription: ISubscription, options: SubscriberOptions) {
 		this.subscription = subscription;
@@ -68,6 +73,7 @@ export class MessageStream {
 		this.pullIntervalMs = options.streamingOptions?.pullInterval ?? 10;
 		this.maxPullSize = options.streamingOptions?.maxPullSize ?? 100;
 		this.maxStreams = options.streamingOptions?.maxStreams ?? 5;
+		this.timeoutMs = options.streamingOptions?.timeout ?? 300000;
 	}
 
 	/**
@@ -122,6 +128,15 @@ export class MessageStream {
 		for (let i = 0; i < this.maxStreams; i++) {
 			const interval = setInterval(() => this.pullMessages(), this.pullIntervalMs);
 			this.pullIntervals.push(interval);
+		}
+
+		if (this.timeoutMs > 0) {
+			this.timeoutTimer = setTimeout(() => {
+				setImmediate(() => {
+					this.subscription.emit('error', new Error(`Stream timeout after ${this.timeoutMs}ms`));
+				});
+				this.stop().catch(() => {});
+			}, this.timeoutMs);
 		}
 	}
 
@@ -181,6 +196,11 @@ export class MessageStream {
 			clearInterval(interval);
 		}
 		this.pullIntervals = [];
+
+		if (this.timeoutTimer) {
+			clearTimeout(this.timeoutTimer);
+			this.timeoutTimer = undefined;
+		}
 
 		const closeBehavior =
 			this.options.closeOptions?.behavior ?? 'WAIT';

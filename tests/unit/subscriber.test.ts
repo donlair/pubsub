@@ -633,6 +633,40 @@ describe('MessageStream', () => {
 		expect(elapsed).toBeGreaterThan(1.8);
 	}, { timeout: 6000 });
 
+	test('Stop respects closeOptions timeout with Duration object (minutes field)', async () => {
+		const stream = new MessageStream(subscription, {
+			closeOptions: { behavior: 'WAIT', timeout: { minutes: 1 } },
+		});
+
+		subscription.on('message', async (message: Message) => {
+			await new Promise((resolve) => setTimeout(resolve, 3000));
+			message.ack();
+		});
+
+		stream.start();
+
+		messageQueue.publish(`test-topic-${testCounter}`, [
+			{
+				id: 'msg-1',
+				data: Buffer.from('test'),
+				attributes: {},
+				publishTime: new PreciseDate(),
+				orderingKey: undefined,
+				deliveryAttempt: 1,
+				length: 4,
+			},
+		]);
+
+		await new Promise((resolve) => setTimeout(resolve, 10));
+
+		const start = Date.now();
+		await stream.stop();
+		const elapsed = (Date.now() - start) / 1000;
+
+		expect(elapsed).toBeLessThan(62);
+		expect(elapsed).toBeGreaterThan(0);
+	}, { timeout: 65000 });
+
 	test('Stop completes immediately if no in-flight messages', async () => {
 		const stream = new MessageStream(subscription, {
 			closeOptions: { behavior: 'WAIT', timeout: 60 },
@@ -899,4 +933,72 @@ describe('MessageStream', () => {
 
 		expect(receivedMessages.length).toBe(countBeforeStop);
 	});
+
+	test('Uses default timeout of 5 minutes when not specified', async () => {
+		const stream = new MessageStream(subscription, {});
+
+		expect(stream['timeoutMs']).toBe(300000);
+
+		await stream.stop();
+	});
+
+	test('Enforces custom timeout', async () => {
+		const stream = new MessageStream(subscription, {
+			streamingOptions: { timeout: 100 },
+		});
+
+		const errors: Error[] = [];
+		subscription.on('error', (error: Error) => {
+			errors.push(error);
+		});
+
+		stream.start();
+
+		await new Promise((resolve) => setTimeout(resolve, 120));
+
+		expect(errors.length).toBe(1);
+		expect(errors[0]?.message).toContain('timeout');
+		expect(stream['isRunning']).toBe(false);
+	}, { timeout: 1000 });
+
+	test('Clears timeout when stream stops before timeout', async () => {
+		const stream = new MessageStream(subscription, {
+			streamingOptions: { timeout: 200 },
+		});
+
+		const errors: Error[] = [];
+		subscription.on('error', (error: Error) => {
+			errors.push(error);
+		});
+
+		stream.start();
+
+		await new Promise((resolve) => setTimeout(resolve, 50));
+
+		await stream.stop();
+
+		await new Promise((resolve) => setTimeout(resolve, 200));
+
+		expect(errors.length).toBe(0);
+	}, { timeout: 1000 });
+
+	test('Does not timeout if explicitly set to 0', async () => {
+		const stream = new MessageStream(subscription, {
+			streamingOptions: { timeout: 0 },
+		});
+
+		const errors: Error[] = [];
+		subscription.on('error', (error: Error) => {
+			errors.push(error);
+		});
+
+		stream.start();
+
+		await new Promise((resolve) => setTimeout(resolve, 100));
+
+		expect(errors.length).toBe(0);
+		expect(stream['isRunning']).toBe(true);
+
+		await stream.stop();
+	}, { timeout: 1000 });
 });
