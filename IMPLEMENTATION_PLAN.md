@@ -1,11 +1,15 @@
-# Implementation Plan: PR #2 Review Findings
+# Implementation Plan: PR #2 Review Findings + Spec Gap Analysis
 
 ## Summary
 
-This plan addresses findings from the PR #2 code review documented in FINDINGS.md. The review identified **4 critical issues**, **12 important issues**, and several suggestions across 34 files (+3936/-401 lines). Issues are prioritized by severity with critical fixes first.
+This plan addresses findings from:
+1. **PR #2 code review** (FINDINGS.md) - 4 critical issues, 12 important issues
+2. **Spec gap analysis** (comparing specs/* against src/*) - verified against official Google Cloud documentation
+
+Issues are prioritized by severity with critical fixes first.
 
 **Branch:** `implement-spec-gaps`
-**Source:** `FINDINGS.md`
+**Sources:** `FINDINGS.md`, `specs/*`, [Google Cloud Node.js Client](https://github.com/googleapis/nodejs-pubsub)
 
 ---
 
@@ -161,6 +165,131 @@ This plan addresses findings from the PR #2 code review documented in FINDINGS.m
 
 ---
 
+## Phase 5: Spec Gap - Critical Functionality
+
+*Items identified by comparing specs/* against implementation, verified against official Google Cloud documentation.*
+
+### 5.1 Implement Automatic Ack Deadline Extension in MessageStream
+
+- [ ] Add timer-based ack deadline monitoring and automatic extension
+  - Location: `src/subscriber/message-stream.ts`, `src/subscriber/lease-manager.ts`
+  - Gap: LeaseManager tracks deadlines but MessageStream never monitors them for expiry or extends them automatically. Google's client libraries use the 99th percentile of ack delay to determine extension length.
+  - Fix: Add mechanism to:
+    1. Monitor approaching deadlines
+    2. Call `modifyAckDeadline` to extend before expiry
+    3. Respect `maxExtensionTime` limit (default 3600s)
+  - Spec: `specs/03-subscription.md:BR-005`, `specs/06-subscriber.md:BR-005`
+  - Reference: [Google Lease Management](https://cloud.google.com/pubsub/docs/lease-management)
+  - Impact: Without this, messages held by flow control may be redelivered prematurely
+
+---
+
+## Phase 6: Spec Gap - Missing Functionality
+
+### 6.1 Implement Dead Letter Policy Handling in MessageStream
+
+- [ ] Add DLQ routing logic when maxDeliveryAttempts exceeded at subscriber level
+  - Location: `src/subscriber/message-stream.ts`
+  - Gap: `DeadLetterPolicy` type exists but MessageStream has no logic to track delivery attempts and route to DLQ
+  - Fix: Track delivery attempts per message, route to dead letter topic when threshold exceeded
+  - Spec: `specs/03-subscription.md:BR-010`
+  - Reference: [Google Dead Letter Topics](https://cloud.google.com/pubsub/docs/dead-letter-topics)
+  - Note: MessageQueue already handles DLQ at queue level; this adds subscriber-level awareness
+
+### 6.2 Add Exponential Backoff Retry Logic in MessageStream
+
+- [ ] Implement exponential backoff for recoverable errors with retry
+  - Location: `src/subscriber/message-stream.ts` - error handling in `pullMessages()`
+  - Gap: No distinction between fatal and recoverable errors. All errors emit and continue on next interval.
+  - Fix: Implement backoff for recoverable errors (UNAVAILABLE, DEADLINE_EXCEEDED, RESOURCE_EXHAUSTED)
+  - Spec: `specs/06-subscriber.md:BR-009`
+  - Impact: Improves resilience during transient failures
+
+### 6.3 Add Attribute Type Validation in MessageQueue
+
+- [ ] Validate that attribute values are strings, not just convert them
+  - Location: `src/internal/message-queue.ts:315`
+  - Gap: Line 315 uses `String(value)` to convert but does not validate original type is string
+  - Fix: Check `typeof value === 'string'`, throw `InvalidArgumentError` if not
+  - Spec: `specs/07-message-queue.md:BR-017` (attribute values must be strings)
+  - Impact: Silent type coercion instead of proper validation error
+
+---
+
+## Phase 7: Spec Gap - Test Coverage
+
+### 7.1 Add Test for Automatic Ack Deadline Redelivery (AC-003)
+
+- [ ] Create test verifying automatic redelivery when ack deadline expires
+  - Location: New test in `tests/integration/ack-deadline.test.ts`
+  - Gap: No test for `specs/03-subscription.md:AC-003`
+  - Test: Publish message, receive it, do NOT ack, wait for ackDeadlineSeconds, verify message redelivered with incremented `deliveryAttempt`
+  - Spec: `specs/03-subscription.md:AC-003`
+
+### 7.2 Add Test for Pause/Resume Flow (AC-006)
+
+- [ ] Create test verifying pause() stops delivery and resume() restarts it
+  - Location: New test in `tests/unit/subscriber.test.ts`
+  - Gap: No dedicated test for `specs/06-subscriber.md:AC-006`
+  - Test: Open subscription, receive message, pause(), publish more, verify no delivery, resume(), verify delivery resumes
+  - Spec: `specs/06-subscriber.md:AC-006`
+
+### 7.3 Add Test for Stop Waits for In-Flight (AC-007)
+
+- [ ] Create test verifying stop() waits for in-flight messages before closing
+  - Location: New test in `tests/unit/subscriber.test.ts`
+  - Gap: No dedicated test for `specs/06-subscriber.md:AC-007`
+  - Test: Start subscription, receive message, call close() mid-processing, verify close() resolves only after processing completes
+  - Spec: `specs/06-subscriber.md:AC-007`
+
+### 7.4 Add Test for Error Event on Failure (AC-008)
+
+- [ ] Create test verifying error event emission on failures
+  - Location: New test in `tests/unit/subscriber.test.ts`
+  - Gap: No dedicated test for `specs/06-subscriber.md:AC-008`
+  - Test: Open subscription, delete topic, verify error event is emitted
+  - Spec: `specs/06-subscriber.md:AC-008`
+
+### 7.5 Add Test for Concurrent Message Delivery (AC-009)
+
+- [ ] Create test verifying multiple concurrent message delivery
+  - Location: New test in `tests/unit/subscriber.test.ts`
+  - Gap: No dedicated test for `specs/06-subscriber.md:AC-009`
+  - Test: Configure maxMessages=10, publish 10 messages, verify all 10 received concurrently before any acks
+  - Spec: `specs/06-subscriber.md:AC-009`
+
+### 7.6 Add Tests for Ordering Edge Cases (AC-006, AC-009, AC-010)
+
+- [ ] Add dedicated tests for ordering acceptance criteria
+  - Location: New tests in `tests/integration/ordering.test.ts`
+  - Gap: Missing dedicated tests for:
+    - AC-006: Messages without ordering key not blocked by ordered messages
+    - AC-009: Ordering keys accepted without explicit `messageOrdering` enable
+    - AC-010: Multiple messages with different keys batched separately
+  - Spec: `specs/09-ordering.md:AC-006, AC-009, AC-010`
+
+---
+
+## Phase 8: Spec Gap - Type Safety
+
+### 8.1 Fix Topic.pubsub Property Type
+
+- [ ] Change `pubsub` property type from `unknown` to `PubSub`
+  - Location: `src/topic.ts:29`
+  - Gap: Property typed as `unknown` instead of `PubSub`, requiring type assertions
+  - Fix: Import PubSub type and use proper typing
+  - Impact: Improves IDE autocomplete and type safety
+
+### 8.2 Add Type Guards for Subscription Options
+
+- [ ] Add proper type guards when accessing subscription options
+  - Location: `src/internal/message-queue.ts:360-368`
+  - Gap: Type assertions used (`as unknown as`) instead of proper type narrowing
+  - Fix: Add type guards or improve SubscriptionMetadata type to include optional properties
+  - Impact: Better type safety, no runtime impact
+
+---
+
 ## Verification
 
 After completing all phases, run:
@@ -178,9 +307,32 @@ All checks must pass before merging.
 | Priority | Phase | Items | Effort |
 |----------|-------|-------|--------|
 | P0 | 1.1-1.4 | Critical fixes (error handling + inline comments) | Medium |
+| P0 | 5.1 | **Automatic ack deadline extension** (spec gap) | High |
 | P1 | 2.1-2.4 | Important error handling fixes | Low |
-| P2 | 3.1-3.4 | Test coverage gaps | Medium |
+| P1 | 6.1-6.3 | Missing functionality (spec gaps) | Medium |
+| P2 | 3.1-3.4 | Test coverage gaps (PR review) | Medium |
+| P2 | 7.1-7.6 | Test coverage gaps (spec gaps) | Medium |
 | P3 | 4.1-4.4 | Type design and documentation | Low |
+| P3 | 8.1-8.2 | Type safety improvements | Low |
+
+---
+
+## Spec Gap Analysis Notes
+
+The following were **verified against official Google Cloud documentation** and found to be **correctly implemented**:
+
+| Setting | Our Value | Google Default | Status |
+|---------|-----------|----------------|--------|
+| Subscriber maxOutstandingMessages | 1000 | 1000 | ✅ Correct |
+| Subscriber maxOutstandingBytes | 100 MB | 100 MB | ✅ Correct |
+| Publisher maxOutstandingMessages | 100 | 100 | ✅ Correct |
+| Publisher maxOutstandingBytes | 1 MB | 1 MB | ✅ Correct |
+| ackDeadlineSeconds | 10s | 10s | ✅ Correct |
+| messageRetentionDuration | 7 days | 7 days | ✅ Correct |
+| maxAckDeadline | 600s | 600s | ✅ Correct |
+| maxExtensionTime | 3600s | 3600s | ✅ Correct |
+
+**Note on batching defaults**: Our implementation uses `maxMessages=100, maxBytes=1MB` while Google's Node.js client uses `maxMessages=1000, maxBytes=9MB`. This results in smaller batches (more frequent publishes) but is acceptable for a local development library. Documented as intentional difference.
 
 ---
 

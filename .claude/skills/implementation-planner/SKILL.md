@@ -13,7 +13,7 @@ Generate or update an IMPLEMENTATION_PLAN.md by systematically comparing specifi
 
 Launch these exploration tasks in parallel:
 
-**0a. Study Specifications** - Launch up to 10 Sonnet subagents to explore `specs/*`:
+**0a. Study Specifications** - Launch up to 10 code exploration subagents to explore `specs/*`:
 
 ```
 Task tool with subagent_type=Explore:
@@ -63,7 +63,7 @@ Task tool with subagent_type=Plan, model=opus:
 
 [Insert findings from Phase 1]
 
-Create IMPLEMENTATION_PLAN.md with:
+Create or update IMPLEMENTATION_PLAN.md with:
 1. Summary of current state
 2. Prioritized bullet list of items to implement
 3. For each item: what's missing, where it should go, dependencies

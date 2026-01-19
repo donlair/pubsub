@@ -7,7 +7,7 @@ A lightweight, in-memory Pub/Sub implementation with API-compatible core feature
 **Start Fast, Scale Later**
 - No emulators, no cloud setup, no credentials during development
 - API-compatible with `@google-cloud/pubsub` for core publish/subscribe operations
-- Perfect for local development, testing, and CI/CD pipelines
+- Perfect for single-process apps, testing, and CI/CD pipelines
 
 **Real Pub/Sub Features**
 - Message ordering and delivery guarantees
@@ -87,9 +87,145 @@ await topic.publishMessage({
 
 **📖 Full feature documentation and code examples:** [docs/features.md](docs/features.md)
 
+## Architecture
+
+This library is an **in-memory, single-process** Pub/Sub emulator. All publishers and subscribers share state through an in-memory singleton - there is no network layer.
+
+```
+┌─────────────────────────────────────────────────┐
+│  Single Node/Bun Process                        │
+│                                                 │
+│  ┌─────────┐       ┌──────────────┐            │
+│  │ Publisher│──────▶│              │            │
+│  └─────────┘       │ MessageQueue │            │
+│                    │  (singleton) │            │
+│  ┌─────────┐       │              │            │
+│  │Subscriber│◀─────│  In-Memory   │            │
+│  └─────────┘       └──────────────┘            │
+└─────────────────────────────────────────────────┘
+```
+
+**This means:**
+- ✅ Multiple services/modules in the same process can communicate
+- ✅ Unit tests, integration tests, and CI/CD pipelines work perfectly
+- ❌ Separate processes cannot communicate (no IPC/network layer)
+- ❌ Multiple instances of your app have isolated message queues
+
+**For multi-process local development**, use [Google's Pub/Sub Emulator](https://cloud.google.com/pubsub/docs/emulator) instead.
+
 ## Use Cases
 
 Perfect for local development, testing, and prototyping event-driven systems. [See detailed use cases and examples →](docs/use-cases.md)
+
+## Recommended Setup for Easy Migration
+
+Structure your code to swap implementations without changes to business logic:
+
+### Option 1: Factory Function (Simplest)
+
+```typescript
+// lib/pubsub.ts
+import type { PubSub as PubSubType } from '@google-cloud/pubsub';
+
+export async function createPubSub(): Promise<PubSubType> {
+  if (process.env.NODE_ENV === 'production') {
+    const { PubSub } = await import('@google-cloud/pubsub');
+    return new PubSub({ projectId: process.env.GCP_PROJECT_ID });
+  }
+  const { PubSub } = await import('pubsub');
+  return new PubSub() as unknown as PubSubType;
+}
+
+// Usage - same everywhere
+const pubsub = await createPubSub();
+const [topic] = await pubsub.createTopic('orders');
+```
+
+### Option 2: Dependency Injection
+
+```typescript
+// services/order-service.ts
+import type { PubSub, Topic } from '@google-cloud/pubsub';
+
+export class OrderService {
+  constructor(private pubsub: PubSub) {}
+
+  async publishOrder(order: Order) {
+    const topic = this.pubsub.topic('orders');
+    await topic.publishJSON(order);
+  }
+}
+
+// main.ts - inject the appropriate implementation
+const pubsub = await createPubSub();
+const orderService = new OrderService(pubsub);
+```
+
+### Option 3: Message Bus Abstraction
+
+```typescript
+// lib/message-bus.ts
+import type { PubSub } from '@google-cloud/pubsub';
+
+export class MessageBus {
+  private pubsub: PubSub;
+
+  constructor(pubsub: PubSub) {
+    this.pubsub = pubsub;
+  }
+
+  async publish<T>(topicName: string, data: T, attributes?: Record<string, string>) {
+    const topic = this.pubsub.topic(topicName);
+    return topic.publishJSON(data, attributes);
+  }
+
+  async subscribe(topicName: string, subscriptionName: string, handler: (data: unknown) => Promise<void>) {
+    const subscription = this.pubsub.subscription(subscriptionName);
+    subscription.on('message', async (message) => {
+      try {
+        await handler(JSON.parse(message.data.toString()));
+        message.ack();
+      } catch (error) {
+        message.nack();
+      }
+    });
+    subscription.open();
+    return subscription;
+  }
+}
+
+// Usage - completely implementation-agnostic
+const bus = new MessageBus(await createPubSub());
+await bus.publish('orders', { orderId: 123 });
+```
+
+### Testing Strategy
+
+```typescript
+// tests/order-service.test.ts
+import { PubSub } from 'pubsub'; // Always use local for tests
+
+test('publishes order events', async () => {
+  const pubsub = new PubSub();
+  const [topic] = await pubsub.createTopic('orders');
+  const [subscription] = await topic.createSubscription('test');
+
+  const orderService = new OrderService(pubsub);
+
+  const received: Order[] = [];
+  subscription.on('message', (msg) => {
+    received.push(JSON.parse(msg.data.toString()));
+    msg.ack();
+  });
+  subscription.open();
+
+  await orderService.publishOrder({ orderId: 123, amount: 99.99 });
+  await new Promise(r => setTimeout(r, 50)); // Let message deliver
+
+  expect(received).toHaveLength(1);
+  expect(received[0].orderId).toBe(123);
+});
+```
 
 ## Migration to Google Cloud
 
@@ -108,8 +244,13 @@ const pubsub = new PubSub({
 });
 ```
 
+**What changes automatically:**
+- Transport: in-memory → gRPC network calls
+- Storage: process memory → Google Cloud infrastructure
+- Scale: single-process → distributed, multi-region
+
 **Features requiring code changes:**
-- **Schemas** - Replace JSON Schema with AVRO or Protocol Buffers (or implement client-side validation)
+- **Schemas** - Replace JSON Schema with AVRO or Protocol Buffers (recommended: keep [Zod](https://zod.dev) client-side validation)
 - **IAM** - Add IAM policy management if using access control
 - **Snapshots** - Add snapshot/seek functionality if using message replay
 - **Push subscriptions** - Configure push endpoints if using push delivery
@@ -134,7 +275,8 @@ Optimized for **local development and testing**, not high-throughput production.
 
 ## Limitations
 
-**Storage & Scale:**
+**Architecture:**
+- **Single-Process Only** - No network/IPC layer; publishers and subscribers must be in the same process
 - **In-Memory Only** - Messages don't persist across restarts
 - **Throughput** - Optimized for < 5K msg/s; not for high-throughput production
 
@@ -149,6 +291,8 @@ Optimized for **local development and testing**, not high-throughput production.
 - **JSON Schema is a local-only extension** - Not supported by Google Cloud Pub/Sub. Use AVRO or Protocol Buffers for production.
 
 ## API Compatibility
+
+This library matches the `@google-cloud/pubsub` **API surface** (method signatures, return types, error codes) - not the distributed messaging capability. Your code works unchanged; only the transport differs (in-memory vs. network).
 
 **Core Features** - Fully compatible with `@google-cloud/pubsub` v5.2.0+:
 - ✅ Publishing (simple, batched, ordered)
