@@ -95,7 +95,11 @@ export interface SchemaMessageMetadata {
  * Options for creating a schema.
  */
 export interface CreateSchemaOptions {
-  /** gRPC call options. */
+  /**
+   * gRPC call options.
+   *
+   * Note: Accepted for API compatibility but has no runtime effect in this in-memory implementation.
+   */
   gaxOpts?: CallOptions;
 }
 
@@ -105,6 +109,10 @@ export interface CreateSchemaOptions {
 export interface ValidateSchemaOptions {
   /** Schema object to validate. */
   schema?: ISchema;
-  /** gRPC call options. */
+  /**
+   * gRPC call options.
+   *
+   * Note: Accepted for API compatibility but has no runtime effect in this in-memory implementation.
+   */
   gaxOpts?: CallOptions;
 }

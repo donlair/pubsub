@@ -59,6 +59,10 @@ export type Long = string | number;
 
 /**
  * Backoff settings for retries.
+ *
+ * **In-Memory Implementation Note:** These settings are accepted for API compatibility
+ * with @google-cloud/pubsub but have no runtime effect in this local implementation.
+ * This is an in-memory message broker with no gRPC calls or network operations.
  */
 export interface BackoffSettings {
   /** Initial retry delay in ms. */
@@ -79,6 +83,10 @@ export interface BackoffSettings {
 
 /**
  * Retry configuration.
+ *
+ * **In-Memory Implementation Note:** These settings are accepted for API compatibility
+ * with @google-cloud/pubsub but have no runtime effect in this local implementation.
+ * This is an in-memory message broker with no gRPC calls or network operations.
  */
 export interface RetryOptions {
   /** Retryable error codes. */
@@ -89,6 +97,12 @@ export interface RetryOptions {
 
 /**
  * gRPC call options.
+ *
+ * **In-Memory Implementation Note:** Most of these settings (timeout, retry) are accepted
+ * for API compatibility with @google-cloud/pubsub but have no runtime effect in this local
+ * implementation. This is an in-memory message broker with no gRPC calls or network operations.
+ * Pagination options (autoPaginate, pageToken, maxResults) may be used for list operations.
+ *
  * Reference: research/11-typescript-types.md
  */
 export interface CallOptions {
@@ -106,10 +120,19 @@ export interface CallOptions {
 
 /**
  * Pagination options for list operations.
+ *
+ * **In-Memory Implementation Note:** The gaxOpts property is accepted for API compatibility
+ * but most gRPC-related options within it have no runtime effect. Pagination options
+ * (autoPaginate, maxResults, pageToken, pageSize) may be used for list operations.
+ *
  * Reference: specs/01-pubsub-client.md
  */
 export interface PageOptions {
-  /** gRPC call options. */
+  /**
+   * gRPC call options.
+   *
+   * Note: Accepted for API compatibility but has no runtime effect in this in-memory implementation.
+   */
   gaxOpts?: CallOptions;
   /** Enable auto-pagination. */
   autoPaginate?: boolean;

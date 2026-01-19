@@ -88,7 +88,11 @@ export interface PubSubOptions extends ClientConfig {
    */
   enableOpenTelemetryTracing?: boolean;
 
-  /** gRPC call options. */
+  /**
+   * gRPC call options.
+   *
+   * Note: Accepted for API compatibility but has no runtime effect in this in-memory implementation.
+   */
   gaxOpts?: CallOptions;
 }
 

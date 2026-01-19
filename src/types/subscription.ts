@@ -222,7 +222,11 @@ export interface SubscriptionMetadata {
  * Reference: research/11-typescript-types.md#createsubscriptionoptions
  */
 export interface CreateSubscriptionOptions extends SubscriptionMetadata {
-  /** gRPC call options. */
+  /**
+   * gRPC call options.
+   *
+   * Note: Accepted for API compatibility but has no runtime effect in this in-memory implementation.
+   */
   gaxOpts?: CallOptions;
 
   /** Flow control settings. */
@@ -254,7 +258,11 @@ export interface GetSubscriptionOptions {
   /** Auto-create if doesn't exist. */
   autoCreate?: boolean;
 
-  /** gRPC call options. */
+  /**
+   * gRPC call options.
+   *
+   * Note: Accepted for API compatibility but has no runtime effect in this in-memory implementation.
+   */
   gaxOpts?: CallOptions;
 }
 
@@ -271,7 +279,11 @@ export interface GetSubscriptionsOptions {
   /** Page token. */
   pageToken?: string;
 
-  /** gRPC call options. */
+  /**
+   * gRPC call options.
+   *
+   * Note: Accepted for API compatibility but has no runtime effect in this in-memory implementation.
+   */
   gaxOpts?: CallOptions;
 
   /** Auto-pagination. */
@@ -288,7 +300,11 @@ export interface SeekOptions {
   /** Seek to timestamp. */
   time?: Date | { seconds?: number; nanos?: number };
 
-  /** gRPC call options. */
+  /**
+   * gRPC call options.
+   *
+   * Note: Accepted for API compatibility but has no runtime effect in this in-memory implementation.
+   */
   gaxOpts?: CallOptions;
 }
 
@@ -316,7 +332,11 @@ export interface CreateSnapshotOptions {
   /** Labels. */
   labels?: Record<string, string>;
 
-  /** gRPC call options. */
+  /**
+   * gRPC call options.
+   *
+   * Note: Accepted for API compatibility but has no runtime effect in this in-memory implementation.
+   */
   gaxOpts?: CallOptions;
 }
 
@@ -329,6 +349,10 @@ export interface PullOptions {
   maxMessages?: number;
   /** Return immediately if no messages (deprecated, always false). */
   returnImmediately?: boolean;
-  /** gRPC call options. */
+  /**
+   * gRPC call options.
+   *
+   * Note: Accepted for API compatibility but has no runtime effect in this in-memory implementation.
+   */
   gaxOpts?: CallOptions;
 }
