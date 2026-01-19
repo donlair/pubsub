@@ -31,6 +31,7 @@ export class MessageQueue {
   private subscriptions: Map<string, SubscriptionMetadata>;
   private queues: Map<string, SubscriptionQueue>;
   private leases: Map<string, MessageLease>;
+  private ackIdCreationTimes: Map<string, number>;
   private cleanupTimer?: ReturnType<typeof setInterval>;
 
   private constructor() {
@@ -38,6 +39,7 @@ export class MessageQueue {
     this.subscriptions = new Map();
     this.queues = new Map();
     this.leases = new Map();
+    this.ackIdCreationTimes = new Map();
     this.startPeriodicCleanup();
   }
 
@@ -488,6 +490,7 @@ export class MessageQueue {
     // Store lease
     queue.inFlight.set(ackId, lease);
     this.leases.set(ackId, lease);
+    this.ackIdCreationTimes.set(ackId, Date.now());
 
     // BR-014: Update in-flight metrics
     queue.inFlightCount++;
@@ -549,6 +552,7 @@ export class MessageQueue {
 
     // Remove lease
     this.leases.delete(ackId);
+    this.ackIdCreationTimes.delete(ackId);
   }
 
   /**
@@ -633,6 +637,7 @@ export class MessageQueue {
 
     // Remove lease
     this.leases.delete(ackId);
+    this.ackIdCreationTimes.delete(ackId);
   }
 
   /**
@@ -732,15 +737,38 @@ export class MessageQueue {
   private runCleanup(): void {
     const now = Date.now();
     const orphanedAckIds: string[] = [];
+    const expiredAckIds: string[] = [];
+    const tenMinutesMs = 10 * 60 * 1000;
 
     for (const [ackId, lease] of this.leases.entries()) {
-      if (lease.deadline.getTime() < now) {
+      const creationTime = this.ackIdCreationTimes.get(ackId);
+
+      if (creationTime && now - creationTime > tenMinutesMs) {
+        expiredAckIds.push(ackId);
+      } else if (lease.deadline.getTime() < now) {
         const queue = this.queues.get(lease.subscription);
         const isOrphaned = !queue || !queue.inFlight.has(ackId);
 
         if (isOrphaned) {
           orphanedAckIds.push(ackId);
         }
+      }
+    }
+
+    for (const ackId of expiredAckIds) {
+      const lease = this.leases.get(ackId);
+      if (lease) {
+        if (lease.timer) {
+          clearTimeout(lease.timer);
+        }
+        const queue = this.queues.get(lease.subscription);
+        if (queue) {
+          queue.inFlight.delete(ackId);
+          queue.inFlightCount--;
+          queue.inFlightBytes -= lease.message.length;
+        }
+        this.leases.delete(ackId);
+        this.ackIdCreationTimes.delete(ackId);
       }
     }
 
@@ -751,6 +779,7 @@ export class MessageQueue {
           clearTimeout(lease.timer);
         }
         this.leases.delete(ackId);
+        this.ackIdCreationTimes.delete(ackId);
       }
     }
 
@@ -868,6 +897,7 @@ export class MessageQueue {
       MessageQueue.instance.topics.clear();
       MessageQueue.instance.subscriptions.clear();
       MessageQueue.instance.leases.clear();
+      MessageQueue.instance.ackIdCreationTimes.clear();
       MessageQueue.instance = null;
     }
   }

@@ -1426,5 +1426,123 @@ describe('MessageQueue', () => {
 
       expect(subQueue.messages.length).toBe(1);
     });
+
+    test('Removes ackIds older than 10 minutes during cleanup', () => {
+      queue.registerTopic('test-topic');
+      queue.registerSubscription('test-sub', 'test-topic', {
+        ackDeadlineSeconds: 600
+      } as any);
+
+      const messages: InternalMessage[] = [{
+        id: 'msg-1',
+        data: Buffer.from('test'),
+        attributes: {},
+        publishTime: new Date() as any,
+        orderingKey: undefined,
+        deliveryAttempt: 1,
+        length: 4
+      }];
+
+      queue.publish('test-topic', messages);
+      const pulled = queue.pull('test-sub', 10);
+      const ackId = pulled[0]!.ackId!;
+
+      const lease = (queue as any).leases.get(ackId);
+      expect(lease).toBeDefined();
+
+      const elevenMinutesAgo = Date.now() - 11 * 60 * 1000;
+      (queue as any).ackIdCreationTimes.set(ackId, elevenMinutesAgo);
+
+      (queue as any).runCleanup();
+
+      expect((queue as any).leases.has(ackId)).toBe(false);
+      expect((queue as any).ackIdCreationTimes.has(ackId)).toBe(false);
+    });
+
+    test('Does not remove ackIds younger than 10 minutes during cleanup', () => {
+      queue.registerTopic('test-topic');
+      queue.registerSubscription('test-sub', 'test-topic', {
+        ackDeadlineSeconds: 600
+      } as any);
+
+      const messages: InternalMessage[] = [{
+        id: 'msg-1',
+        data: Buffer.from('test'),
+        attributes: {},
+        publishTime: new Date() as any,
+        orderingKey: undefined,
+        deliveryAttempt: 1,
+        length: 4
+      }];
+
+      queue.publish('test-topic', messages);
+      const pulled = queue.pull('test-sub', 10);
+      const ackId = pulled[0]!.ackId!;
+
+      const lease = (queue as any).leases.get(ackId);
+      expect(lease).toBeDefined();
+
+      const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+      (queue as any).ackIdCreationTimes.set(ackId, fiveMinutesAgo);
+
+      (queue as any).runCleanup();
+
+      expect((queue as any).leases.has(ackId)).toBe(true);
+      expect((queue as any).ackIdCreationTimes.has(ackId)).toBe(true);
+    });
+
+    test('Cleans up ackIdCreationTimes on ack()', () => {
+      queue.registerTopic('test-topic');
+      queue.registerSubscription('test-sub', 'test-topic', {
+        ackDeadlineSeconds: 10
+      } as any);
+
+      const messages: InternalMessage[] = [{
+        id: 'msg-1',
+        data: Buffer.from('test'),
+        attributes: {},
+        publishTime: new Date() as any,
+        orderingKey: undefined,
+        deliveryAttempt: 1,
+        length: 4
+      }];
+
+      queue.publish('test-topic', messages);
+      const pulled = queue.pull('test-sub', 10);
+      const ackId = pulled[0]!.ackId!;
+
+      expect((queue as any).ackIdCreationTimes.has(ackId)).toBe(true);
+
+      queue.ack(ackId);
+
+      expect((queue as any).ackIdCreationTimes.has(ackId)).toBe(false);
+    });
+
+    test('Cleans up ackIdCreationTimes on nack()', () => {
+      queue.registerTopic('test-topic');
+      queue.registerSubscription('test-sub', 'test-topic', {
+        ackDeadlineSeconds: 10
+      } as any);
+
+      const messages: InternalMessage[] = [{
+        id: 'msg-1',
+        data: Buffer.from('test'),
+        attributes: {},
+        publishTime: new Date() as any,
+        orderingKey: undefined,
+        deliveryAttempt: 1,
+        length: 4
+      }];
+
+      queue.publish('test-topic', messages);
+      const pulled = queue.pull('test-sub', 10);
+      const ackId = pulled[0]!.ackId!;
+
+      expect((queue as any).ackIdCreationTimes.has(ackId)).toBe(true);
+
+      queue.nack(ackId);
+
+      expect((queue as any).ackIdCreationTimes.has(ackId)).toBe(false);
+    });
   });
 });

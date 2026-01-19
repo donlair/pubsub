@@ -71,13 +71,24 @@ This plan addresses remaining gaps identified through systematic comparison of s
   - Messages within retention period not removed
 - **Spec**: `specs/07-message-queue.md` - Performance considerations (line 651)
 
-#### 5. Implement ack ID garbage collection
-- **Location**: `src/internal/message-queue.ts`
-- **Gap**: Expired ackIds not cleaned up after 10 minutes
+#### 5. Implement ack ID garbage collection **[COMPLETED]**
+- **Status**: COMPLETED
+- **Location**: `src/internal/message-queue.ts` (lines 34, 42, 493, 555, 640, 740-772, 782, 898)
+- **Implementation**: Added 10-minute ack ID garbage collection
+- **Changes**:
+  - Added `ackIdCreationTimes` map to track ack ID creation timestamps
+  - Track creation time when messages are pulled (line 493)
+  - Clean up timestamps on ack() (line 555) and nack() (line 640)
+  - Enforce 10-minute expiration in runCleanup() (lines 740-772)
+  - Update in-flight metrics when garbage collecting expired ack IDs
+  - Clear ackIdCreationTimes in resetForTesting() (line 898)
+- **Test Coverage**: 4 new tests in `tests/unit/message-queue.test.ts` (lines 1430-1546)
+  - Removes ack IDs older than 10 minutes
+  - Preserves ack IDs younger than 10 minutes
+  - Cleans up timestamps on ack()
+  - Cleans up timestamps on nack()
 - **Spec**: `specs/07-message-queue.md` - Performance considerations
-- **Research**: See "Implementation Details" → Item 5 for ackId lifecycle
-- **Impact**: Memory leak from stale ack ID entries
-- **Fix**: Track ackId creation time, remove during periodic cleanup
+- **Note**: 10-minute expiration consistent with Google Cloud Pub/Sub ack ID validity window
 
 #### 6. Fix close timeout configuration
 - **Location**: `src/subscriber/message-stream.ts:535-545`
