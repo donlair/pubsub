@@ -41,7 +41,7 @@ Consolidate findings before proceeding.
 
 ```bash
 # Run tests
-bun test  # or npm test, pytest, etc.
+bun test  # run tests that you're working on
 
 # Type checking (if applicable)
 bunx tsc --noEmit  # or equivalent
