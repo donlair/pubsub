@@ -240,12 +240,24 @@ This plan addresses remaining gaps identified through systematic comparison of s
 - **Google API**: `'SUCCESS'`, `'INVALID'`, `'PERMISSION_DENIED'`, `'FAILED_PRECONDITION'`, `'OTHER'`
 - **Reference**: https://github.com/googleapis/nodejs-pubsub/blob/main/src/subscriber.ts
 
-#### 16. Improve allowExcessMessages handling
-- **Location**: `src/subscriber/message-stream.ts`
-- **Gap**: May not correctly handle "mid-pull" scenario
-- **Spec**: `specs/06-subscriber.md` BR-004
-- **Research**: See "Implementation Details" → Item 14 for behavior examples
-- **Impact**: Minor behavior inconsistency
+#### ~~16. Improve allowExcessMessages handling~~ **[COMPLETED]**
+- **Status**: COMPLETED
+- **Location**: `src/subscriber/flow-control.ts`, `src/subscriber/message-stream.ts`
+- **Implementation**: Added batch pull tracking to allow messages beyond maxMessages limit during batch processing
+- **Changes**:
+  - Added `inBatchPull` flag to track when actively processing a batch
+  - Created `startBatchPull()` and `endBatchPull()` methods in SubscriberFlowControl
+  - Modified `canAccept()` to allow batch completion when `allowExcessMessages: true`
+  - Updated `calculateMaxPull()` to pull full batches when `allowExcessMessages: true`
+  - Still enforces `maxBytes` even during batch pulls to prevent memory exhaustion
+  - Added `startBatchPull()`/`endBatchPull()` calls in `pullMessages()` with proper error handling
+- **Test Coverage**: 3 new tests in `tests/unit/flow-control-mid-pull.test.ts`
+  - BR-004: Allows batch completion when limit hit mid-pull
+  - BR-004: Allows full batch when allowExcessMessages=true
+  - BR-004: Without allowExcessMessages, strictly enforces limit
+- **Verification**: TypeScript compilation PASS, Biome lint PASS, all flow control tests PASS
+- **Spec Satisfied**: `specs/06-subscriber.md` BR-004
+- **Note**: Pre-existing test failures related to retry backoff (task #2) are unrelated to this change
 
 #### 17. Add useLegacyFlowControl support
 - **Location**: `src/subscriber/message-stream.ts`

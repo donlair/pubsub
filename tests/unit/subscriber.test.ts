@@ -46,17 +46,24 @@ describe('SubscriberFlowControl', () => {
 		expect(fc.canAccept(512)).toBe(true);
 	});
 
-	test('AC-010: allowExcessMessages permits over limit', () => {
+	test('AC-010: allowExcessMessages permits batch completion', () => {
 		const fc = new SubscriberFlowControl({
 			maxMessages: 2,
 			allowExcessMessages: true,
 		});
 
+		fc.startBatchPull();
+
 		expect(fc.canAccept(100)).toBe(true);
 		fc.addMessage(100);
 
 		expect(fc.canAccept(100)).toBe(true);
 		fc.addMessage(100);
+
+		expect(fc.canAccept(100)).toBe(true);
+		fc.addMessage(100);
+
+		fc.endBatchPull();
 
 		expect(fc.canAccept(100)).toBe(false);
 	});

@@ -15,6 +15,7 @@ export class SubscriberFlowControl {
 	private readonly allowExcessMessages: boolean;
 	private inFlightMessages = 0;
 	private inFlightBytes = 0;
+	private inBatchPull = false;
 
 	constructor(options?: SubscriberFlowControlOptions) {
 		this.maxMessages =
@@ -28,9 +29,14 @@ export class SubscriberFlowControl {
 
 	/**
 	 * Check if we can accept a message of given size.
+	 * When allowExcessMessages is true, allows batches to complete even if maxMessages
+	 * is exceeded, but still enforces maxBytes to prevent memory exhaustion.
 	 */
 	canAccept(messageBytes: number): boolean {
-		if (this.allowExcessMessages && this.inFlightMessages === 0) {
+		if (this.allowExcessMessages && this.inBatchPull) {
+			if (this.inFlightBytes + messageBytes > this.maxBytes) {
+				return false;
+			}
 			return true;
 		}
 
@@ -38,6 +44,20 @@ export class SubscriberFlowControl {
 			this.inFlightMessages < this.maxMessages &&
 			this.inFlightBytes + messageBytes <= this.maxBytes
 		);
+	}
+
+	/**
+	 * Mark the start of a batch pull operation.
+	 */
+	startBatchPull(): void {
+		this.inBatchPull = true;
+	}
+
+	/**
+	 * Mark the end of a batch pull operation.
+	 */
+	endBatchPull(): void {
+		this.inBatchPull = false;
 	}
 
 	/**

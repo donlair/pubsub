@@ -370,6 +370,8 @@ export class MessageStream {
 				return;
 			}
 
+			this.flowControl.startBatchPull();
+
 			const messages = this.messageQueue.pull(
 				this.subscription.name,
 				maxToPull,
@@ -378,7 +380,10 @@ export class MessageStream {
 			for (const internalMsg of messages) {
 				this.processSingleMessage(internalMsg);
 			}
+
+			this.flowControl.endBatchPull();
 		} catch (error) {
+			this.flowControl.endBatchPull();
 			setImmediate(() => {
 				this.subscription.emit('error', error);
 			});
@@ -434,8 +439,14 @@ export class MessageStream {
 	 * Calculate max messages to pull based on flow control.
 	 */
 	private calculateMaxPull(): number {
-		const inFlightCount = this.flowControl.getInFlightMessages();
 		const flowControlOptions = this.options.flowControl ?? {};
+		const allowExcessMessages = flowControlOptions.allowExcessMessages ?? false;
+
+		if (allowExcessMessages) {
+			return this.maxPullSize;
+		}
+
+		const inFlightCount = this.flowControl.getInFlightMessages();
 		const maxMessages =
 			flowControlOptions.maxMessages ?? 1000;
 
