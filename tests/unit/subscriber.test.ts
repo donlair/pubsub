@@ -639,4 +639,257 @@ describe('MessageStream', () => {
 
 		expect(elapsed).toBeLessThan(100);
 	});
+
+	test('BR-010: Uses default maxStreams of 5', async () => {
+		const stream = new MessageStream(subscription, {});
+		const receivedMessages: Message[] = [];
+		const pullTimestamps: number[] = [];
+
+		subscription.on('message', (message: Message) => {
+			receivedMessages.push(message);
+			pullTimestamps.push(Date.now());
+			message.ack();
+		});
+
+		stream.start();
+
+		for (let i = 0; i < 20; i++) {
+			messageQueue.publish(`test-topic-${testCounter}`, [
+				{
+					id: `msg-${i}`,
+					data: Buffer.from(`msg${i}`),
+					attributes: {},
+					publishTime: new PreciseDate(),
+					orderingKey: undefined,
+					deliveryAttempt: 1,
+					length: 5,
+				},
+			]);
+		}
+
+		await new Promise((resolve) => setTimeout(resolve, 100));
+
+		expect(receivedMessages.length).toBe(20);
+
+		await stream.stop();
+	});
+
+	test('BR-010: Creates multiple concurrent pull streams', async () => {
+		const stream = new MessageStream(subscription, {
+			streamingOptions: { maxStreams: 3, pullInterval: 20 },
+		});
+
+		let maxConcurrent = 0;
+		let currentConcurrent = 0;
+
+		subscription.on('message', async (message: Message) => {
+			currentConcurrent++;
+			maxConcurrent = Math.max(maxConcurrent, currentConcurrent);
+
+			await new Promise((resolve) => setTimeout(resolve, 30));
+
+			currentConcurrent--;
+			message.ack();
+		});
+
+		stream.start();
+
+		for (let i = 0; i < 30; i++) {
+			messageQueue.publish(`test-topic-${testCounter}`, [
+				{
+					id: `msg-${i}`,
+					data: Buffer.from(`msg${i}`),
+					attributes: {},
+					publishTime: new PreciseDate(),
+					orderingKey: undefined,
+					deliveryAttempt: 1,
+					length: 5,
+				},
+			]);
+		}
+
+		await new Promise((resolve) => setTimeout(resolve, 200));
+
+		expect(maxConcurrent).toBeGreaterThan(1);
+
+		await stream.stop();
+	}, { timeout: 2000 });
+
+	test('BR-010: Higher maxStreams increases throughput', async () => {
+		const singleStreamMessages: Message[] = [];
+		const multiStreamMessages: Message[] = [];
+
+		const singleStream = new MessageStream(subscription, {
+			streamingOptions: { maxStreams: 1, pullInterval: 100, maxPullSize: 10 },
+		});
+
+		subscription.on('message', (message: Message) => {
+			singleStreamMessages.push(message);
+			message.ack();
+		});
+
+		singleStream.start();
+
+		for (let i = 0; i < 200; i++) {
+			messageQueue.publish(`test-topic-${testCounter}`, [
+				{
+					id: `msg-single-${i}`,
+					data: Buffer.from(`msg${i}`),
+					attributes: {},
+					publishTime: new PreciseDate(),
+					orderingKey: undefined,
+					deliveryAttempt: 1,
+					length: 5,
+				},
+			]);
+		}
+
+		await new Promise((resolve) => setTimeout(resolve, 150));
+		const singleThroughput = singleStreamMessages.length;
+
+		await singleStream.stop();
+
+		testCounter++;
+		messageQueue.registerTopic(`test-topic-${testCounter}`);
+		messageQueue.registerSubscription(
+			`test-sub-${testCounter}`,
+			`test-topic-${testCounter}`,
+		);
+
+		const multiStreamSubscription = Object.assign(new EventEmitter(), {
+			name: `test-sub-${testCounter}`,
+			isOpen: false,
+		});
+
+		const multiStream = new MessageStream(multiStreamSubscription, {
+			streamingOptions: { maxStreams: 5, pullInterval: 100, maxPullSize: 10 },
+		});
+
+		multiStreamSubscription.on('message', (message: Message) => {
+			multiStreamMessages.push(message);
+			message.ack();
+		});
+
+		multiStream.start();
+
+		for (let i = 0; i < 200; i++) {
+			messageQueue.publish(`test-topic-${testCounter}`, [
+				{
+					id: `msg-multi-${i}`,
+					data: Buffer.from(`msg${i}`),
+					attributes: {},
+					publishTime: new PreciseDate(),
+					orderingKey: undefined,
+					deliveryAttempt: 1,
+					length: 5,
+				},
+			]);
+		}
+
+		await new Promise((resolve) => setTimeout(resolve, 150));
+		const multiThroughput = multiStreamMessages.length;
+
+		await multiStream.stop();
+
+		messageQueue.unregisterTopic(`test-topic-${testCounter}`);
+		messageQueue.unregisterSubscription(`test-sub-${testCounter}`);
+
+		expect(multiThroughput).toBeGreaterThan(singleThroughput);
+	}, { timeout: 3000 });
+
+	test('BR-010: All streams respect shared flow control', async () => {
+		const stream = new MessageStream(subscription, {
+			flowControl: { maxMessages: 5 },
+			streamingOptions: { maxStreams: 3 },
+			closeOptions: { behavior: 'NACK' },
+		});
+
+		const receivedMessages: Message[] = [];
+
+		subscription.on('message', (message: Message) => {
+			receivedMessages.push(message);
+		});
+
+		stream.start();
+
+		for (let i = 0; i < 20; i++) {
+			messageQueue.publish(`test-topic-${testCounter}`, [
+				{
+					id: `msg-${i}`,
+					data: Buffer.from(`msg${i}`),
+					attributes: {},
+					publishTime: new PreciseDate(),
+					orderingKey: undefined,
+					deliveryAttempt: 1,
+					length: 5,
+				},
+			]);
+		}
+
+		await new Promise((resolve) => setTimeout(resolve, 100));
+
+		expect(receivedMessages.length).toBe(5);
+
+		receivedMessages[0]?.ack();
+		receivedMessages[1]?.ack();
+
+		await new Promise((resolve) => setTimeout(resolve, 50));
+
+		expect(receivedMessages.length).toBe(7);
+
+		await stream.stop();
+	});
+
+	test('BR-010: Stops all streams on stop()', async () => {
+		const stream = new MessageStream(subscription, {
+			streamingOptions: { maxStreams: 5 },
+		});
+
+		const receivedMessages: Message[] = [];
+
+		subscription.on('message', (message: Message) => {
+			receivedMessages.push(message);
+			message.ack();
+		});
+
+		stream.start();
+
+		for (let i = 0; i < 10; i++) {
+			messageQueue.publish(`test-topic-${testCounter}`, [
+				{
+					id: `msg-${i}`,
+					data: Buffer.from(`msg${i}`),
+					attributes: {},
+					publishTime: new PreciseDate(),
+					orderingKey: undefined,
+					deliveryAttempt: 1,
+					length: 5,
+				},
+			]);
+		}
+
+		await new Promise((resolve) => setTimeout(resolve, 50));
+
+		const countBeforeStop = receivedMessages.length;
+
+		await stream.stop();
+
+		for (let i = 0; i < 10; i++) {
+			messageQueue.publish(`test-topic-${testCounter}`, [
+				{
+					id: `msg-after-${i}`,
+					data: Buffer.from(`msg${i}`),
+					attributes: {},
+					publishTime: new PreciseDate(),
+					orderingKey: undefined,
+					deliveryAttempt: 1,
+					length: 5,
+				},
+			]);
+		}
+
+		await new Promise((resolve) => setTimeout(resolve, 50));
+
+		expect(receivedMessages.length).toBe(countBeforeStop);
+	});
 });

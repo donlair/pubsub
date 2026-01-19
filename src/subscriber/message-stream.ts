@@ -43,7 +43,7 @@ export class MessageStream {
 	private messageQueue: MessageQueue;
 	private isRunning = false;
 	private isPaused = false;
-	private pullInterval?: ReturnType<typeof setInterval>;
+	private pullIntervals: Array<ReturnType<typeof setInterval>> = [];
 	private inFlightMessages = new Map<string, Message>();
 	private orderingQueues = new Map<string, Message[]>();
 	private processingOrderingKeys = new Set<string>();
@@ -51,6 +51,7 @@ export class MessageStream {
 
 	private readonly pullIntervalMs: number;
 	private readonly maxPullSize: number;
+	private readonly maxStreams: number;
 
 	constructor(subscription: ISubscription, options: SubscriberOptions) {
 		this.subscription = subscription;
@@ -66,6 +67,7 @@ export class MessageStream {
 
 		this.pullIntervalMs = options.streamingOptions?.pullInterval ?? 10;
 		this.maxPullSize = options.streamingOptions?.maxPullSize ?? 100;
+		this.maxStreams = options.streamingOptions?.maxStreams ?? 5;
 	}
 
 	/**
@@ -116,7 +118,11 @@ export class MessageStream {
 
 		this.isRunning = true;
 		this.isPaused = false;
-		this.pullInterval = setInterval(() => this.pullMessages(), this.pullIntervalMs);
+
+		for (let i = 0; i < this.maxStreams; i++) {
+			const interval = setInterval(() => this.pullMessages(), this.pullIntervalMs);
+			this.pullIntervals.push(interval);
+		}
 	}
 
 	/**
@@ -171,10 +177,10 @@ export class MessageStream {
 
 		this.isRunning = false;
 
-		if (this.pullInterval) {
-			clearInterval(this.pullInterval);
-			this.pullInterval = undefined;
+		for (const interval of this.pullIntervals) {
+			clearInterval(interval);
 		}
+		this.pullIntervals = [];
 
 		const closeBehavior =
 			this.options.closeOptions?.behavior ?? 'WAIT';

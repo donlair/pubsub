@@ -152,13 +152,24 @@ This plan addresses remaining gaps identified through systematic comparison of s
   3. Or: Accept minor API incompatibility and update all affected tests
 - **Current State**: AckManager ready for use, MessageStream integration reverted to preserve stability
 
-#### 10. Implement maxStreams for concurrent pull
-- **Location**: `src/subscriber/message-stream.ts`
-- **Gap**: `maxStreams` type exists but only single pull stream implemented
+#### ~~10. Implement maxStreams for concurrent pull~~ **[COMPLETED]**
+- **Status**: COMPLETED
+- **Location**: `src/subscriber/message-stream.ts` (lines 46, 54, 70, 122-128, 180-183)
+- **Implementation**: Added support for N concurrent pull streams
+- **Changes**:
+  - Changed `pullInterval` to `pullIntervals: Array<ReturnType<typeof setInterval>>`
+  - Added `maxStreams` property (default: 5) read from `options.streamingOptions?.maxStreams`
+  - Modified `start()` to create N intervals in a loop, each calling `pullMessages()`
+  - Modified `stop()` to iterate through all intervals and clear them
+  - All streams share the same flow control, ensuring limits are respected globally
+- **Test Coverage**: 5 new tests in `tests/unit/subscriber.test.ts` (lines 643-898)
+  - BR-010: Uses default maxStreams of 5
+  - BR-010: Creates multiple concurrent pull streams
+  - BR-010: Higher maxStreams increases throughput
+  - BR-010: All streams respect shared flow control
+  - BR-010: Stops all streams on stop()
 - **Spec**: `specs/06-subscriber.md` BR-010
-- **Research**: See "Implementation Details" → Item 10 for configuration (default 5 streams)
-- **Impact**: Lower throughput than configured
-- **Fix**: Create N pull intervals instead of one, distribute messages
+- **Verification**: TypeScript compilation PASS, Biome lint PASS, all subscriber unit tests PASS (25/25)
 
 #### 11. Add integration tests for ordering key pause/resume
 - **Location**: `tests/integration/ordering.test.ts`
