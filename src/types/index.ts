@@ -25,6 +25,7 @@ export {
   AlreadyExistsError,
   InvalidArgumentError,
   ResourceExhaustedError,
+  FailedPreconditionError,
   UnimplementedError,
   InternalError
 } from './errors';

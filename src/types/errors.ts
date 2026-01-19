@@ -96,6 +96,16 @@ export class UnimplementedError extends PubSubError {
 }
 
 /**
+ * Failed precondition error. Code: 9
+ */
+export class FailedPreconditionError extends PubSubError {
+  constructor(message: string) {
+    super(message, ErrorCode.FAILED_PRECONDITION);
+    this.name = 'FailedPreconditionError';
+  }
+}
+
+/**
  * Internal error. Code: 13
  */
 export class InternalError extends PubSubError {

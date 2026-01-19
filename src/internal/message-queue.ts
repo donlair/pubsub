@@ -7,7 +7,7 @@
 import type { InternalMessage, MessageLease } from './types';
 import type { TopicMetadata } from '../types/topic';
 import type { SubscriptionMetadata } from '../types/subscription';
-import { NotFoundError, InvalidArgumentError } from '../types/errors';
+import { NotFoundError, InvalidArgumentError, FailedPreconditionError } from '../types/errors';
 
 interface SubscriptionQueue {
   messages: InternalMessage[];
@@ -522,6 +522,7 @@ export class MessageQueue {
   /**
    * Acknowledge a message.
    * @throws {InvalidArgumentError} If ackId is invalid or expired
+   * @throws {FailedPreconditionError} If subscription no longer exists (for exactly-once delivery)
    */
   ack(ackId: string): void {
     const lease = this.leases.get(ackId);
@@ -536,21 +537,23 @@ export class MessageQueue {
 
     // Remove from in-flight
     const queue = this.queues.get(lease.subscription);
-    if (queue) {
-      queue.inFlight.delete(ackId);
+    if (!queue) {
+      throw new FailedPreconditionError(`Subscription no longer exists: ${lease.subscription}`);
+    }
 
-      // BR-014: Update in-flight metrics
-      queue.inFlightCount--;
-      queue.inFlightBytes -= lease.message.length;
+    queue.inFlight.delete(ackId);
 
-      // BR-022: Update queue metrics
-      queue.queueSize--;
-      queue.queueBytes -= lease.message.length;
+    // BR-014: Update in-flight metrics
+    queue.inFlightCount--;
+    queue.inFlightBytes -= lease.message.length;
 
-      // Unblock ordering key if this was an ordered message
-      if (lease.message.orderingKey && queue.blockedOrderingKeys) {
-        queue.blockedOrderingKeys.delete(lease.message.orderingKey);
-      }
+    // BR-022: Update queue metrics
+    queue.queueSize--;
+    queue.queueBytes -= lease.message.length;
+
+    // Unblock ordering key if this was an ordered message
+    if (lease.message.orderingKey && queue.blockedOrderingKeys) {
+      queue.blockedOrderingKeys.delete(lease.message.orderingKey);
     }
 
     // Remove lease
@@ -561,6 +564,7 @@ export class MessageQueue {
   /**
    * Negative acknowledge (return message to queue).
    * @throws {InvalidArgumentError} If ackId is invalid or expired
+   * @throws {FailedPreconditionError} If subscription no longer exists
    */
   nack(ackId: string): void {
     const lease = this.leases.get(ackId);
@@ -576,64 +580,66 @@ export class MessageQueue {
     // Remove from in-flight
     const queue = this.queues.get(lease.subscription);
     const subscription = this.subscriptions.get(lease.subscription);
-    if (queue && subscription) {
-      queue.inFlight.delete(ackId);
+    if (!queue || !subscription) {
+      throw new FailedPreconditionError(`Subscription no longer exists: ${lease.subscription}`);
+    }
 
-      // BR-014: Update in-flight metrics
-      queue.inFlightCount--;
-      queue.inFlightBytes -= lease.message.length;
+    queue.inFlight.delete(ackId);
 
-      // Increment delivery attempt
-      const msg = {
-        ...lease.message,
-        deliveryAttempt: lease.message.deliveryAttempt + 1,
-      };
+    // BR-014: Update in-flight metrics
+    queue.inFlightCount--;
+    queue.inFlightBytes -= lease.message.length;
 
-      // BR-016: Check for dead letter queue routing
-      const deadLetterPolicy = (subscription as unknown as { deadLetterPolicy?: { deadLetterTopic: string; maxDeliveryAttempts: number } }).deadLetterPolicy;
-      if (deadLetterPolicy && msg.deliveryAttempt > deadLetterPolicy.maxDeliveryAttempts) {
-        // Route to dead letter queue
-        this.routeToDeadLetterQueue(msg, deadLetterPolicy.deadLetterTopic, queue);
+    // Increment delivery attempt
+    const msg = {
+      ...lease.message,
+      deliveryAttempt: lease.message.deliveryAttempt + 1,
+    };
+
+    // BR-016: Check for dead letter queue routing
+    const deadLetterPolicy = (subscription as unknown as { deadLetterPolicy?: { deadLetterTopic: string; maxDeliveryAttempts: number } }).deadLetterPolicy;
+    if (deadLetterPolicy && msg.deliveryAttempt > deadLetterPolicy.maxDeliveryAttempts) {
+      // Route to dead letter queue
+      this.routeToDeadLetterQueue(msg, deadLetterPolicy.deadLetterTopic, queue);
+
+      // Unblock ordering key if needed
+      if (msg.orderingKey && queue.blockedOrderingKeys) {
+        queue.blockedOrderingKeys.delete(msg.orderingKey);
+      }
+    } else {
+      // BR-015: Apply retry backoff (use original deliveryAttempt before increment)
+      const retryPolicy = (subscription as unknown as { retryPolicy?: { minimumBackoff?: { seconds?: number }; maximumBackoff?: { seconds?: number } } }).retryPolicy;
+      const backoffMs = this.calculateBackoff(lease.message.deliveryAttempt, retryPolicy);
+
+      if (backoffMs > 0) {
+        // Add to backoff queue
+        queue.backoffQueue.set(msg.id, {
+          message: msg,
+          availableAt: Date.now() + backoffMs,
+        });
 
         // Unblock ordering key if needed
         if (msg.orderingKey && queue.blockedOrderingKeys) {
           queue.blockedOrderingKeys.delete(msg.orderingKey);
         }
       } else {
-        // BR-015: Apply retry backoff (use original deliveryAttempt before increment)
-        const retryPolicy = (subscription as unknown as { retryPolicy?: { minimumBackoff?: { seconds?: number }; maximumBackoff?: { seconds?: number } } }).retryPolicy;
-        const backoffMs = this.calculateBackoff(lease.message.deliveryAttempt, retryPolicy);
-
-        if (backoffMs > 0) {
-          // Add to backoff queue
-          queue.backoffQueue.set(msg.id, {
-            message: msg,
-            availableAt: Date.now() + backoffMs,
-          });
-
-          // Unblock ordering key if needed
-          if (msg.orderingKey && queue.blockedOrderingKeys) {
+        // Return to appropriate queue immediately
+        if (queue.orderingQueues && msg.orderingKey) {
+          // Unblock ordering key
+          if (queue.blockedOrderingKeys) {
             queue.blockedOrderingKeys.delete(msg.orderingKey);
           }
-        } else {
-          // Return to appropriate queue immediately
-          if (queue.orderingQueues && msg.orderingKey) {
-            // Unblock ordering key
-            if (queue.blockedOrderingKeys) {
-              queue.blockedOrderingKeys.delete(msg.orderingKey);
-            }
 
-            // Add back to front of ordering queue
-            let orderQueue = queue.orderingQueues.get(msg.orderingKey);
-            if (!orderQueue) {
-              orderQueue = [];
-              queue.orderingQueues.set(msg.orderingKey, orderQueue);
-            }
-            orderQueue.unshift(msg);
-          } else {
-            // Add back to front of main queue
-            queue.messages.unshift(msg);
+          // Add back to front of ordering queue
+          let orderQueue = queue.orderingQueues.get(msg.orderingKey);
+          if (!orderQueue) {
+            orderQueue = [];
+            queue.orderingQueues.set(msg.orderingKey, orderQueue);
           }
+          orderQueue.unshift(msg);
+        } else {
+          // Add back to front of main queue
+          queue.messages.unshift(msg);
         }
       }
     }

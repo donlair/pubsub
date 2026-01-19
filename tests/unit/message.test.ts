@@ -554,8 +554,153 @@ describe('Message', () => {
 		expect(response).toBe(AckResponses.Success);
 	});
 
-	// AC-015: Attribute Validation
-	describe('AC-015: Attribute validation', () => {
+	// AC-015: Response Code Coverage (New tests for FAILED_PRECONDITION and OTHER)
+	describe('AC-015: ackWithResponse error scenarios', () => {
+		test('should return FAILED_PRECONDITION when subscription queue deleted', async () => {
+			messageQueue.publish('projects/test/topics/test-topic', [
+				{
+					id: 'msg-1',
+					data: Buffer.from('test'),
+					attributes: {},
+					publishTime: new PreciseDate(),
+					orderingKey: undefined,
+					deliveryAttempt: 1,
+					length: 4,
+				},
+			]);
+
+			const messages = messageQueue.pull(
+				'projects/test/subscriptions/test-sub',
+				1,
+			);
+			const internalMsg = messages[0];
+			if (!internalMsg) throw new Error('No message');
+
+			const message = new Message(
+				internalMsg.id,
+				internalMsg.ackId || 'ack-1',
+				internalMsg.data,
+				internalMsg.attributes,
+				internalMsg.publishTime,
+				{ name: 'test-sub' },
+			);
+
+			// Delete subscription queue to simulate subscription closed
+			messageQueue.unregisterSubscription('projects/test/subscriptions/test-sub');
+
+			// Should return FAILED_PRECONDITION instead of throwing
+			const response = await message.ackWithResponse();
+			expect(response).toBe(AckResponses.FailedPrecondition);
+		});
+
+		test('should return SUCCESS when queue is intact', async () => {
+			messageQueue.publish('projects/test/topics/test-topic', [
+				{
+					id: 'msg-1',
+					data: Buffer.from('test'),
+					attributes: {},
+					publishTime: new PreciseDate(),
+					orderingKey: undefined,
+					deliveryAttempt: 1,
+					length: 4,
+				},
+			]);
+
+			const messages = messageQueue.pull(
+				'projects/test/subscriptions/test-sub',
+				1,
+			);
+			const internalMsg = messages[0];
+			if (!internalMsg) throw new Error('No message');
+
+			const message = new Message(
+				internalMsg.id,
+				internalMsg.ackId || 'ack-1',
+				internalMsg.data,
+				internalMsg.attributes,
+				internalMsg.publishTime,
+				{ name: 'test-sub' },
+			);
+
+			// Normal case - should succeed
+			const response = await message.ackWithResponse();
+			expect(response).toBe(AckResponses.Success);
+		});
+
+		test('nackWithResponse should return FAILED_PRECONDITION when subscription deleted', async () => {
+			messageQueue.publish('projects/test/topics/test-topic', [
+				{
+					id: 'msg-1',
+					data: Buffer.from('test'),
+					attributes: {},
+					publishTime: new PreciseDate(),
+					orderingKey: undefined,
+					deliveryAttempt: 1,
+					length: 4,
+				},
+			]);
+
+			const messages = messageQueue.pull(
+				'projects/test/subscriptions/test-sub',
+				1,
+			);
+			const internalMsg = messages[0];
+			if (!internalMsg) throw new Error('No message');
+
+			const message = new Message(
+				internalMsg.id,
+				internalMsg.ackId || 'ack-1',
+				internalMsg.data,
+				internalMsg.attributes,
+				internalMsg.publishTime,
+				{ name: 'test-sub' },
+			);
+
+			// Delete subscription queue
+			messageQueue.unregisterSubscription('projects/test/subscriptions/test-sub');
+
+			// Should return FAILED_PRECONDITION
+			const response = await message.nackWithResponse();
+			expect(response).toBe(AckResponses.FailedPrecondition);
+		});
+
+		test('modAckWithResponse should handle errors gracefully', async () => {
+			messageQueue.publish('projects/test/topics/test-topic', [
+				{
+					id: 'msg-1',
+					data: Buffer.from('test'),
+					attributes: {},
+					publishTime: new PreciseDate(),
+					orderingKey: undefined,
+					deliveryAttempt: 1,
+					length: 4,
+				},
+			]);
+
+			const messages = messageQueue.pull(
+				'projects/test/subscriptions/test-sub',
+				1,
+			);
+			const internalMsg = messages[0];
+			if (!internalMsg) throw new Error('No message');
+
+			const message = new Message(
+				internalMsg.id,
+				internalMsg.ackId || 'ack-1',
+				internalMsg.data,
+				internalMsg.attributes,
+				internalMsg.publishTime,
+				{ name: 'test-sub' },
+			);
+
+			// Invalid deadline - should return INVALID
+			const response = await message.modAckWithResponse(999);
+			expect(response).toBe(AckResponses.Invalid);
+		});
+	});
+
+	// AC-016: Attribute Validation
+	describe('AC-016: Attribute validation', () => {
 		test('should freeze attributes to prevent modification', () => {
 			const attributes = { key: 'value' };
 			const message = new Message(
