@@ -53,8 +53,10 @@ while true; do
     # --model opus: Primary agent uses Opus for complex reasoning (task selection, prioritization)
     #               Can use 'sonnet' in build mode for speed if plan is clear and tasks well-defined
     # --verbose: Detailed execution logging
-    cat "$PROMPT_FILE" | claude \
+    cat "$PROMPT_FILE" | claude -p \
         --model sonnet \
+        --dangerously-skip-permissions \
+        --output-format=text
 
     # Push changes after each iteration
     git push origin "$CURRENT_BRANCH" || {
