@@ -1001,4 +1001,88 @@ describe('MessageStream', () => {
 
 		await stream.stop();
 	}, { timeout: 1000 });
+
+	test('useLegacyFlowControl=true is accepted (API compatibility)', async () => {
+		const stream = new MessageStream(subscription, {
+			useLegacyFlowControl: true,
+			flowControl: { maxMessages: 3 },
+			closeOptions: { behavior: 'NACK' },
+		});
+
+		const receivedMessages: Message[] = [];
+		const errors: Error[] = [];
+
+		subscription.on('message', (message: Message) => {
+			receivedMessages.push(message);
+		});
+
+		subscription.on('error', (error: Error) => {
+			errors.push(error);
+		});
+
+		stream.start();
+
+		for (let i = 0; i < 10; i++) {
+			messageQueue.publish(`test-topic-${testCounter}`, [
+				{
+					id: `msg-${i}`,
+					data: Buffer.from(`msg${i}`),
+					attributes: {},
+					publishTime: new PreciseDate(),
+					orderingKey: undefined,
+					deliveryAttempt: 1,
+					length: 5,
+				},
+			]);
+		}
+
+		await new Promise((resolve) => setTimeout(resolve, 100));
+
+		expect(errors.length).toBe(0);
+		expect(receivedMessages.length).toBe(3);
+
+		await stream.stop();
+	});
+
+	test('useLegacyFlowControl=false works (default behavior)', async () => {
+		const stream = new MessageStream(subscription, {
+			useLegacyFlowControl: false,
+			flowControl: { maxMessages: 3 },
+			closeOptions: { behavior: 'NACK' },
+		});
+
+		const receivedMessages: Message[] = [];
+		const errors: Error[] = [];
+
+		subscription.on('message', (message: Message) => {
+			receivedMessages.push(message);
+		});
+
+		subscription.on('error', (error: Error) => {
+			errors.push(error);
+		});
+
+		stream.start();
+
+		for (let i = 0; i < 10; i++) {
+			messageQueue.publish(`test-topic-${testCounter}`, [
+				{
+					id: `msg-${i}`,
+					data: Buffer.from(`msg${i}`),
+					attributes: {},
+					publishTime: new PreciseDate(),
+					orderingKey: undefined,
+					deliveryAttempt: 1,
+					length: 5,
+				},
+			]);
+		}
+
+		await new Promise((resolve) => setTimeout(resolve, 100));
+
+		expect(errors.length).toBe(0);
+		expect(receivedMessages.length).toBe(3);
+
+		await stream.stop();
+	});
 });

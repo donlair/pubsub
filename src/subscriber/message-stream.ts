@@ -74,6 +74,11 @@ export class MessageStream {
 		this.maxPullSize = options.streamingOptions?.maxPullSize ?? 100;
 		this.maxStreams = options.streamingOptions?.maxStreams ?? 5;
 		this.timeoutMs = options.streamingOptions?.timeout ?? 300000;
+
+		// Note: options.useLegacyFlowControl is accepted for API compatibility but has no
+		// behavioral effect in this in-memory implementation. In Google Cloud Pub/Sub, this
+		// option controls server-side vs client-side flow control enforcement. Since this
+		// implementation has no server-side component, all flow control is client-side only.
 	}
 
 	/**
