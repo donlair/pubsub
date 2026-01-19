@@ -514,7 +514,8 @@ export class PubSub {
 			servicePath: this.options.servicePath || 'pubsub.googleapis.com',
 			port: this.options.port || 443,
 			sslCreds: this.options.sslCreds,
-			projectId: this.projectId
+			projectId: this.projectId,
+			clientConfig: this.options.clientConfig
 		};
 	}
 

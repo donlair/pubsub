@@ -293,11 +293,23 @@ This plan addresses remaining gaps identified through systematic comparison of s
 - **Research**: `research/07-subscriber-config.md:182,220` - Default 300000ms (5 minutes)
 - **Verification**: TypeScript compilation PASS, Biome lint PASS (3 info warnings for bracket notation), all subscriber tests PASS (30/30)
 
-#### 19. Add clientConfig property to PubSubOptions
-- **Location**: `src/types/pubsub.ts`
-- **Gap**: Missing per Google API
-- **Spec**: Google Cloud Pub/Sub API compatibility
-- **Impact**: Some configuration patterns incompatible
+#### ~~19. Add clientConfig property to PubSubOptions~~ **[COMPLETED]**
+- **Status**: COMPLETED
+- **Location**: `src/types/pubsub.ts:65-69`, `src/pubsub.ts:518`
+- **Implementation**: Added `clientConfig?: unknown` property to ClientConfig interface
+- **Changes**:
+  - Added property to ClientConfig interface with JSDoc documentation
+  - Updated `getClientConfig()` to include clientConfig in returned object
+  - Uses `unknown` type instead of `any` per TypeScript guidelines (safer while maintaining API compatibility)
+- **Test Coverage**: 5 new tests in `tests/unit/pubsub.test.ts` (AC-014, lines 476-542)
+  - Basic property acceptance
+  - Storage and retrieval via getClientConfig()
+  - Behavior when not provided (returns undefined)
+  - Nested properties support
+  - Arbitrary types support (strings, numbers, booleans, arrays, null)
+- **Spec**: Google Cloud Pub/Sub API compatibility - `research/01-client-configuration.md:48`
+- **Verification**: TypeScript compilation PASS, Biome lint PASS, all PubSub tests PASS (53/53)
+- **Note**: Opaque pass-through property for gRPC-specific configuration; no runtime behavior in this in-memory implementation
 
 #### 20. Improve exactly-once delivery logic
 - **Location**: `src/message.ts:166-197`

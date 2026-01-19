@@ -61,6 +61,12 @@ export interface ClientConfig {
    * - 'proto': HTTP/1.1 with protobuf
    */
   fallback?: boolean | 'rest' | 'proto';
+
+  /**
+   * Arbitrary gRPC client configuration.
+   * Pass-through for gRPC-specific options.
+   */
+  clientConfig?: unknown;
 }
 
 /**
