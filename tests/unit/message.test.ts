@@ -664,7 +664,7 @@ describe('Message', () => {
 			expect(response).toBe(AckResponses.FailedPrecondition);
 		});
 
-		test('modAckWithResponse should handle errors gracefully', async () => {
+		test('modAckWithResponse should return SUCCESS for valid deadline', async () => {
 			messageQueue.publish('projects/test/topics/test-topic', [
 				{
 					id: 'msg-1',
@@ -693,8 +693,110 @@ describe('Message', () => {
 				{ name: 'test-sub' },
 			);
 
-			// Invalid deadline - should return INVALID
+			const response = await message.modAckWithResponse(30);
+			expect(response).toBe(AckResponses.Success);
+		});
+
+		test('modAckWithResponse should return INVALID for out-of-range deadline', async () => {
+			messageQueue.publish('projects/test/topics/test-topic', [
+				{
+					id: 'msg-1',
+					data: Buffer.from('test'),
+					attributes: {},
+					publishTime: new PreciseDate(),
+					orderingKey: undefined,
+					deliveryAttempt: 1,
+					length: 4,
+				},
+			]);
+
+			const messages = messageQueue.pull(
+				'projects/test/subscriptions/test-sub',
+				1,
+			);
+			const internalMsg = messages[0];
+			if (!internalMsg) throw new Error('No message');
+
+			const message = new Message(
+				internalMsg.id,
+				internalMsg.ackId || 'ack-1',
+				internalMsg.data,
+				internalMsg.attributes,
+				internalMsg.publishTime,
+				{ name: 'test-sub' },
+			);
+
 			const response = await message.modAckWithResponse(999);
+			expect(response).toBe(AckResponses.Invalid);
+		});
+
+		test('modAckWithResponse should return FAILED_PRECONDITION when subscription deleted', async () => {
+			messageQueue.publish('projects/test/topics/test-topic', [
+				{
+					id: 'msg-1',
+					data: Buffer.from('test'),
+					attributes: {},
+					publishTime: new PreciseDate(),
+					orderingKey: undefined,
+					deliveryAttempt: 1,
+					length: 4,
+				},
+			]);
+
+			const messages = messageQueue.pull(
+				'projects/test/subscriptions/test-sub',
+				1,
+			);
+			const internalMsg = messages[0];
+			if (!internalMsg) throw new Error('No message');
+
+			const message = new Message(
+				internalMsg.id,
+				internalMsg.ackId || 'ack-1',
+				internalMsg.data,
+				internalMsg.attributes,
+				internalMsg.publishTime,
+				{ name: 'test-sub' },
+			);
+
+			messageQueue.unregisterSubscription('projects/test/subscriptions/test-sub');
+
+			const response = await message.modAckWithResponse(30);
+			expect(response).toBe(AckResponses.FailedPrecondition);
+		});
+
+		test('modAckWithResponse should return INVALID when already acked', async () => {
+			messageQueue.publish('projects/test/topics/test-topic', [
+				{
+					id: 'msg-1',
+					data: Buffer.from('test'),
+					attributes: {},
+					publishTime: new PreciseDate(),
+					orderingKey: undefined,
+					deliveryAttempt: 1,
+					length: 4,
+				},
+			]);
+
+			const messages = messageQueue.pull(
+				'projects/test/subscriptions/test-sub',
+				1,
+			);
+			const internalMsg = messages[0];
+			if (!internalMsg) throw new Error('No message');
+
+			const message = new Message(
+				internalMsg.id,
+				internalMsg.ackId || 'ack-1',
+				internalMsg.data,
+				internalMsg.attributes,
+				internalMsg.publishTime,
+				{ name: 'test-sub' },
+			);
+
+			await message.ack();
+
+			const response = await message.modAckWithResponse(30);
 			expect(response).toBe(AckResponses.Invalid);
 		});
 	});

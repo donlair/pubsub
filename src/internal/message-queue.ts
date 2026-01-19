@@ -654,6 +654,11 @@ export class MessageQueue {
       throw new InvalidArgumentError(`Invalid ack ID: ${ackId}`);
     }
 
+    const queue = this.queues.get(lease.subscription);
+    if (!queue) {
+      throw new FailedPreconditionError(`Subscription no longer exists: ${lease.subscription}`);
+    }
+
     if (lease.timer) {
       clearTimeout(lease.timer);
     }

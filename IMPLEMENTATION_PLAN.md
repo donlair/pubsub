@@ -106,11 +106,22 @@ Issues are prioritized by severity with critical fixes first.
 
 ### 2.3 Fix modAckWithResponse Error Classification
 
-- [ ] Match error handling pattern from `ackWithResponse`
-  - Location: `src/message.ts:230-237`
+- [x] Match error handling pattern from `ackWithResponse`
+  - Location: `src/message.ts:232-250`
   - Gap: All errors mapped to `AckResponses.Invalid` regardless of type
-  - Fix: Distinguish `InvalidArgumentError` → Invalid, `FailedPreconditionError` → FailedPrecondition, others → Other
+  - Fix:
+    - Added idempotency check (return Invalid if already acked)
+    - Set `_acked = true` before operation
+    - Distinguish `InvalidArgumentError` → Invalid, `FailedPreconditionError` → FailedPrecondition, others → Other
+    - Also fixed `modifyAckDeadline` in message-queue.ts to throw FailedPreconditionError when subscription deleted
+  - Tests: Added 4 comprehensive tests in `tests/unit/message.test.ts:667-800`
+    - SUCCESS for valid deadline
+    - INVALID for out-of-range deadline
+    - FAILED_PRECONDITION when subscription deleted
+    - INVALID when already acked
   - Spec: `specs/04-message.md` AC-011 through AC-013
+  - Code Review: Approved - no issues found
+  - Completed: 2026-01-19
 
 ### 2.4 Add Warning for DLQ Routing Failures
 

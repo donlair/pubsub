@@ -230,11 +230,23 @@ export class Message implements MessageProperties {
 	 * Modify ack deadline with exactly-once delivery confirmation.
 	 */
 	async modAckWithResponse(deadline: number): Promise<AckResponse> {
+		if (this._acked) {
+			return AckResponses.Invalid;
+		}
+
+		this._acked = true;
+
 		try {
 			this.modifyAckDeadline(deadline);
 			return AckResponses.Success;
-		} catch {
-			return AckResponses.Invalid;
+		} catch (error) {
+			if (error instanceof InvalidArgumentError) {
+				return AckResponses.Invalid;
+			}
+			if (error instanceof FailedPreconditionError) {
+				return AckResponses.FailedPrecondition;
+			}
+			return AckResponses.Other;
 		}
 	}
 }
