@@ -27,11 +27,13 @@ Issues are prioritized by severity with critical fixes first.
 
 ### 1.2 Add Error Logging to Message Stream Stop
 
-- [ ] Log errors in stream timeout stop handler
+- [x] Log errors in stream timeout stop handler
   - Location: `src/subscriber/message-stream.ts:143`
   - Gap: `this.stop().catch(() => {})` completely swallows errors
-  - Fix: Add `console.error` logging before swallowing
+  - Fix: Changed to `console.error('Failed to stop stream after timeout:', error)` matching pattern from message-queue.ts:744
+  - Test: Added test in `tests/unit/subscriber.test.ts:1005-1035` verifying error logging on stop failure
   - Spec: Error handling rules
+  - Completed: 2026-01-19
 
 ### 1.3 Fix Cleanup NACK Error Handling
 

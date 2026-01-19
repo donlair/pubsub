@@ -140,7 +140,9 @@ export class MessageStream {
 				setImmediate(() => {
 					this.subscription.emit('error', new Error(`Stream timeout after ${this.timeoutMs}ms`));
 				});
-				this.stop().catch(() => {});
+				this.stop().catch((error) => {
+					console.error('Failed to stop stream after timeout:', error);
+				});
 			}, this.timeoutMs);
 		}
 	}

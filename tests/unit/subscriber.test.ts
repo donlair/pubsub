@@ -6,7 +6,7 @@
  * Full integration tests with Topic/Subscription will come in Phase 9.
  */
 
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { describe, test, expect, beforeEach, afterEach, spyOn } from 'bun:test';
 import { EventEmitter } from 'node:events';
 import { MessageQueue } from '../../src/internal/message-queue';
 import { MessageStream } from '../../src/subscriber/message-stream';
@@ -1000,6 +1000,39 @@ describe('MessageStream', () => {
 		expect(stream['isRunning']).toBe(true);
 
 		await stream.stop();
+	}, { timeout: 1000 });
+
+	test('Logs error when stop() fails during timeout', async () => {
+		const consoleSpy = spyOn(console, 'error').mockImplementation(() => {});
+
+		const stream = new MessageStream(subscription, {
+			streamingOptions: { timeout: 100 },
+		});
+
+		const errors: Error[] = [];
+		subscription.on('error', (error: Error) => {
+			errors.push(error);
+		});
+
+		const originalStop = stream.stop.bind(stream);
+		stream.stop = async () => {
+			await originalStop();
+			throw new Error('Stop failed intentionally');
+		};
+
+		stream.start();
+
+		await new Promise((resolve) => setTimeout(resolve, 150));
+
+		expect(errors.length).toBe(1);
+		expect(errors[0]?.message).toContain('timeout');
+
+		expect(consoleSpy).toHaveBeenCalledWith(
+			'Failed to stop stream after timeout:',
+			expect.objectContaining({ message: 'Stop failed intentionally' })
+		);
+
+		consoleSpy.mockRestore();
 	}, { timeout: 1000 });
 
 	test('useLegacyFlowControl=true is accepted (API compatibility)', async () => {
