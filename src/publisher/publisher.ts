@@ -13,7 +13,7 @@ import { PublisherFlowControl } from './flow-control';
 import { MessageQueue } from '../internal/message-queue';
 import type { InternalMessage } from '../internal/types';
 import { PreciseDate } from '../utils/precise-date';
-import { InvalidArgumentError, InternalError, ErrorCode, PubSubError } from '../types/errors';
+import { InvalidArgumentError, InternalError, NotFoundError, ErrorCode, PubSubError } from '../types/errors';
 
 interface Batch {
 	messages: PubsubMessage[];
@@ -511,11 +511,10 @@ export class Publisher {
 		});
 
 		try {
-			// Check if topic exists before publishing (avoids errors during cleanup)
 			if (!this.queue.topicExists(this.topicName)) {
-				// Topic was deleted, silently discard batch
+				const error = new NotFoundError(this.topicName, 'Topic');
 				for (const promise of batch.promises) {
-					promise.resolve('');
+					promise.reject(error);
 				}
 				for (const msg of internalMessages) {
 					this.flowControl.release(msg.length);

@@ -904,4 +904,67 @@ describe('Publisher', () => {
 			queue.publish = originalPublish;
 		});
 	});
+
+	describe('Topic Deletion Mid-Publish', () => {
+		test('should reject with NotFoundError when topic deleted mid-publish', async () => {
+			const topicName = 'projects/test-project/topics/deletion-test';
+			queue.registerTopic(topicName);
+
+			const publisher = new Publisher(topicName);
+
+			const publishPromise = publisher.publishMessage({
+				data: Buffer.from('test message'),
+			});
+
+			queue.unregisterTopic(topicName);
+
+			await expect(publishPromise).rejects.toThrow(
+				`Topic not found: ${topicName}`,
+			);
+		});
+
+		test('should reject all batched messages when topic deleted before flush', async () => {
+			const topicName =
+				'projects/test-project/topics/batch-deletion-test';
+			queue.registerTopic(topicName);
+
+			const publisher = new Publisher(topicName, {
+				batching: {
+					maxMessages: 10,
+					maxMilliseconds: 1000,
+				},
+			});
+
+			const promises = [
+				publisher.publishMessage({ data: Buffer.from('message 1') }),
+				publisher.publishMessage({ data: Buffer.from('message 2') }),
+				publisher.publishMessage({ data: Buffer.from('message 3') }),
+			];
+
+			queue.unregisterTopic(topicName);
+
+			await expect(Promise.all(promises)).rejects.toThrow(
+				`Topic not found: ${topicName}`,
+			);
+		});
+
+		test('should reject with NotFoundError for ordering key messages', async () => {
+			const topicName =
+				'projects/test-project/topics/ordering-deletion-test';
+			queue.registerTopic(topicName);
+
+			const publisher = new Publisher(topicName);
+
+			const publishPromise = publisher.publishMessage({
+				data: Buffer.from('test message'),
+				orderingKey: 'user-1',
+			});
+
+			queue.unregisterTopic(topicName);
+
+			await expect(publishPromise).rejects.toThrow(
+				`Topic not found: ${topicName}`,
+			);
+		});
+	});
 });

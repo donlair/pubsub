@@ -73,11 +73,20 @@ Issues are prioritized by severity with critical fixes first.
 
 ### 2.1 Reject with NotFoundError When Topic Deleted Mid-Publish
 
-- [ ] Change topic-deleted handling from silent resolve to rejection
+- [x] Change topic-deleted handling from silent resolve to rejection
   - Location: `src/publisher/publisher.ts:514-532`
   - Gap: Promises resolve with empty string `''` when topic is deleted
   - Fix: Reject all promises with `NotFoundError`
+  - Implementation:
+    - Changed from `promise.resolve('')` to `promise.reject(new NotFoundError(this.topicName, 'Topic'))`
+    - Added import for `NotFoundError`
+    - Removed inline comment explaining the silent discard behavior
+  - Tests: Added 3 comprehensive tests in `tests/unit/publisher.test.ts:908-969`
+    - Single message publish with topic deleted mid-publish
+    - Batched messages (3 messages) with topic deleted before flush
+    - Ordering key messages with topic deleted mid-publish
   - Spec: Error handling rules - "Use specific error types"
+  - Completed: 2026-01-19
 
 ### 2.2 Add Warning Log for FailedPreconditionError in ack/nack
 
