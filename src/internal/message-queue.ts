@@ -31,12 +31,14 @@ export class MessageQueue {
   private subscriptions: Map<string, SubscriptionMetadata>;
   private queues: Map<string, SubscriptionQueue>;
   private leases: Map<string, MessageLease>;
+  private cleanupTimer?: ReturnType<typeof setInterval>;
 
   private constructor() {
     this.topics = new Map();
     this.subscriptions = new Map();
     this.queues = new Map();
     this.leases = new Map();
+    this.startPeriodicCleanup();
   }
 
   /**
@@ -720,6 +722,39 @@ export class MessageQueue {
     }, seconds * 1000);
   }
 
+  private startPeriodicCleanup(): void {
+    this.cleanupTimer = setInterval(() => {
+      this.runCleanup();
+    }, 60000);
+    this.cleanupTimer.unref();
+  }
+
+  private runCleanup(): void {
+    const now = Date.now();
+    const orphanedAckIds: string[] = [];
+
+    for (const [ackId, lease] of this.leases.entries()) {
+      if (lease.deadline.getTime() < now) {
+        const queue = this.queues.get(lease.subscription);
+        const isOrphaned = !queue || !queue.inFlight.has(ackId);
+
+        if (isOrphaned) {
+          orphanedAckIds.push(ackId);
+        }
+      }
+    }
+
+    for (const ackId of orphanedAckIds) {
+      const lease = this.leases.get(ackId);
+      if (lease) {
+        if (lease.timer) {
+          clearTimeout(lease.timer);
+        }
+        this.leases.delete(ackId);
+      }
+    }
+  }
+
   /**
    * Reset the singleton instance for testing.
    * Clears all topics, subscriptions, messages, and leases.
@@ -731,6 +766,10 @@ export class MessageQueue {
         if (lease.timer) {
           clearTimeout(lease.timer);
         }
+      }
+
+      if (MessageQueue.instance.cleanupTimer) {
+        clearInterval(MessageQueue.instance.cleanupTimer);
       }
 
       // Clear all data

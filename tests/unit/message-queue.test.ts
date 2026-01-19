@@ -1090,4 +1090,110 @@ describe('MessageQueue', () => {
       });
     });
   });
+
+  describe('Periodic Cleanup', () => {
+    test('Cleanup timer starts when instance created', () => {
+      const queue = MessageQueue.getInstance();
+      expect((queue as any).cleanupTimer).toBeDefined();
+    });
+
+    test('Cleanup timer cleared on resetForTesting', () => {
+      const queue = MessageQueue.getInstance();
+      const timerId = (queue as any).cleanupTimer;
+      expect(timerId).toBeDefined();
+
+      MessageQueue.resetForTesting();
+
+      const newQueue = MessageQueue.getInstance();
+      const newTimerId = (newQueue as any).cleanupTimer;
+      expect(newTimerId).toBeDefined();
+      expect(newTimerId).not.toBe(timerId);
+    });
+
+    test('Removes expired orphaned leases during cleanup', async () => {
+      queue.registerTopic('test-topic');
+      queue.registerSubscription('test-sub', 'test-topic', {
+        ackDeadline: 10
+      } as any);
+
+      const messages: InternalMessage[] = [{
+        id: 'msg-1',
+        data: Buffer.from('test'),
+        attributes: {},
+        publishTime: new Date() as any,
+        orderingKey: undefined,
+        deliveryAttempt: 1,
+        length: 4
+      }];
+
+      queue.publish('test-topic', messages);
+      const pulled = queue.pull('test-sub', 10);
+      const ackId = pulled[0]!.ackId!;
+      const lease = (queue as any).leases.get(ackId);
+
+      expect((queue as any).leases.has(ackId)).toBe(true);
+
+      if (lease.timer) {
+        clearTimeout(lease.timer);
+      }
+      lease.deadline = new Date(Date.now() - 1000);
+
+      const subQueue = (queue as any).queues.get('test-sub');
+      subQueue.inFlight.delete(ackId);
+
+      (queue as any).runCleanup();
+
+      expect((queue as any).leases.has(ackId)).toBe(false);
+    });
+
+    test('Does not remove valid leases during cleanup', async () => {
+      queue.registerTopic('test-topic');
+      queue.registerSubscription('test-sub', 'test-topic', {
+        ackDeadline: 600
+      } as any);
+
+      const messages: InternalMessage[] = [{
+        id: 'msg-1',
+        data: Buffer.from('test'),
+        attributes: {},
+        publishTime: new Date() as any,
+        orderingKey: undefined,
+        deliveryAttempt: 1,
+        length: 4
+      }];
+
+      queue.publish('test-topic', messages);
+      const pulled = queue.pull('test-sub', 10);
+      const ackId = pulled[0]!.ackId!;
+
+      expect((queue as any).leases.has(ackId)).toBe(true);
+
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      (queue as any).runCleanup();
+
+      expect((queue as any).leases.has(ackId)).toBe(true);
+    });
+
+    test('Cleanup runs every 60 seconds', async () => {
+      let cleanupCalled = false;
+      const originalRunCleanup = (MessageQueue.prototype as any).runCleanup;
+
+      (MessageQueue.prototype as any).runCleanup = function() {
+        cleanupCalled = true;
+        originalRunCleanup.call(this);
+      };
+
+      MessageQueue.resetForTesting();
+      MessageQueue.getInstance();
+
+      expect(cleanupCalled).toBe(false);
+
+      await new Promise(resolve => setTimeout(resolve, 61000));
+
+      expect(cleanupCalled).toBe(true);
+
+      (MessageQueue.prototype as any).runCleanup = originalRunCleanup;
+    }, { timeout: 65000 });
+  });
 });

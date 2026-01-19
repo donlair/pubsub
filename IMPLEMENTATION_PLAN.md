@@ -37,13 +37,18 @@ This plan addresses remaining gaps identified through systematic comparison of s
 
 ### High Priority
 
-#### 3. Implement periodic lease cleanup
-- **Location**: `src/internal/message-queue.ts` (constructor)
-- **Gap**: No 60-second cleanup cycle for expired leases
-- **Spec**: `specs/07-message-queue.md` - Performance considerations
-- **Research**: See "Implementation Details" → Item 3 (note: implementation detail, not API requirement)
-- **Impact**: Memory leak from accumulated expired leases
-- **Fix**: Add `setInterval` for periodic cleanup, clear on `resetForTesting()`
+#### 3. Implement periodic lease cleanup **[COMPLETED]**
+- **Status**: COMPLETED
+- **Location**: `src/internal/message-queue.ts` (lines 34, 41, 725-755, 771-773)
+- **Implementation**: Added 60-second interval cleanup for orphaned expired leases
+- **Changes**:
+  - Added `cleanupTimer` property to track interval timer
+  - Created `startPeriodicCleanup()` method that runs every 60 seconds with `.unref()` for clean process exit
+  - Created `runCleanup()` method that removes expired leases not in any subscription's inFlight map
+  - Updated `resetForTesting()` to clear cleanup timer before destroying instance
+- **Test Coverage**: 5 new tests in `tests/unit/message-queue.test.ts` (lines 1094-1198)
+- **Spec**: `specs/07-message-queue.md` - Performance considerations (line 650)
+- **Note**: Cleanup only removes orphaned leases (expired + not in subscription queue) to avoid interfering with normal nack/redelivery flow
 
 #### 4. Implement message retention enforcement
 - **Location**: `src/internal/message-queue.ts`
