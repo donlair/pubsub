@@ -53,8 +53,6 @@ export class MessageQueue {
     return MessageQueue.instance;
   }
 
-  // Topic Management
-
   /**
    * Register a topic.
    */
@@ -73,18 +71,15 @@ export class MessageQueue {
   unregisterTopic(topicName: string): void {
     this.topics.delete(topicName);
 
-    // Clear messages from subscriptions for this topic
     for (const [subName, subMeta] of this.subscriptions.entries()) {
       if (subMeta.topic === topicName) {
         const queue = this.queues.get(subName);
         if (queue) {
-          // Cancel all in-flight timers
           for (const lease of queue.inFlight.values()) {
             if (lease.timer) {
               clearTimeout(lease.timer);
             }
           }
-          // Clear messages and in-flight
           queue.messages = [];
           queue.inFlight.clear();
           queue.backoffQueue.clear();
@@ -124,8 +119,6 @@ export class MessageQueue {
     return Array.from(this.topics.values());
   }
 
-  // Subscription Management
-
   /**
    * Register a subscription.
    */
@@ -136,14 +129,12 @@ export class MessageQueue {
   ): void {
     const exists = this.subscriptions.has(subscriptionName);
 
-    // Always update subscription metadata
     this.subscriptions.set(subscriptionName, {
       name: subscriptionName,
       topic: topicName,
       ...options,
     });
 
-    // Only initialize queue if subscription doesn't exist
     if (!exists) {
       const queue: SubscriptionQueue = {
         messages: [],
@@ -155,7 +146,6 @@ export class MessageQueue {
         backoffQueue: new Map(),
       };
 
-      // Initialize ordering support if enabled
       if (options?.enableMessageOrdering) {
         queue.orderingQueues = new Map();
         queue.blockedOrderingKeys = new Set();
@@ -171,13 +161,11 @@ export class MessageQueue {
   unregisterSubscription(subscriptionName: string): void {
     const queue = this.queues.get(subscriptionName);
     if (queue) {
-      // Cancel all in-flight timers
       for (const lease of queue.inFlight.values()) {
         if (lease.timer) {
           clearTimeout(lease.timer);
         }
       }
-      // Clear backoff queue
       queue.backoffQueue.clear();
     }
 
@@ -219,8 +207,6 @@ export class MessageQueue {
     return Array.from(this.subscriptions.values());
   }
 
-  // Message Operations
-
   /**
    * Publish messages to a topic.
    * @throws {NotFoundError} If topic does not exist
@@ -234,29 +220,23 @@ export class MessageQueue {
     const messageIds: string[] = [];
 
     for (const msg of messages) {
-      // BR-017: Message size validation
       this.validateMessage(msg);
 
-      // Calculate message length
       const messageLength = this.calculateMessageLength(msg);
 
-      // Generate unique message ID
       const messageId = msg.id || crypto.randomUUID();
       messageIds.push(messageId);
 
-      // Create message with ID and length
       const message: InternalMessage = {
         ...msg,
         id: messageId,
         length: messageLength,
       };
 
-      // Copy message to each subscription
       const subscriptions = this.getSubscriptionsForTopic(topicName);
       for (const sub of subscriptions) {
         const queue = this.queues.get(sub.name!);
         if (queue) {
-          // BR-022: Check queue size limits (10,000 messages or 100MB)
           if (queue.queueSize >= 10000 || queue.queueBytes >= 100 * 1024 * 1024) {
             console.warn(
               `Queue capacity reached for subscription ${sub.name}: ${queue.queueSize} messages, ${queue.queueBytes} bytes`,
@@ -264,16 +244,12 @@ export class MessageQueue {
             continue;
           }
 
-          // Copy message for this subscription
           const msgCopy = { ...message };
 
-          // Update queue metrics
           queue.queueSize++;
           queue.queueBytes += messageLength;
 
-          // Add to appropriate queue
           if (queue.orderingQueues && message.orderingKey) {
-            // Add to ordering queue
             let orderQueue = queue.orderingQueues.get(message.orderingKey);
             if (!orderQueue) {
               orderQueue = [];
@@ -281,7 +257,6 @@ export class MessageQueue {
             }
             orderQueue.push(msgCopy);
           } else {
-            // Add to main queue
             queue.messages.push(msgCopy);
           }
         }
@@ -356,7 +331,6 @@ export class MessageQueue {
       return [];
     }
 
-    // BR-013: Flow control enforcement
     const flowControl = (subscription as unknown as { flowControl?: { maxMessages?: number; maxBytes?: number } }).flowControl;
     if (flowControl) {
       if (flowControl.maxMessages && queue.inFlightCount >= flowControl.maxMessages) {
@@ -370,7 +344,6 @@ export class MessageQueue {
     const result: InternalMessage[] = [];
     const ackDeadlineSeconds = subscription.ackDeadlineSeconds || 10;
 
-    // BR-015: Process backoff queue first
     const now = Date.now();
     const readyMessages: InternalMessage[] = [];
     for (const [msgId, backoffEntry] of queue.backoffQueue.entries()) {
@@ -393,9 +366,7 @@ export class MessageQueue {
       }
     }
 
-    // Pull from main queue first
     while (result.length < maxMessages && queue.messages.length > 0) {
-      // BR-013: Check flow control before pulling
       const nextMsg = queue.messages[0];
       if (flowControl) {
         if (flowControl.maxMessages && queue.inFlightCount >= flowControl.maxMessages) {
@@ -418,12 +389,10 @@ export class MessageQueue {
       }
     }
 
-    // Pull from ordering queues if enabled
     if (queue.orderingQueues) {
       for (const [orderingKey, orderQueue] of queue.orderingQueues.entries()) {
         if (result.length >= maxMessages) break;
 
-        // BR-013: Check flow control
         const nextMsg = orderQueue[0];
         if (flowControl && nextMsg) {
           if (flowControl.maxMessages && queue.inFlightCount >= flowControl.maxMessages) {
@@ -434,12 +403,10 @@ export class MessageQueue {
           }
         }
 
-        // Skip if this ordering key is blocked
         if (queue.blockedOrderingKeys?.has(orderingKey)) {
           continue;
         }
 
-        // Only deliver one message per ordering key at a time
         if (orderQueue.length > 0) {
           const msg = orderQueue.shift()!;
           const delivered = this.createLeaseAndDeliver(
@@ -449,7 +416,6 @@ export class MessageQueue {
             ackDeadlineSeconds
           );
           if (delivered) {
-            // Block this ordering key until message is acked
             queue.blockedOrderingKeys?.add(orderingKey);
             result.push(delivered);
           }
@@ -469,13 +435,10 @@ export class MessageQueue {
     queue: SubscriptionQueue,
     ackDeadlineSeconds: number
   ): InternalMessage | null {
-    // Generate unique ackId
     const ackId = `${msg.id}-${msg.deliveryAttempt}-${crypto.randomUUID()}`;
 
-    // Create deadline
     const deadline = new Date(Date.now() + ackDeadlineSeconds * 1000);
 
-    // Create lease
     const lease: MessageLease = {
       message: msg,
       ackId,
@@ -484,22 +447,18 @@ export class MessageQueue {
       deadlineExtensions: 0,
     };
 
-    // Start deadline timer
     const timerMs = ackDeadlineSeconds * 1000;
     lease.timer = setTimeout(() => {
       this.handleDeadlineExpiry(ackId);
     }, timerMs);
 
-    // Store lease
     queue.inFlight.set(ackId, lease);
     this.leases.set(ackId, lease);
     this.ackIdCreationTimes.set(ackId, Date.now());
 
-    // BR-014: Update in-flight metrics
     queue.inFlightCount++;
     queue.inFlightBytes += msg.length;
 
-    // Return message with ackId
     return {
       ...msg,
       ackId,
@@ -515,7 +474,6 @@ export class MessageQueue {
       return;
     }
 
-    // Nack the message (returns to queue)
     this.nack(ackId);
   }
 
@@ -530,12 +488,10 @@ export class MessageQueue {
       throw new InvalidArgumentError(`Invalid ack ID: ${ackId}`);
     }
 
-    // Cancel timer
     if (lease.timer) {
       clearTimeout(lease.timer);
     }
 
-    // Remove from in-flight
     const queue = this.queues.get(lease.subscription);
     if (!queue) {
       throw new FailedPreconditionError(`Subscription no longer exists: ${lease.subscription}`);
@@ -543,20 +499,16 @@ export class MessageQueue {
 
     queue.inFlight.delete(ackId);
 
-    // BR-014: Update in-flight metrics
     queue.inFlightCount--;
     queue.inFlightBytes -= lease.message.length;
 
-    // BR-022: Update queue metrics
     queue.queueSize--;
     queue.queueBytes -= lease.message.length;
 
-    // Unblock ordering key if this was an ordered message
     if (lease.message.orderingKey && queue.blockedOrderingKeys) {
       queue.blockedOrderingKeys.delete(lease.message.orderingKey);
     }
 
-    // Remove lease
     this.leases.delete(ackId);
     this.ackIdCreationTimes.delete(ackId);
   }
@@ -572,12 +524,10 @@ export class MessageQueue {
       throw new InvalidArgumentError(`Invalid ack ID: ${ackId}`);
     }
 
-    // Cancel timer
     if (lease.timer) {
       clearTimeout(lease.timer);
     }
 
-    // Remove from in-flight
     const queue = this.queues.get(lease.subscription);
     const subscription = this.subscriptions.get(lease.subscription);
     if (!queue || !subscription) {
@@ -586,51 +536,40 @@ export class MessageQueue {
 
     queue.inFlight.delete(ackId);
 
-    // BR-014: Update in-flight metrics
     queue.inFlightCount--;
     queue.inFlightBytes -= lease.message.length;
 
-    // Increment delivery attempt
     const msg = {
       ...lease.message,
       deliveryAttempt: lease.message.deliveryAttempt + 1,
     };
 
-    // BR-016: Check for dead letter queue routing
     const deadLetterPolicy = (subscription as unknown as { deadLetterPolicy?: { deadLetterTopic: string; maxDeliveryAttempts: number } }).deadLetterPolicy;
     if (deadLetterPolicy && msg.deliveryAttempt > deadLetterPolicy.maxDeliveryAttempts) {
-      // Route to dead letter queue
       this.routeToDeadLetterQueue(msg, deadLetterPolicy.deadLetterTopic, queue);
 
-      // Unblock ordering key if needed
       if (msg.orderingKey && queue.blockedOrderingKeys) {
         queue.blockedOrderingKeys.delete(msg.orderingKey);
       }
     } else {
-      // BR-015: Apply retry backoff (use original deliveryAttempt before increment)
       const retryPolicy = (subscription as unknown as { retryPolicy?: { minimumBackoff?: { seconds?: number }; maximumBackoff?: { seconds?: number } } }).retryPolicy;
       const backoffMs = this.calculateBackoff(lease.message.deliveryAttempt, retryPolicy);
 
       if (backoffMs > 0) {
-        // Add to backoff queue
         queue.backoffQueue.set(msg.id, {
           message: msg,
           availableAt: Date.now() + backoffMs,
         });
 
-        // Unblock ordering key if needed
         if (msg.orderingKey && queue.blockedOrderingKeys) {
           queue.blockedOrderingKeys.delete(msg.orderingKey);
         }
       } else {
-        // Return to appropriate queue immediately
         if (queue.orderingQueues && msg.orderingKey) {
-          // Unblock ordering key
           if (queue.blockedOrderingKeys) {
             queue.blockedOrderingKeys.delete(msg.orderingKey);
           }
 
-          // Add back to front of ordering queue
           let orderQueue = queue.orderingQueues.get(msg.orderingKey);
           if (!orderQueue) {
             orderQueue = [];
@@ -638,13 +577,11 @@ export class MessageQueue {
           }
           orderQueue.unshift(msg);
         } else {
-          // Add back to front of main queue
           queue.messages.unshift(msg);
         }
       }
     }
 
-    // Remove lease
     this.leases.delete(ackId);
     this.ackIdCreationTimes.delete(ackId);
   }
@@ -680,7 +617,6 @@ export class MessageQueue {
       return;
     }
 
-    // Create copy of message preserving original metadata
     const dlqMessage: InternalMessage = {
       id: crypto.randomUUID(),
       data: msg.data,
@@ -691,14 +627,12 @@ export class MessageQueue {
       length: msg.length,
     };
 
-    // Publish to DLQ
     const subscriptions = this.getSubscriptionsForTopic(deadLetterTopic);
     for (const sub of subscriptions) {
       const queue = this.queues.get(sub.name!);
       if (queue) {
         const msgCopy = { ...dlqMessage };
 
-        // Update queue metrics
         queue.queueSize++;
         queue.queueBytes += dlqMessage.length;
 
@@ -706,7 +640,6 @@ export class MessageQueue {
       }
     }
 
-    // BR-022: Update original queue metrics
     originalQueue.queueSize--;
     originalQueue.queueBytes -= msg.length;
   }
@@ -721,16 +654,13 @@ export class MessageQueue {
       throw new InvalidArgumentError(`Invalid ack ID: ${ackId}`);
     }
 
-    // Cancel existing timer
     if (lease.timer) {
       clearTimeout(lease.timer);
     }
 
-    // Update deadline
     lease.deadline = new Date(Date.now() + seconds * 1000);
     lease.deadlineExtensions++;
 
-    // Start new timer
     lease.timer = setTimeout(() => {
       this.handleDeadlineExpiry(ackId);
     }, seconds * 1000);
@@ -895,7 +825,6 @@ export class MessageQueue {
    */
   static resetForTesting(): void {
     if (MessageQueue.instance) {
-      // Clear all timers
       for (const lease of MessageQueue.instance.leases.values()) {
         if (lease.timer) {
           clearTimeout(lease.timer);
@@ -906,7 +835,6 @@ export class MessageQueue {
         clearInterval(MessageQueue.instance.cleanupTimer);
       }
 
-      // Clear all data
       MessageQueue.instance.topics.clear();
       MessageQueue.instance.subscriptions.clear();
       MessageQueue.instance.leases.clear();

@@ -51,18 +51,21 @@ Issues are prioritized by severity with critical fixes first.
 
 ### 1.4 Remove Inline Comments Violating CLAUDE.md Rules
 
-- [ ] Remove inline comments from `src/subscriber/ack-manager.ts`
+- [x] Remove inline comments from `src/subscriber/ack-manager.ts`
   - Gap: 8 instances of `// Errors handled per promise` comments
-  - Fix: Remove all inline comments, move necessary info to JSDoc
+  - Fix: Removed all inline comments (redundant explanations of error handling pattern)
+  - Completed: 2026-01-19
 
-- [ ] Remove inline comments from `src/subscriber/message-stream.ts`
-  - Gap: 3 inline comments (API compatibility note, cleanup comments)
-  - Fix: Move API compatibility note to JSDoc on affected property
+- [x] Remove inline comments from `src/subscriber/message-stream.ts`
+  - Gap: API compatibility note inline comment
+  - Fix: Removed redundant comment (info already in types file JSDoc)
+  - Completed: 2026-01-19
 
-- [ ] Remove inline comments from `src/internal/message-queue.ts`
+- [x] Remove inline comments from `src/internal/message-queue.ts`
   - Gap: ~50 inline comments throughout the file
-  - Fix: Remove all inline comments; spec reference comments (BR-XXX) can be moved to JSDoc if needed
-  - Note: This is the largest file with most violations
+  - Fix: Removed all inline comments (section headers, "what" comments, BR-XXX labels)
+  - Note: Removed comments explaining "what" rather than "why"; JSDoc and self-documenting code remain
+  - Completed: 2026-01-19
 
 ---
 

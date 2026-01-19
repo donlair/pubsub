@@ -32,18 +32,12 @@ export class AckManager {
 			this.ackBatch.promises.push({ resolve, reject });
 
 			if (this.shouldFlushBatch(this.ackBatch)) {
-				this.flushAckBatch().catch(() => {
-					// Errors handled per promise
-				});
+				this.flushAckBatch().catch(() => {});
 			} else if (this.batching.maxMilliseconds === 0) {
-				this.flushAckBatch().catch(() => {
-					// Errors handled per promise
-				});
+				this.flushAckBatch().catch(() => {});
 			} else if (!this.ackBatch.timer) {
 				this.ackBatch.timer = setTimeout(() => {
-					this.flushAckBatch().catch(() => {
-						// Errors handled per promise
-					});
+					this.flushAckBatch().catch(() => {});
 				}, this.batching.maxMilliseconds);
 			}
 		});
@@ -55,18 +49,12 @@ export class AckManager {
 			this.nackBatch.promises.push({ resolve, reject });
 
 			if (this.shouldFlushBatch(this.nackBatch)) {
-				this.flushNackBatch().catch(() => {
-					// Errors handled per promise
-				});
+				this.flushNackBatch().catch(() => {});
 			} else if (this.batching.maxMilliseconds === 0) {
-				this.flushNackBatch().catch(() => {
-					// Errors handled per promise
-				});
+				this.flushNackBatch().catch(() => {});
 			} else if (!this.nackBatch.timer) {
 				this.nackBatch.timer = setTimeout(() => {
-					this.flushNackBatch().catch(() => {
-						// Errors handled per promise
-					});
+					this.flushNackBatch().catch(() => {});
 				}, this.batching.maxMilliseconds);
 			}
 		});
@@ -76,19 +64,11 @@ export class AckManager {
 		const promises: Promise<void>[] = [];
 
 		if (this.ackBatch.ackIds.length > 0) {
-			promises.push(
-				this.flushAckBatch().catch(() => {
-					// Errors handled per promise
-				})
-			);
+			promises.push(this.flushAckBatch().catch(() => {}));
 		}
 
 		if (this.nackBatch.ackIds.length > 0) {
-			promises.push(
-				this.flushNackBatch().catch(() => {
-					// Errors handled per promise
-				})
-			);
+			promises.push(this.flushNackBatch().catch(() => {}));
 		}
 
 		await Promise.all(promises);
