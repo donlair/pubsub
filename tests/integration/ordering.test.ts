@@ -248,6 +248,47 @@ describe('Integration: Message Ordering', () => {
 		});
 	});
 
+	describe('AC-011: Ordering Key Paused on Error', () => {
+		test('should reject publishing to a paused ordering key', async () => {
+			topic = pubsub.topic('ordered-events');
+			await topic.create();
+			topic.setPublishOptions({ messageOrdering: true });
+
+			(topic.publisher as any).pausedOrderingKeys.add('user-123');
+
+			await expect(
+				topic.publishMessage({
+					data: Buffer.from('test'),
+					orderingKey: 'user-123',
+				})
+			).rejects.toThrow('Ordering key user-123 is paused');
+
+			const messageId = await topic.publishMessage({
+				data: Buffer.from('test'),
+				orderingKey: 'user-456',
+			});
+			expect(messageId).toBeDefined();
+		});
+	});
+
+	describe('AC-012: Resume Publishing After Error', () => {
+		test('should resume publishing after calling resumePublishing()', async () => {
+			topic = pubsub.topic('ordered-events');
+			await topic.create();
+			topic.setPublishOptions({ messageOrdering: true });
+
+			(topic.publisher as any).pausedOrderingKeys.add('user-123');
+
+			topic.resumePublishing('user-123');
+
+			const messageId = await topic.publishMessage({
+				data: Buffer.from('test'),
+				orderingKey: 'user-123',
+			});
+			expect(messageId).toBeDefined();
+		});
+	});
+
 	describe('publishJSON with orderingKey', () => {
 		test('should publish JSON messages with orderingKey option', async () => {
 			topic = pubsub.topic('user-events');
