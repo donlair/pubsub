@@ -686,4 +686,222 @@ describe('Publisher', () => {
 		expect(messageId).toBeDefined();
 		expect(typeof messageId).toBe('string');
 	});
+
+	describe('Error Classification for Ordering Key Pause', () => {
+		test('should pause ordering key on INVALID_ARGUMENT error (code 3)', async () => {
+			const topicName = 'projects/test-project/topics/my-topic';
+			queue.registerTopic(topicName);
+
+			const publisher = new Publisher(topicName, {
+				messageOrdering: true,
+			});
+
+			const { InvalidArgumentError } = await import('../../src/types/errors');
+			const originalPublish = queue.publish.bind(queue);
+			queue.publish = () => {
+				throw new InvalidArgumentError('Invalid message');
+			};
+
+			await expect(
+				publisher.publishMessage({
+					data: Buffer.from('test'),
+					orderingKey: 'user-1',
+				})
+			).rejects.toThrow('Invalid message');
+
+			// @ts-expect-error - accessing private property for testing
+			expect(publisher.pausedOrderingKeys.has('user-1')).toBe(true);
+
+			queue.publish = originalPublish;
+		});
+
+		test('should pause ordering key on NOT_FOUND error (code 5)', async () => {
+			const topicName = 'projects/test-project/topics/my-topic';
+			queue.registerTopic(topicName);
+
+			const publisher = new Publisher(topicName, {
+				messageOrdering: true,
+			});
+
+			const { NotFoundError } = await import('../../src/types/errors');
+			const originalPublish = queue.publish.bind(queue);
+			queue.publish = () => {
+				throw new NotFoundError('Topic not found');
+			};
+
+			await expect(
+				publisher.publishMessage({
+					data: Buffer.from('test'),
+					orderingKey: 'user-1',
+				})
+			).rejects.toThrow('Topic not found');
+
+			// @ts-expect-error - accessing private property for testing
+			expect(publisher.pausedOrderingKeys.has('user-1')).toBe(true);
+
+			queue.publish = originalPublish;
+		});
+
+		test('should pause ordering key on PERMISSION_DENIED error (code 7)', async () => {
+			const topicName = 'projects/test-project/topics/my-topic';
+			queue.registerTopic(topicName);
+
+			const publisher = new Publisher(topicName, {
+				messageOrdering: true,
+			});
+
+			const { PubSubError, ErrorCode } = await import('../../src/types/errors');
+			const originalPublish = queue.publish.bind(queue);
+			queue.publish = () => {
+				throw new PubSubError('Permission denied', ErrorCode.PERMISSION_DENIED);
+			};
+
+			await expect(
+				publisher.publishMessage({
+					data: Buffer.from('test'),
+					orderingKey: 'user-1',
+				})
+			).rejects.toThrow('Permission denied');
+
+			// @ts-expect-error - accessing private property for testing
+			expect(publisher.pausedOrderingKeys.has('user-1')).toBe(true);
+
+			queue.publish = originalPublish;
+		});
+
+		test('should NOT pause ordering key on DEADLINE_EXCEEDED error (code 4)', async () => {
+			const topicName = 'projects/test-project/topics/my-topic';
+			queue.registerTopic(topicName);
+
+			const publisher = new Publisher(topicName, {
+				messageOrdering: true,
+			});
+
+			const { PubSubError, ErrorCode } = await import('../../src/types/errors');
+			const originalPublish = queue.publish.bind(queue);
+			queue.publish = () => {
+				throw new PubSubError('Deadline exceeded', ErrorCode.DEADLINE_EXCEEDED);
+			};
+
+			await expect(
+				publisher.publishMessage({
+					data: Buffer.from('test'),
+					orderingKey: 'user-1',
+				})
+			).rejects.toThrow('Deadline exceeded');
+
+			// @ts-expect-error - accessing private property for testing
+			expect(publisher.pausedOrderingKeys.has('user-1')).toBe(false);
+
+			queue.publish = originalPublish;
+		});
+
+		test('should NOT pause ordering key on RESOURCE_EXHAUSTED error (code 8)', async () => {
+			const topicName = 'projects/test-project/topics/my-topic';
+			queue.registerTopic(topicName);
+
+			const publisher = new Publisher(topicName, {
+				messageOrdering: true,
+			});
+
+			const { PubSubError, ErrorCode } = await import('../../src/types/errors');
+			const originalPublish = queue.publish.bind(queue);
+			queue.publish = () => {
+				throw new PubSubError('Resource exhausted', ErrorCode.RESOURCE_EXHAUSTED);
+			};
+
+			await expect(
+				publisher.publishMessage({
+					data: Buffer.from('test'),
+					orderingKey: 'user-1',
+				})
+			).rejects.toThrow('Resource exhausted');
+
+			// @ts-expect-error - accessing private property for testing
+			expect(publisher.pausedOrderingKeys.has('user-1')).toBe(false);
+
+			queue.publish = originalPublish;
+		});
+
+		test('should NOT pause ordering key on UNAVAILABLE error (code 14)', async () => {
+			const topicName = 'projects/test-project/topics/my-topic';
+			queue.registerTopic(topicName);
+
+			const publisher = new Publisher(topicName, {
+				messageOrdering: true,
+			});
+
+			const { PubSubError, ErrorCode } = await import('../../src/types/errors');
+			const originalPublish = queue.publish.bind(queue);
+			queue.publish = () => {
+				throw new PubSubError('Service unavailable', ErrorCode.UNAVAILABLE);
+			};
+
+			await expect(
+				publisher.publishMessage({
+					data: Buffer.from('test'),
+					orderingKey: 'user-1',
+				})
+			).rejects.toThrow('Service unavailable');
+
+			// @ts-expect-error - accessing private property for testing
+			expect(publisher.pausedOrderingKeys.has('user-1')).toBe(false);
+
+			queue.publish = originalPublish;
+		});
+
+		test('should pause ordering key on FAILED_PRECONDITION error (code 9)', async () => {
+			const topicName = 'projects/test-project/topics/my-topic';
+			queue.registerTopic(topicName);
+
+			const publisher = new Publisher(topicName, {
+				messageOrdering: true,
+			});
+
+			const { PubSubError, ErrorCode } = await import('../../src/types/errors');
+			const originalPublish = queue.publish.bind(queue);
+			queue.publish = () => {
+				throw new PubSubError('Failed precondition', ErrorCode.FAILED_PRECONDITION);
+			};
+
+			await expect(
+				publisher.publishMessage({
+					data: Buffer.from('test'),
+					orderingKey: 'user-1',
+				})
+			).rejects.toThrow('Failed precondition');
+
+			// @ts-expect-error - accessing private property for testing
+			expect(publisher.pausedOrderingKeys.has('user-1')).toBe(true);
+
+			queue.publish = originalPublish;
+		});
+
+		test('should pause ordering key on ALREADY_EXISTS error (code 6)', async () => {
+			const topicName = 'projects/test-project/topics/my-topic';
+			queue.registerTopic(topicName);
+
+			const publisher = new Publisher(topicName, {
+				messageOrdering: true,
+			});
+
+			const { AlreadyExistsError } = await import('../../src/types/errors');
+			const originalPublish = queue.publish.bind(queue);
+			queue.publish = () => {
+				throw new AlreadyExistsError('Resource already exists');
+			};
+
+			await expect(
+				publisher.publishMessage({
+					data: Buffer.from('test'),
+					orderingKey: 'user-1',
+				})
+			).rejects.toThrow('Resource already exists');
+
+			// @ts-expect-error - accessing private property for testing
+			expect(publisher.pausedOrderingKeys.has('user-1')).toBe(true);
+
+			queue.publish = originalPublish;
+		});
+	});
 });

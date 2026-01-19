@@ -212,13 +212,20 @@ This plan addresses remaining gaps identified through systematic comparison of s
 - **Verification**: TypeScript compilation PASS, Biome lint PASS, all tests PASS
 - **Spec Satisfied**: `specs/08-schema.md` AC-009 (listSchemas) and AC-010 (validateSchema)
 
-#### 13. Improve error classification for ordering key pause
-- **Location**: `src/publisher/publisher.ts:236-242, 554-558`
-- **Gap**: Pauses on ANY error, not just non-retryable errors
+#### ~~13. Improve error classification for ordering key pause~~ **[COMPLETED]**
+- **Status**: COMPLETED
+- **Location**: `src/publisher/publisher.ts:28-42, 253-254, 570-571`
+- **Implementation**: Added `shouldPauseOrderingKey()` helper function that checks error codes
+- **Changes**:
+  - Created helper function to classify errors as retryable vs non-retryable
+  - Only pause ordering keys for non-retryable error codes (3, 5, 6, 7, 9)
+  - Retryable error codes (4, 8, 10, 13, 14) do NOT pause ordering keys
+  - Updated both pause locations (immediate batch publish and timer-triggered publish)
+- **Test Coverage**: 8 new tests in `tests/unit/publisher.test.ts` (lines 690-906)
+  - Tests for non-retryable errors (INVALID_ARGUMENT, NOT_FOUND, PERMISSION_DENIED, FAILED_PRECONDITION, ALREADY_EXISTS)
+  - Tests for retryable errors (DEADLINE_EXCEEDED, RESOURCE_EXHAUSTED, UNAVAILABLE)
 - **Spec**: `specs/09-ordering.md` BR-011
-- **Research**: See "Implementation Details" → Item 13 for error code lists
-- **Impact**: Transient errors pause ordering keys unnecessarily
-- **Fix**: Check error code, only pause on non-retryable (codes: 3, 5, 6, 7, 9)
+- **Verification**: TypeScript compilation PASS, Biome lint PASS, 40 publisher unit tests PASS
 
 ### Low Priority
 
