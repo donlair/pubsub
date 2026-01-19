@@ -148,7 +148,8 @@ export class Subscription extends EventEmitter {
 
 		this.queue.registerSubscription(this.name, topicName, {
 			ackDeadlineSeconds: this.metadata.ackDeadlineSeconds,
-			enableMessageOrdering: this.metadata.enableMessageOrdering
+			enableMessageOrdering: this.metadata.enableMessageOrdering,
+			retryPolicy: this.metadata.retryPolicy
 		});
 
 		return [this, this.metadata];

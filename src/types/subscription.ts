@@ -242,6 +242,9 @@ export interface SubscriptionOptions extends SubscriberOptions {
 
   /** Enable message ordering for this subscription. */
   enableMessageOrdering?: boolean;
+
+  /** Retry policy for failed deliveries. */
+  retryPolicy?: RetryPolicy;
 }
 
 /**

@@ -22,6 +22,12 @@ describe('Message', () => {
 		messageQueue.registerSubscription(
 			'projects/test/subscriptions/test-sub',
 			'projects/test/topics/test-topic',
+			{
+				retryPolicy: {
+					minimumBackoff: { seconds: 0.1 },
+					maximumBackoff: { seconds: 1 }
+				}
+			} as any
 		);
 	});
 
@@ -98,8 +104,8 @@ describe('Message', () => {
 		expect(messagesAfterAck).toHaveLength(0);
 	});
 
-	// AC-003: Nack Causes Immediate Redelivery
-	test('AC-003: nack should cause immediate redelivery', () => {
+	// AC-003: Nack Causes Redelivery with Backoff
+	test('AC-003: nack should cause redelivery with backoff', async () => {
 		// Publish a message
 		messageQueue.publish('projects/test/topics/test-topic', [
 			{
@@ -136,7 +142,10 @@ describe('Message', () => {
 		// Nack the message
 		message.nack();
 
-		// Pull again - should be redelivered
+		// Wait for backoff
+		await new Promise(resolve => setTimeout(resolve, 150));
+
+		// Pull again - should be redelivered after backoff
 		const redeliveredMessages = messageQueue.pull(
 			'projects/test/subscriptions/test-sub',
 			1,
@@ -326,7 +335,7 @@ describe('Message', () => {
 	});
 
 	// AC-009: Ack After Nack Has No Effect
-	test('AC-009: ack after nack should have no effect', () => {
+	test('AC-009: ack after nack should have no effect', async () => {
 		// Publish a message
 		messageQueue.publish('projects/test/topics/test-topic', [
 			{
@@ -362,7 +371,10 @@ describe('Message', () => {
 		// Then ack (should have no effect)
 		message.ack();
 
-		// Message should be redelivered
+		// Wait for backoff
+		await new Promise(resolve => setTimeout(resolve, 150));
+
+		// Message should be redelivered after backoff
 		const redelivered = messageQueue.pull(
 			'projects/test/subscriptions/test-sub',
 			1,
@@ -455,7 +467,10 @@ describe('Message', () => {
 		const response = await message.nackWithResponse();
 		expect(response).toBe(AckResponses.Success);
 
-		// Message should be redelivered
+		// Wait for backoff
+		await new Promise(resolve => setTimeout(resolve, 150));
+
+		// Message should be redelivered after backoff
 		const redelivered = messageQueue.pull(
 			'projects/test/subscriptions/test-sub',
 			1,
@@ -712,7 +727,7 @@ describe('Message', () => {
 			);
 		});
 
-		test('modifyAckDeadline(0) should act as nack', () => {
+		test('modifyAckDeadline(0) should act as nack', async () => {
 			// Publish a message
 			messageQueue.publish(
 				'projects/test/topics/test-topic',
@@ -748,7 +763,10 @@ describe('Message', () => {
 			// modifyAckDeadline(0) should cause redelivery like nack
 			message.modifyAckDeadline(0);
 
-			// Message should be redelivered
+			// Wait for backoff
+			await new Promise(resolve => setTimeout(resolve, 150));
+
+			// Message should be redelivered after backoff
 			const redelivered = messageQueue.pull(
 				'projects/test/subscriptions/test-sub',
 				1,

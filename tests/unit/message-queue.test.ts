@@ -125,9 +125,14 @@ describe('MessageQueue', () => {
   });
 
   // AC-006: Nack Redelivers Immediately
-  test('AC-006: Nack causes immediate redelivery', () => {
+  test('AC-006: Nack causes redelivery with backoff', async () => {
     queue.registerTopic('test-topic');
-    queue.registerSubscription('test-sub', 'test-topic');
+    queue.registerSubscription('test-sub', 'test-topic', {
+      retryPolicy: {
+        minimumBackoff: { seconds: 0.1 },
+        maximumBackoff: { seconds: 1 }
+      }
+    } as any);
 
     const messages: InternalMessage[] = [
       {
@@ -149,18 +154,27 @@ describe('MessageQueue', () => {
     // Nack the message
     queue.nack(pulled1[0]!.ackId!);
 
-    // Should be available immediately with incremented delivery attempt
+    // Should not be available immediately (backoff applied)
     const pulled2 = queue.pull('test-sub', 10);
-    expect(pulled2).toHaveLength(1);
-    expect(pulled2[0]!.deliveryAttempt).toBe(2);
+    expect(pulled2).toHaveLength(0);
+
+    // After minimal backoff, should be available with incremented delivery attempt
+    await new Promise(resolve => setTimeout(resolve, 150));
+    const pulled3 = queue.pull('test-sub', 10);
+    expect(pulled3).toHaveLength(1);
+    expect(pulled3[0]!.deliveryAttempt).toBe(2);
   });
 
   // AC-007: Ack Deadline Expiry Redelivers
   test('AC-007: Ack deadline expiry causes redelivery', async () => {
     queue.registerTopic('test-topic');
     queue.registerSubscription('test-sub', 'test-topic', {
-      ackDeadlineSeconds: 1  // 1 second for faster testing
-    });
+      ackDeadlineSeconds: 1,  // 1 second for faster testing
+      retryPolicy: {
+        minimumBackoff: { seconds: 0.1 },
+        maximumBackoff: { seconds: 1 }
+      }
+    } as any);
 
     const messages: InternalMessage[] = [
       {
@@ -179,10 +193,10 @@ describe('MessageQueue', () => {
     const pulled1 = queue.pull('test-sub', 10);
     expect(pulled1).toHaveLength(1);
 
-    // Don't ack - wait for deadline
-    await new Promise(resolve => setTimeout(resolve, 1100));
+    // Don't ack - wait for deadline + backoff
+    await new Promise(resolve => setTimeout(resolve, 1250));
 
-    // Should be available for redelivery
+    // Should be available for redelivery after backoff
     const pulled2 = queue.pull('test-sub', 10);
     expect(pulled2).toHaveLength(1);
     expect(pulled2[0]!.deliveryAttempt).toBe(2);
@@ -725,11 +739,15 @@ describe('MessageQueue', () => {
         expect(pulled3).toHaveLength(1);
       });
 
-      test('Tracks in-flight bytes correctly', () => {
+      test('Tracks in-flight bytes correctly', async () => {
         queue.registerTopic('test-topic');
         queue.registerSubscription('test-sub', 'test-topic', {
           flowControl: {
             maxBytes: 1000
+          },
+          retryPolicy: {
+            minimumBackoff: { seconds: 0.1 },
+            maximumBackoff: { seconds: 1 }
           }
         } as any);
 
@@ -750,6 +768,7 @@ describe('MessageQueue', () => {
 
         queue.nack(pulled[0]!.ackId!);
 
+        await new Promise(resolve => setTimeout(resolve, 150));
         const pulled2 = queue.pull('test-sub', 10);
         expect(pulled2).toHaveLength(1);
       });
@@ -878,7 +897,7 @@ describe('MessageQueue', () => {
         expect(pulled3[0]!.deliveryAttempt).toBe(2);
       });
 
-      test('No backoff when no retryPolicy specified', () => {
+      test('Applies default backoff (10s-600s) when no retryPolicy specified', async () => {
         queue.registerTopic('test-topic');
         queue.registerSubscription('test-sub', 'test-topic');
 
@@ -897,9 +916,14 @@ describe('MessageQueue', () => {
         queue.nack(pulled1[0]!.ackId!);
 
         const pulled2 = queue.pull('test-sub', 10);
-        expect(pulled2).toHaveLength(1);
-        expect(pulled2[0]!.deliveryAttempt).toBe(2);
-      });
+        expect(pulled2).toHaveLength(0);
+
+        await new Promise(resolve => setTimeout(resolve, 10100));
+
+        const pulled3 = queue.pull('test-sub', 10);
+        expect(pulled3).toHaveLength(1);
+        expect(pulled3[0]!.deliveryAttempt).toBe(2);
+      }, { timeout: 15000 });
 
       test('Caps backoff at maximumBackoff', async () => {
         queue.registerTopic('test-topic');
@@ -936,7 +960,7 @@ describe('MessageQueue', () => {
 
     // BR-016: Dead Letter Queue
     describe('BR-016: Dead Letter Queue', () => {
-      test('Routes message to DLQ after maxDeliveryAttempts', () => {
+      test('Routes message to DLQ after maxDeliveryAttempts', async () => {
         queue.registerTopic('test-topic');
         queue.registerTopic('dlq-topic');
         queue.registerSubscription('dlq-sub', 'dlq-topic');
@@ -944,6 +968,10 @@ describe('MessageQueue', () => {
           deadLetterPolicy: {
             deadLetterTopic: 'dlq-topic',
             maxDeliveryAttempts: 3
+          },
+          retryPolicy: {
+            minimumBackoff: { seconds: 0.1 },
+            maximumBackoff: { seconds: 1 }
           }
         } as any);
 
@@ -962,12 +990,15 @@ describe('MessageQueue', () => {
         const pulled1 = queue.pull('test-sub', 10);
         queue.nack(pulled1[0]!.ackId!);
 
+        await new Promise(resolve => setTimeout(resolve, 150));
         const pulled2 = queue.pull('test-sub', 10);
         queue.nack(pulled2[0]!.ackId!);
 
+        await new Promise(resolve => setTimeout(resolve, 250));
         const pulled3 = queue.pull('test-sub', 10);
         queue.nack(pulled3[0]!.ackId!);
 
+        await new Promise(resolve => setTimeout(resolve, 250));
         const pulled4 = queue.pull('test-sub', 10);
         expect(pulled4).toHaveLength(0);
 
@@ -977,7 +1008,7 @@ describe('MessageQueue', () => {
         expect(dlqMessages[0]!.orderingKey).toBe('key-1');
       });
 
-      test('Removes message from original subscription after DLQ routing', () => {
+      test('Removes message from original subscription after DLQ routing', async () => {
         queue.registerTopic('test-topic');
         queue.registerTopic('dlq-topic');
         queue.registerSubscription('dlq-sub', 'dlq-topic');
@@ -985,6 +1016,10 @@ describe('MessageQueue', () => {
           deadLetterPolicy: {
             deadLetterTopic: 'dlq-topic',
             maxDeliveryAttempts: 2
+          },
+          retryPolicy: {
+            minimumBackoff: { seconds: 0.1 },
+            maximumBackoff: { seconds: 1 }
           }
         } as any);
 
@@ -1003,14 +1038,16 @@ describe('MessageQueue', () => {
         const pulled1 = queue.pull('test-sub', 10);
         queue.nack(pulled1[0]!.ackId!);
 
+        await new Promise(resolve => setTimeout(resolve, 150));
         const pulled2 = queue.pull('test-sub', 10);
         queue.nack(pulled2[0]!.ackId!);
 
+        await new Promise(resolve => setTimeout(resolve, 150));
         const pulled3 = queue.pull('test-sub', 10);
         expect(pulled3).toHaveLength(0);
       });
 
-      test('Preserves original message metadata in DLQ', () => {
+      test('Preserves original message metadata in DLQ', async () => {
         queue.registerTopic('test-topic');
         queue.registerTopic('dlq-topic');
         queue.registerSubscription('dlq-sub', 'dlq-topic');
@@ -1018,6 +1055,10 @@ describe('MessageQueue', () => {
           deadLetterPolicy: {
             deadLetterTopic: 'dlq-topic',
             maxDeliveryAttempts: 2
+          },
+          retryPolicy: {
+            minimumBackoff: { seconds: 0.1 },
+            maximumBackoff: { seconds: 1 }
           }
         } as any);
 
@@ -1037,9 +1078,11 @@ describe('MessageQueue', () => {
         const pulled1 = queue.pull('test-sub', 10);
         queue.nack(pulled1[0]!.ackId!);
 
+        await new Promise(resolve => setTimeout(resolve, 150));
         const pulled2 = queue.pull('test-sub', 10);
         queue.nack(pulled2[0]!.ackId!);
 
+        await new Promise(resolve => setTimeout(resolve, 150));
         const dlqMessages = queue.pull('dlq-sub', 10);
         expect(dlqMessages[0]!.attributes.key).toBe('value');
         expect(dlqMessages[0]!.orderingKey).toBe('order-key');

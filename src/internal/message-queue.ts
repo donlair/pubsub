@@ -130,14 +130,17 @@ export class MessageQueue {
     topicName: string,
     options?: SubscriptionMetadata
   ): void {
-    if (!this.subscriptions.has(subscriptionName)) {
-      this.subscriptions.set(subscriptionName, {
-        name: subscriptionName,
-        topic: topicName,
-        ...options,
-      });
+    const exists = this.subscriptions.has(subscriptionName);
 
-      // Initialize queue for subscription
+    // Always update subscription metadata
+    this.subscriptions.set(subscriptionName, {
+      name: subscriptionName,
+      topic: topicName,
+      ...options,
+    });
+
+    // Only initialize queue if subscription doesn't exist
+    if (!exists) {
       const queue: SubscriptionQueue = {
         messages: [],
         inFlight: new Map(),
@@ -632,17 +635,14 @@ export class MessageQueue {
 
   /**
    * Calculate retry backoff delay (BR-015).
+   * Applies default backoff (10s-600s) when no retryPolicy provided.
    */
   private calculateBackoff(
     deliveryAttempt: number,
     retryPolicy?: { minimumBackoff?: { seconds?: number }; maximumBackoff?: { seconds?: number } }
   ): number {
-    if (!retryPolicy) {
-      return 0;
-    }
-
-    const minBackoffSeconds = retryPolicy.minimumBackoff?.seconds || 10;
-    const maxBackoffSeconds = retryPolicy.maximumBackoff?.seconds || 600;
+    const minBackoffSeconds = retryPolicy?.minimumBackoff?.seconds ?? 10;
+    const maxBackoffSeconds = retryPolicy?.maximumBackoff?.seconds ?? 600;
 
     const backoffSeconds = Math.min(
       minBackoffSeconds * 2 ** (deliveryAttempt - 1),
