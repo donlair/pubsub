@@ -1,9 +1,9 @@
-0a. Study `specs/*` with up to 50 parallel Sonnet subagents to learn the application specifications.
-0b. Study @IMPLEMENTATION_PLAN.md (if present) to understand the plan so far.
+0a. Study `specs/*` with up to 10 parallel Sonnet subagents to learn the application specifications.
+0b. Study @IMPLEMENTATION_PLAN.md (if present) to understand the plan so far. Your task is to create/update the plan.
 0c. Study `src/*` with up to 100 parallel Sonnet subagents to understand what has been built so far.
 
-1. Study @IMPLEMENTATION_PLAN.md (if present; it may be incorrect) and use up to 200 Sonnet subagents to study existing source code in `src/*` and compare it against `specs/*`. Use an Opus subagent to analyze findings, prioritize tasks, and create/update @IMPLEMENTATION_PLAN.md as a bullet point list sorted in priority of items yet to be implemented. Ultrathink. Consider searching for TODO, minimal implementations, placeholders, skipped/flaky tests, and inconsistent patterns. Study @IMPLEMENTATION_PLAN.md to determine starting point for research and keep it up to date with items considered complete/incomplete using subagents.
+1. Study the implementation plan (if present; it may be incorrect) and use up to 20 parallel Sonnet subagents to study existing source code in `src/*` and compare it against `specs/*`. Use an Opus subagent to analyze findings, prioritize tasks, and create/update @IMPLEMENTATION_PLAN.md as a bullet point list sorted in priority of items yet to be implemented. Ultrathink. Consider searching for TODO, minimal implementations, placeholders, skipped/flaky tests, and inconsistent patterns. Study @IMPLEMENTATION_PLAN.md to determine starting point for research and keep it up to date with items considered complete/incomplete using subagents.
 
 IMPORTANT: Plan only. Do NOT implement anything. Do NOT assume functionality is missing; confirm with code search first. 
 
-ULTIMATE GOAL: We want to achieve a node-compatible implementation of the Google Cloud Pub/Sub API that allows projects to start as fully self-contained monoliths and seamlessly migrate to actual Google Pub/Sub when scale demands it. Consider missing elements and plan accordingly. If an element is missing, search first to confirm it doesn't exist, then if needed author the specification at specs/FILENAME.md. If you create a new element then document the plan to implement it in @IMPLEMENTATION_PLAN.md using a subagent.
+ULTIMATE GOAL: Consider missing elements and plan accordingly. If an element is missing, search first to confirm it doesn't exist, then if needed author the specification at specs/FILENAME.md. If you create a new element then document the plan to implement it in @IMPLEMENTATION_PLAN.md using a subagent.
