@@ -334,13 +334,22 @@ This plan addresses remaining gaps identified through systematic comparison of s
 - **Spec**: `specs/04-message.md` BR-010
 - **Research**: See "Implementation Details" → Item 18 for expected behavior
 
-#### 21. Add gaxOpts runtime usage
-- **Location**: Various files (topic.ts, subscription.ts, pubsub.ts)
-- **Gap**: Types defined but never used at runtime
-- **Spec**: Google Cloud Pub/Sub API compatibility
-- **Research**: See "Implementation Details" → Item 19 for complete structure
-- **Impact**: gRPC options have no effect
-- **Note**: N/A for in-memory implementation; document as no-op
+#### ~~21. Add gaxOpts runtime usage~~ **[COMPLETED]**
+- **Status**: COMPLETED
+- **Location**: `/workspaces/pubsub/src/types/*.ts`
+- **Implementation**: Added comprehensive JSDoc documentation to all interfaces with gaxOpts properties
+- **Changes**:
+  - Documented CallOptions, RetryOptions, BackoffSettings, PageOptions (common.ts)
+  - Documented PubSubOptions (pubsub.ts), PublishOptions (publisher.ts)
+  - Documented all topic, subscription, and schema operation options
+  - All gaxOpts properties now have clear "no runtime effect" documentation
+  - 13 interfaces across 6 files updated with consistent documentation
+- **Test Coverage**: 29 new compatibility tests in `tests/compatibility/gaxopts-compat.test.ts`
+  - Tests all major operation categories (PubSub, Topic, Subscription, Schema, Publisher)
+  - Tests various gaxOpts configurations (timeout, retry, backoff, pagination)
+  - All tests passing (29/29)
+- **Verification**: TypeScript compilation PASS, Biome lint PASS
+- **Note**: gaxOpts parameters are N/A for in-memory implementation (no gRPC/network operations), but accepted for 100% API compatibility with @google-cloud/pubsub
 
 #### 22. Add enableOpenTelemetryTracing instrumentation
 - **Location**: `src/pubsub.ts`
