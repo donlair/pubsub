@@ -335,8 +335,6 @@ export class MessageQueue {
       return [];
     }
 
-    console.log('[DEBUG] Pull called:', subscriptionName, 'queue.messages.length:', queue.messages.length, 'queue.inFlightCount:', queue.inFlightCount);
-
     const result: InternalMessage[] = [];
     const ackDeadlineSeconds = subscription.ackDeadlineSeconds || 10;
 
@@ -424,9 +422,7 @@ export class MessageQueue {
     };
 
     const timerMs = ackDeadlineSeconds * 1000;
-    console.log('[DEBUG] Creating timer for ackId:', ackId, 'deadline:', timerMs, 'ms');
     lease.timer = setTimeout(() => {
-      console.log('[DEBUG] Timer fired for ackId:', ackId);
       this.handleDeadlineExpiry(ackId);
     }, timerMs);
 
