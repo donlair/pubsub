@@ -938,6 +938,7 @@ describe('MessageStream', () => {
 	test('Uses default timeout of 5 minutes when not specified', async () => {
 		const stream = new MessageStream(subscription, {});
 
+		// biome-ignore lint/complexity/useLiteralKeys: accessing private property for testing
 		expect(stream['timeoutMs']).toBe(300000);
 
 		await stream.stop();
@@ -959,6 +960,7 @@ describe('MessageStream', () => {
 
 		expect(errors.length).toBe(1);
 		expect(errors[0]?.message).toContain('timeout');
+		// biome-ignore lint/complexity/useLiteralKeys: accessing private property for testing
 		expect(stream['isRunning']).toBe(false);
 	}, { timeout: 1000 });
 
@@ -998,6 +1000,7 @@ describe('MessageStream', () => {
 		await new Promise((resolve) => setTimeout(resolve, 100));
 
 		expect(errors.length).toBe(0);
+		// biome-ignore lint/complexity/useLiteralKeys: accessing private property for testing
 		expect(stream['isRunning']).toBe(true);
 
 		await stream.stop();

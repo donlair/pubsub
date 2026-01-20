@@ -32,7 +32,7 @@ describe('AckManager', () => {
 
 	describe('AC-001: Ack batching with count trigger', () => {
 		test('should batch acks up to maxMessages', async () => {
-			ackManager = new AckManager(subscriptionName, {
+			ackManager = new AckManager({
 				maxMessages: 3,
 				maxMilliseconds: 1000,
 			});
@@ -49,7 +49,7 @@ describe('AckManager', () => {
 		});
 
 		test('should trigger batch when maxMessages reached', async () => {
-			ackManager = new AckManager(subscriptionName, {
+			ackManager = new AckManager({
 				maxMessages: 5,
 				maxMilliseconds: 1000,
 			});
@@ -78,7 +78,7 @@ describe('AckManager', () => {
 
 	describe('AC-002: Ack batching with time trigger', () => {
 		test('should flush batch after maxMilliseconds', async () => {
-			ackManager = new AckManager(subscriptionName, {
+			ackManager = new AckManager({
 				maxMessages: 1000,
 				maxMilliseconds: 50,
 			});
@@ -102,7 +102,7 @@ describe('AckManager', () => {
 
 	describe('AC-003: Nack batching with count trigger', () => {
 		test('should batch nacks up to maxMessages', async () => {
-			ackManager = new AckManager(subscriptionName, {
+			ackManager = new AckManager({
 				maxMessages: 3,
 				maxMilliseconds: 1000,
 			});
@@ -123,7 +123,7 @@ describe('AckManager', () => {
 
 	describe('AC-004: Nack batching with time trigger', () => {
 		test('should flush nack batch after maxMilliseconds', async () => {
-			ackManager = new AckManager(subscriptionName, {
+			ackManager = new AckManager({
 				maxMessages: 1000,
 				maxMilliseconds: 50,
 			});
@@ -143,7 +143,7 @@ describe('AckManager', () => {
 
 	describe('AC-005: Manual flush', () => {
 		test('should flush all pending acks immediately', async () => {
-			ackManager = new AckManager(subscriptionName, {
+			ackManager = new AckManager({
 				maxMessages: 1000,
 				maxMilliseconds: 5000,
 			});
@@ -166,7 +166,7 @@ describe('AckManager', () => {
 		});
 
 		test('should flush all pending nacks immediately', async () => {
-			ackManager = new AckManager(subscriptionName, {
+			ackManager = new AckManager({
 				maxMessages: 1000,
 				maxMilliseconds: 5000,
 			});
@@ -189,7 +189,7 @@ describe('AckManager', () => {
 
 	describe('AC-006: Mixed ack and nack', () => {
 		test('should handle mixed ack and nack operations', async () => {
-			ackManager = new AckManager(subscriptionName, {
+			ackManager = new AckManager({
 				maxMessages: 1000,
 				maxMilliseconds: 50,
 			});
@@ -217,7 +217,7 @@ describe('AckManager', () => {
 
 	describe('AC-007: Default options', () => {
 		test('should use default batch options when not provided', async () => {
-			ackManager = new AckManager(subscriptionName);
+			ackManager = new AckManager();
 
 			const messages = publishAndPullMessages(3);
 			const ackIds = messages.map((m) => m.ackId ?? '');
@@ -232,7 +232,7 @@ describe('AckManager', () => {
 
 	describe('AC-008: Close cleanup', () => {
 		test('should flush pending operations on close', async () => {
-			ackManager = new AckManager(subscriptionName, {
+			ackManager = new AckManager({
 				maxMessages: 1000,
 				maxMilliseconds: 5000,
 			});
@@ -253,7 +253,7 @@ describe('AckManager', () => {
 
 	describe('AC-009: Batch error propagation', () => {
 		test('should reject all promises when one ack fails mid-batch', async () => {
-			ackManager = new AckManager(subscriptionName, {
+			ackManager = new AckManager({
 				maxMessages: 3,
 				maxMilliseconds: 1000,
 			});
@@ -282,7 +282,7 @@ describe('AckManager', () => {
 		});
 
 		test('should reject all promises when one nack fails mid-batch', async () => {
-			ackManager = new AckManager(subscriptionName, {
+			ackManager = new AckManager({
 				maxMessages: 3,
 				maxMilliseconds: 1000,
 			});

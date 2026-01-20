@@ -182,7 +182,7 @@ describe('Integration: Automatic Ack Deadline Extension', () => {
 				}
 			);
 
-			const spy = spyOn(subscription, 'modifyAckDeadline' as keyof Subscription);
+			const _spy = spyOn(subscription, 'modifyAckDeadline' as keyof Subscription);
 
 			const messageProcessed = new Promise<void>((resolve) => {
 				subscription.on('message', (message: Message) => {

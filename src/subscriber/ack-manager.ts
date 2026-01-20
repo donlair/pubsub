@@ -20,7 +20,7 @@ export class AckManager {
 	private ackBatch: Batch;
 	private nackBatch: Batch;
 
-	constructor(_subscriptionName: string, options?: BatchOptions) {
+	constructor(options?: BatchOptions) {
 		this.batching = {
 			maxMessages: options?.maxMessages ?? DEFAULT_SUBSCRIBER_BATCH_OPTIONS.maxMessages,
 			maxMilliseconds: options?.maxMilliseconds ?? DEFAULT_SUBSCRIBER_BATCH_OPTIONS.maxMilliseconds,

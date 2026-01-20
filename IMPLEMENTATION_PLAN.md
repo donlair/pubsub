@@ -223,11 +223,18 @@ Issues are prioritized by severity with critical fixes first.
 
 ### 4.2 Remove Unused _subscriptionName Parameter
 
-- [ ] Remove or use the `_subscriptionName` parameter
-  - Location: `src/subscriber/ack-manager.ts:18`
+- [x] Remove or use the `_subscriptionName` parameter
+  - Location: `src/subscriber/ack-manager.ts:23`
   - Gap: Parameter accepted but never used
-  - Fix: Either remove parameter or add logging/tracing that uses it
-  - Note: May require updating all call sites if removed
+  - Fix: Removed parameter from constructor signature
+  - Implementation:
+    - Changed constructor from `constructor(_subscriptionName: string, options?: BatchOptions)` to `constructor(options?: BatchOptions)`
+    - Updated all 12 test call sites in `tests/unit/ack-manager.test.ts` to remove the parameter
+    - Added biome-ignore comments for private property access in unrelated tests
+    - Prefixed unused spy variable with underscore in auto-deadline-extension test
+  - Tests: All AckManager tests pass (12/12)
+  - Code Review: Approved - no issues found
+  - Completed: 2026-01-19
 
 ### 4.3 Fix Pagination Documentation Accuracy
 
