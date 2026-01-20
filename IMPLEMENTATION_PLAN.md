@@ -140,11 +140,19 @@ Issues are prioritized by severity with critical fixes first.
 
 ### 3.1 Add AckManager Batch Error Propagation Test
 
-- [ ] Create test for batch failure mid-iteration
+- [x] Create test for batch failure mid-iteration
   - Location: New test in `tests/unit/ack-manager.test.ts`
   - Gap: No test for when one ack in batch fails
   - Test: Mock `queue.ack` to fail on specific ackId, verify all promises rejected
+  - Implementation:
+    - Added AC-009 test suite with two tests: one for ack failures, one for nack failures
+    - Tests mock queue.ack/nack to throw InvalidArgumentError on 2nd call
+    - Verify all 3 promises in batch reject with same error
+    - Verify spy called exactly twice (stops at failure point)
+  - Tests: `tests/unit/ack-manager.test.ts:254-312`
+  - Code Review: Approved - no issues found
   - Spec: FINDINGS.md Issue #11
+  - Completed: 2026-01-19
 
 ### 3.2 Add Subscription-Deleted-Mid-Flight Test
 

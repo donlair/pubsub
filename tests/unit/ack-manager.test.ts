@@ -1,7 +1,8 @@
-import { test, expect, describe, beforeEach } from 'bun:test';
+import { test, expect, describe, beforeEach, spyOn } from 'bun:test';
 import { MessageQueue } from '../../src/internal/message-queue';
 import { AckManager } from '../../src/subscriber/ack-manager';
 import { PreciseDate } from '../../src/utils/precise-date';
+import { InvalidArgumentError } from '../../src/types/errors';
 
 describe('AckManager', () => {
 	let queue: MessageQueue;
@@ -247,6 +248,66 @@ describe('AckManager', () => {
 
 			const remaining = queue.pull(subscriptionName, 10);
 			expect(remaining).toHaveLength(0);
+		});
+	});
+
+	describe('AC-009: Batch error propagation', () => {
+		test('should reject all promises when one ack fails mid-batch', async () => {
+			ackManager = new AckManager(subscriptionName, {
+				maxMessages: 3,
+				maxMilliseconds: 1000,
+			});
+
+			const messages = publishAndPullMessages(3);
+			const ackIds = messages.map((m) => m.ackId ?? '');
+
+			let callCount = 0;
+			const mockError = new InvalidArgumentError('Invalid ack ID: expired');
+			const ackSpy = spyOn(queue, 'ack').mockImplementation(() => {
+				callCount++;
+				if (callCount === 2) {
+					throw mockError;
+				}
+			});
+
+			const promises = ackIds.map((ackId) => ackManager.ack(ackId));
+
+			await expect(Promise.all(promises)).rejects.toThrow('Invalid ack ID: expired');
+
+			for (const promise of promises) {
+				await expect(promise).rejects.toThrow('Invalid ack ID: expired');
+			}
+
+			expect(ackSpy).toHaveBeenCalledTimes(2);
+		});
+
+		test('should reject all promises when one nack fails mid-batch', async () => {
+			ackManager = new AckManager(subscriptionName, {
+				maxMessages: 3,
+				maxMilliseconds: 1000,
+			});
+
+			const messages = publishAndPullMessages(3);
+			const ackIds = messages.map((m) => m.ackId ?? '');
+
+			let callCount = 0;
+			const mockError = new InvalidArgumentError('Invalid ack ID: expired');
+			const nackSpy = spyOn(queue, 'nack').mockImplementation(() => {
+				callCount++;
+				if (callCount === 2) {
+					throw mockError;
+				}
+			});
+
+			const promises = ackIds.map((ackId) => ackManager.nack(ackId));
+
+			await expect(Promise.all(promises)).rejects.toThrow('Invalid ack ID: expired');
+
+			for (const promise of promises) {
+				await expect(promise).rejects.toThrow('Invalid ack ID: expired');
+			}
+
+			expect(nackSpy).toHaveBeenCalledTimes(2);
 		});
 	});
 
