@@ -614,6 +614,7 @@ export class MessageQueue {
     originalQueue: SubscriptionQueue
   ): void {
     if (!this.topics.has(deadLetterTopic)) {
+      console.warn(`Dead letter topic does not exist: ${deadLetterTopic}. Message ${msg.id} will be dropped.`);
       return;
     }
 

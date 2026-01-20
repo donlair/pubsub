@@ -1088,6 +1088,55 @@ describe('MessageQueue', () => {
         expect(dlqMessages[0]!.orderingKey).toBe('order-key');
         expect(dlqMessages[0]!.publishTime).toBeDefined();
       });
+
+      test('Logs warning when DLQ topic does not exist', async () => {
+        const warnSpy = spyOn(console, 'warn');
+
+        queue.registerTopic('test-topic');
+        queue.registerSubscription('test-sub', 'test-topic', {
+          deadLetterPolicy: {
+            deadLetterTopic: 'non-existent-dlq-topic',
+            maxDeliveryAttempts: 2
+          },
+          retryPolicy: {
+            minimumBackoff: { seconds: 0.1 },
+            maximumBackoff: { seconds: 1 }
+          }
+        } as any);
+
+        const messages: InternalMessage[] = [{
+          id: 'msg-1',
+          data: Buffer.from('test'),
+          attributes: {},
+          publishTime: new Date() as any,
+          orderingKey: undefined,
+          deliveryAttempt: 1,
+          length: 4
+        }];
+
+        queue.publish('test-topic', messages);
+
+        const pulled1 = queue.pull('test-sub', 10);
+        queue.nack(pulled1[0]!.ackId!);
+
+        await new Promise(resolve => setTimeout(resolve, 150));
+        const pulled2 = queue.pull('test-sub', 10);
+        queue.nack(pulled2[0]!.ackId!);
+
+        await new Promise(resolve => setTimeout(resolve, 150));
+
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining('Dead letter topic does not exist')
+        );
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining('non-existent-dlq-topic')
+        );
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining('msg-1')
+        );
+
+        warnSpy.mockRestore();
+      });
     });
   });
 

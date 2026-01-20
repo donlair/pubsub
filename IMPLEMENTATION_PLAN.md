@@ -125,10 +125,14 @@ Issues are prioritized by severity with critical fixes first.
 
 ### 2.4 Add Warning for DLQ Routing Failures
 
-- [ ] Log warning when dead letter topic doesn't exist
-  - Location: `src/internal/message-queue.ts:674-681`
+- [x] Log warning when dead letter topic doesn't exist
+  - Location: `src/internal/message-queue.ts:617`
   - Gap: Message silently dropped if DLQ topic missing
-  - Fix: Add `console.warn` with message ID and topic name
+  - Fix: Added `console.warn` with message ID and topic name
+  - Implementation: Single-line warning message follows existing pattern (line 242-243)
+  - Test: Added test in `tests/unit/message-queue.test.ts:1092-1139` verifying warning is logged with topic name and message ID
+  - Code Review: Approved - no issues found, follows project conventions
+  - Completed: 2026-01-19
 
 ---
 
@@ -378,3 +382,4 @@ The following were **verified against official Google Cloud documentation** and 
 - **Do not batch comment removal**: Remove inline comments file-by-file to ensure each change compiles
 - **Test after each phase**: Run `bun run verify` after completing each phase
 - **Commit granularity**: One commit per sub-item (e.g., 1.1, 1.2, etc.) for clear audit trail
+- **Known Issue**: `tests/integration/dead-letter.test.ts` has 6 failing tests (timeouts, InvalidArgumentError on ack/nack). Pre-existing issue, unrelated to task 2.4. Added note during implementation 2026-01-19.
