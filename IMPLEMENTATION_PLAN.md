@@ -253,10 +253,18 @@ Issues are prioritized by severity with critical fixes first.
 
 ### 4.4 Add AckManager Class JSDoc
 
-- [ ] Add comprehensive JSDoc to AckManager class
-  - Location: `src/subscriber/ack-manager.ts:11`
+- [x] Add comprehensive JSDoc to AckManager class
+  - Location: `src/subscriber/ack-manager.ts:16-24`
   - Gap: Class has no JSDoc explaining its purpose
-  - Fix: Add JSDoc describing batching behavior, error semantics, and usage
+  - Fix: Added JSDoc describing batching behavior, separate batch management, dual trigger mechanism (maxMessages/maxMilliseconds), and error handling semantics
+  - Implementation:
+    - Added class-level JSDoc following project style guide
+    - Documents separate ack/nack batches
+    - Documents dual flush triggers (maxMessages OR maxMilliseconds, whichever first)
+    - Documents error propagation (all promises in batch rejected on error)
+    - References specs/03-subscription.md and specs/06-subscriber.md
+  - Code Review: Approved - no issues found, follows all project guidelines
+  - Completed: 2026-01-19
 
 ---
 

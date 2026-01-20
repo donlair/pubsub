@@ -13,6 +13,15 @@ interface Batch {
 	timer?: ReturnType<typeof setTimeout>;
 }
 
+/**
+ * AckManager - Batches acknowledgment and negative acknowledgment operations.
+ * Reference: specs/03-subscription.md, specs/06-subscriber.md
+ *
+ * Manages the batching of ack and nack operations for received messages. Batches are
+ * maintained separately for acks and nacks, with each batch flushing when either the
+ * maxMessages threshold or maxMilliseconds timeout is reached (whichever occurs first).
+ * On error, all promises in the affected batch are rejected with the same error.
+ */
 export class AckManager {
 	private readonly batching: Required<BatchOptions>;
 	private readonly queue: MessageQueue;
