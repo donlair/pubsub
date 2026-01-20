@@ -303,5 +303,21 @@ describe('gaxOpts API Compatibility', () => {
       });
       expect(Array.isArray(topics)).toBe(true);
     });
+
+    test('pagination options accepted but NOT implemented - all results returned', async () => {
+      await pubsub.createTopic('topic-1');
+      await pubsub.createTopic('topic-2');
+      await pubsub.createTopic('topic-3');
+
+      const [topics, nextPageToken] = await pubsub.getTopics({
+        gaxOpts: {
+          autoPaginate: false,
+          maxResults: 1,
+        },
+      });
+
+      expect(topics.length).toBeGreaterThanOrEqual(3);
+      expect(nextPageToken).toBeNull();
+    });
   });
 });
