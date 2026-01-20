@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach } from 'bun:test';
+import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import { PubSub } from '../../src/pubsub';
 import type { Message } from '../../src/message';
 import { SchemaTypes, Encodings } from '../../src/types/schema';
@@ -8,6 +8,10 @@ describe('Integration: Schema Validation', () => {
 
 	beforeEach(() => {
 		pubsub = new PubSub({ projectId: 'schema-integration-test' });
+	});
+
+	afterEach(async () => {
+		await pubsub.close();
 	});
 
 	test('AC-004: Topic with schema rejects invalid messages', async () => {

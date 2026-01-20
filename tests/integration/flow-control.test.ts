@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach } from 'bun:test';
+import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import { PubSub } from '../../src/pubsub';
 import type { Message } from '../../src/message';
 
@@ -7,6 +7,10 @@ describe('Integration: Flow Control', () => {
 
 	beforeEach(() => {
 		pubsub = new PubSub({ projectId: 'flow-control-test' });
+	});
+
+	afterEach(async () => {
+		await pubsub.close();
 	});
 
 	describe('Publisher Flow Control', () => {

@@ -247,7 +247,7 @@ describe('Topic API Compatibility', () => {
       const topic = pubsub.topic('flush-topic');
       await topic.create();
 
-      topic.publishMessage({ data: Buffer.from('test') });
+      await topic.publishMessage({ data: Buffer.from('test') });
 
       const result = await topic.flush();
 

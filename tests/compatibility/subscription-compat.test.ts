@@ -262,7 +262,7 @@ describe('Subscription API Compatibility', () => {
 			});
 
 			subscription.open();
-			topic.publishMessage({ data: Buffer.from('test') });
+			await topic.publishMessage({ data: Buffer.from('test') });
 		});
 
 		test('error event listener accepts Error parameter', async (done) => {
@@ -280,7 +280,7 @@ describe('Subscription API Compatibility', () => {
 			});
 
 			subscription.open();
-			topic.publishMessage({ data: Buffer.from('test') });
+			await topic.publishMessage({ data: Buffer.from('test') });
 		});
 
 		test('close event listener has no parameters', async (done) => {
@@ -315,8 +315,8 @@ describe('Subscription API Compatibility', () => {
 			});
 
 			subscription.open();
-			topic.publishMessage({ data: Buffer.from('test1') });
-			topic.publishMessage({ data: Buffer.from('test2') });
+			await topic.publishMessage({ data: Buffer.from('test1') });
+			await topic.publishMessage({ data: Buffer.from('test2') });
 		});
 	});
 
@@ -335,7 +335,7 @@ describe('Subscription API Compatibility', () => {
 			subscription.open();
 			expect(subscription.isOpen).toBe(true);
 
-			topic.publishMessage({ data: Buffer.from('test') });
+			await topic.publishMessage({ data: Buffer.from('test') });
 		});
 
 		test('close() stops message delivery and returns Promise<void>', async () => {
@@ -370,8 +370,8 @@ describe('Subscription API Compatibility', () => {
 			});
 
 			subscription.open();
-			topic.publishMessage({ data: Buffer.from('test1') });
-			topic.publishMessage({ data: Buffer.from('test2') });
+			await topic.publishMessage({ data: Buffer.from('test1') });
+			await topic.publishMessage({ data: Buffer.from('test2') });
 		});
 
 		test('resume() resumes message delivery after pause', async (done) => {
@@ -397,8 +397,8 @@ describe('Subscription API Compatibility', () => {
 			});
 
 			subscription.open();
-			topic.publishMessage({ data: Buffer.from('test1') });
-			topic.publishMessage({ data: Buffer.from('test2') });
+			await topic.publishMessage({ data: Buffer.from('test1') });
+			await topic.publishMessage({ data: Buffer.from('test2') });
 		});
 
 		test('pull() returns [Message[], unknown] tuple', async () => {
