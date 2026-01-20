@@ -16,6 +16,10 @@ import { Message } from '../message';
 import { SubscriberFlowControl } from './flow-control';
 import { LeaseManager } from './lease-manager';
 import { NotFoundError, InvalidArgumentError } from '../types/errors';
+import { Histogram } from '../utils/histogram';
+
+const DEADLINE_MONITOR_INTERVAL_MS = 1000;
+const MIN_SAMPLES_FOR_ADAPTIVE_DEADLINE = 10;
 
 /**
  * Convert Duration to seconds.
@@ -48,10 +52,12 @@ export class MessageStream {
 	private isPaused = false;
 	private pullIntervals: Array<ReturnType<typeof setInterval>> = [];
 	private timeoutTimer?: ReturnType<typeof setTimeout>;
+	private deadlineMonitorTimer?: ReturnType<typeof setInterval>;
 	private inFlightMessages = new Map<string, Message>();
 	private orderingQueues = new Map<string, Message[]>();
 	private processingOrderingKeys = new Set<string>();
 	private pendingMessages: InternalMessage[] = [];
+	private ackTimeHistogram: Histogram;
 
 	private readonly pullIntervalMs: number;
 	private readonly maxPullSize: number;
@@ -69,6 +75,7 @@ export class MessageStream {
 			ackDeadlineSeconds: subscription.metadata?.ackDeadlineSeconds ?? 10,
 		});
 		this.messageQueue = MessageQueue.getInstance();
+		this.ackTimeHistogram = new Histogram({ maxSamples: 1000 });
 
 		this.pullIntervalMs = options.streamingOptions?.pullInterval ?? 10;
 		this.maxPullSize = options.streamingOptions?.maxPullSize ?? 100;
@@ -129,6 +136,10 @@ export class MessageStream {
 			const interval = setInterval(() => this.pullMessages(), this.pullIntervalMs);
 			this.pullIntervals.push(interval);
 		}
+
+		this.deadlineMonitorTimer = setInterval(() => {
+			this.monitorAndExtendDeadlines();
+		}, DEADLINE_MONITOR_INTERVAL_MS);
 
 		if (this.timeoutMs > 0) {
 			this.timeoutTimer = setTimeout(() => {
@@ -202,6 +213,11 @@ export class MessageStream {
 		if (this.timeoutTimer) {
 			clearTimeout(this.timeoutTimer);
 			this.timeoutTimer = undefined;
+		}
+
+		if (this.deadlineMonitorTimer) {
+			clearInterval(this.deadlineMonitorTimer);
+			this.deadlineMonitorTimer = undefined;
 		}
 
 		const closeBehavior =
@@ -578,11 +594,52 @@ export class MessageStream {
 	 * Handle message completion (ack/nack).
 	 */
 	private handleMessageComplete(message: Message): void {
+		const ackTime = this.leaseManager.getAckTime(message.ackId);
+		if (ackTime !== null) {
+			this.ackTimeHistogram.recordMs(ackTime);
+		}
+
 		this.leaseManager.removeLease(message.ackId);
 		this.flowControl.removeMessage(message.length);
 		this.inFlightMessages.delete(message.ackId);
 
 		setImmediate(() => this.processPendingMessages());
+	}
+
+	/**
+	 * Monitor leases and automatically extend deadlines for slow processing.
+	 */
+	private monitorAndExtendDeadlines(): void {
+		try {
+			const leasesNeedingExtension = this.leaseManager.getLeasesNeedingExtension();
+
+			if (leasesNeedingExtension.length === 0) {
+				return;
+			}
+
+			const summary = this.ackTimeHistogram.summary();
+			let baseExtensionSeconds: number;
+
+			if (summary.count >= MIN_SAMPLES_FOR_ADAPTIVE_DEADLINE) {
+				baseExtensionSeconds = Math.ceil(summary.p99 / 1000);
+			} else {
+				const metadata = this.subscription.metadata;
+				baseExtensionSeconds = metadata?.ackDeadlineSeconds ?? 10;
+			}
+
+			baseExtensionSeconds = Math.max(10, Math.min(600, baseExtensionSeconds));
+
+			for (const lease of leasesNeedingExtension) {
+				try {
+					this.leaseManager.extendDeadline(lease.message.ackId, baseExtensionSeconds);
+					lease.message.modifyAckDeadline(baseExtensionSeconds);
+				} catch (_error) {
+					// Deadline extension is best-effort - message may have been acked/nacked
+				}
+			}
+		} catch (_error) {
+			// Monitoring errors should not crash the stream
+		}
 	}
 
 	/**

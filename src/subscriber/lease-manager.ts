@@ -15,6 +15,8 @@ interface Lease {
 	deadline: number;
 }
 
+const EXTENSION_THRESHOLD_SECONDS = 2;
+
 /**
  * Convert Duration to seconds.
  */
@@ -61,6 +63,43 @@ export class LeaseManager {
 		};
 
 		this.leases.set(message.ackId, lease);
+	}
+
+	/**
+	 * Get all leases that are approaching their deadline and need extension.
+	 * Extends when less than 2 seconds remain to ensure timely extension.
+	 */
+	getLeasesNeedingExtension(): Lease[] {
+		const now = Date.now();
+		const leasesNeedingExtension: Lease[] = [];
+
+		for (const lease of this.leases.values()) {
+			const elapsed = (now - lease.startTime) / 1000;
+			const remainingExtensionTime = this.maxExtensionTime - elapsed;
+
+			if (remainingExtensionTime <= 0) {
+				continue;
+			}
+
+			const timeUntilDeadline = (lease.deadline - now) / 1000;
+
+			if (timeUntilDeadline <= EXTENSION_THRESHOLD_SECONDS && timeUntilDeadline > 0) {
+				leasesNeedingExtension.push(lease);
+			}
+		}
+
+		return leasesNeedingExtension;
+	}
+
+	/**
+	 * Get the ack processing time for a completed lease.
+	 */
+	getAckTime(ackId: string): number | null {
+		const lease = this.leases.get(ackId);
+		if (!lease) {
+			return null;
+		}
+		return Date.now() - lease.startTime;
 	}
 
 	/**
