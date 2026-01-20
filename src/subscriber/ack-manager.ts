@@ -2,9 +2,14 @@ import { MessageQueue } from '../internal/message-queue';
 import type { BatchOptions } from '../types/subscriber';
 import { DEFAULT_SUBSCRIBER_BATCH_OPTIONS } from '../types/subscriber';
 
+interface PendingAck {
+	ackId: string;
+	resolve: () => void;
+	reject: (error: Error) => void;
+}
+
 interface Batch {
-	ackIds: string[];
-	promises: Array<{ resolve: () => void; reject: (error: Error) => void }>;
+	pending: PendingAck[];
 	timer?: ReturnType<typeof setTimeout>;
 }
 
@@ -28,8 +33,7 @@ export class AckManager {
 
 	async ack(ackId: string): Promise<void> {
 		return new Promise<void>((resolve, reject) => {
-			this.ackBatch.ackIds.push(ackId);
-			this.ackBatch.promises.push({ resolve, reject });
+			this.ackBatch.pending.push({ ackId, resolve, reject });
 
 			if (this.shouldFlushBatch(this.ackBatch)) {
 				this.flushAckBatch().catch(() => {});
@@ -45,8 +49,7 @@ export class AckManager {
 
 	async nack(ackId: string): Promise<void> {
 		return new Promise<void>((resolve, reject) => {
-			this.nackBatch.ackIds.push(ackId);
-			this.nackBatch.promises.push({ resolve, reject });
+			this.nackBatch.pending.push({ ackId, resolve, reject });
 
 			if (this.shouldFlushBatch(this.nackBatch)) {
 				this.flushNackBatch().catch(() => {});
@@ -63,11 +66,11 @@ export class AckManager {
 	async flush(): Promise<void> {
 		const promises: Promise<void>[] = [];
 
-		if (this.ackBatch.ackIds.length > 0) {
+		if (this.ackBatch.pending.length > 0) {
 			promises.push(this.flushAckBatch().catch(() => {}));
 		}
 
-		if (this.nackBatch.ackIds.length > 0) {
+		if (this.nackBatch.pending.length > 0) {
 			promises.push(this.flushNackBatch().catch(() => {}));
 		}
 
@@ -79,7 +82,7 @@ export class AckManager {
 	}
 
 	private shouldFlushBatch(batch: Batch): boolean {
-		return batch.ackIds.length >= this.batching.maxMessages;
+		return batch.pending.length >= this.batching.maxMessages;
 	}
 
 	private async flushAckBatch(): Promise<void> {
@@ -90,23 +93,21 @@ export class AckManager {
 			batch.timer = undefined;
 		}
 
-		if (batch.ackIds.length === 0) {
+		if (batch.pending.length === 0) {
 			return;
 		}
 
-		const ackIds = [...batch.ackIds];
-		const promises = [...batch.promises];
+		const pending = [...batch.pending];
 
-		batch.ackIds = [];
-		batch.promises = [];
+		batch.pending = [];
 
 		try {
-			for (const ackId of ackIds) {
-				this.queue.ack(ackId);
+			for (const item of pending) {
+				this.queue.ack(item.ackId);
 			}
 
-			for (const promise of promises) {
-				promise.resolve();
+			for (const item of pending) {
+				item.resolve();
 			}
 		} catch (error) {
 			const err =
@@ -114,8 +115,8 @@ export class AckManager {
 					? error
 					: new Error(`Ack batch failed: ${String(error)}`);
 
-			for (const promise of promises) {
-				promise.reject(err);
+			for (const item of pending) {
+				item.reject(err);
 			}
 
 			throw error;
@@ -130,23 +131,21 @@ export class AckManager {
 			batch.timer = undefined;
 		}
 
-		if (batch.ackIds.length === 0) {
+		if (batch.pending.length === 0) {
 			return;
 		}
 
-		const ackIds = [...batch.ackIds];
-		const promises = [...batch.promises];
+		const pending = [...batch.pending];
 
-		batch.ackIds = [];
-		batch.promises = [];
+		batch.pending = [];
 
 		try {
-			for (const ackId of ackIds) {
-				this.queue.nack(ackId);
+			for (const item of pending) {
+				this.queue.nack(item.ackId);
 			}
 
-			for (const promise of promises) {
-				promise.resolve();
+			for (const item of pending) {
+				item.resolve();
 			}
 		} catch (error) {
 			const err =
@@ -154,8 +153,8 @@ export class AckManager {
 					? error
 					: new Error(`Nack batch failed: ${String(error)}`);
 
-			for (const promise of promises) {
-				promise.reject(err);
+			for (const item of pending) {
+				item.reject(err);
 			}
 
 			throw error;
@@ -164,8 +163,7 @@ export class AckManager {
 
 	private createBatch(): Batch {
 		return {
-			ackIds: [],
-			promises: [],
+			pending: [],
 			timer: undefined,
 		};
 	}

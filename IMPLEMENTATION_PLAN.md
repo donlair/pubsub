@@ -208,11 +208,18 @@ Issues are prioritized by severity with critical fixes first.
 
 ### 4.1 Refactor Batch Type to Single Array
 
-- [ ] Replace parallel arrays with single array of objects
+- [x] Replace parallel arrays with single array of objects
   - Location: `src/subscriber/ack-manager.ts:5-9`
   - Gap: Parallel `ackIds[]` and `promises[]` arrays are fragile pattern
   - Fix: Create `PendingAck { ackId, resolve, reject }` and use `pending: PendingAck[]`
-  - Note: This is a refactor - ensure tests pass after change
+  - Implementation:
+    - Added `PendingAck` interface with `ackId`, `resolve`, `reject` fields
+    - Updated `Batch` interface to use single `pending: PendingAck[]` array
+    - Refactored all methods to use unified array access
+    - All 12 unit tests pass, behavior preserved
+  - Tests: `tests/unit/ack-manager.test.ts` (all existing tests pass)
+  - Code Review: Approved - no issues found, improves type safety
+  - Completed: 2026-01-19
 
 ### 4.2 Remove Unused _subscriptionName Parameter
 
