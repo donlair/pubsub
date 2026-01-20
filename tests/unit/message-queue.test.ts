@@ -640,6 +640,132 @@ describe('MessageQueue', () => {
           queue.publish('test-topic', messages);
         }).not.toThrow();
       });
+
+      test('Rejects non-string attribute value (number)', () => {
+        queue.registerTopic('test-topic');
+        queue.registerSubscription('test-sub', 'test-topic');
+
+        const messages: InternalMessage[] = [
+          {
+            id: 'msg-1',
+            data: Buffer.from('test'),
+            attributes: { key: 123 } as any,
+            publishTime: new Date() as any,
+            orderingKey: undefined,
+            deliveryAttempt: 1,
+            length: 0
+          }
+        ];
+
+        expect(() => {
+          queue.publish('test-topic', messages);
+        }).toThrow('Attribute values must be strings');
+      });
+
+      test('Rejects non-string attribute value (boolean)', () => {
+        queue.registerTopic('test-topic');
+        queue.registerSubscription('test-sub', 'test-topic');
+
+        const messages: InternalMessage[] = [
+          {
+            id: 'msg-1',
+            data: Buffer.from('test'),
+            attributes: { key: true } as any,
+            publishTime: new Date() as any,
+            orderingKey: undefined,
+            deliveryAttempt: 1,
+            length: 0
+          }
+        ];
+
+        expect(() => {
+          queue.publish('test-topic', messages);
+        }).toThrow('Attribute values must be strings');
+      });
+
+      test('Rejects non-string attribute value (object)', () => {
+        queue.registerTopic('test-topic');
+        queue.registerSubscription('test-sub', 'test-topic');
+
+        const messages: InternalMessage[] = [
+          {
+            id: 'msg-1',
+            data: Buffer.from('test'),
+            attributes: { key: { nested: 'value' } } as any,
+            publishTime: new Date() as any,
+            orderingKey: undefined,
+            deliveryAttempt: 1,
+            length: 0
+          }
+        ];
+
+        expect(() => {
+          queue.publish('test-topic', messages);
+        }).toThrow('Attribute values must be strings');
+      });
+
+      test('Rejects non-string attribute value (null)', () => {
+        queue.registerTopic('test-topic');
+        queue.registerSubscription('test-sub', 'test-topic');
+
+        const messages: InternalMessage[] = [
+          {
+            id: 'msg-1',
+            data: Buffer.from('test'),
+            attributes: { key: null } as any,
+            publishTime: new Date() as any,
+            orderingKey: undefined,
+            deliveryAttempt: 1,
+            length: 0
+          }
+        ];
+
+        expect(() => {
+          queue.publish('test-topic', messages);
+        }).toThrow('Attribute values must be strings');
+      });
+
+      test('Rejects non-string attribute value (undefined)', () => {
+        queue.registerTopic('test-topic');
+        queue.registerSubscription('test-sub', 'test-topic');
+
+        const messages: InternalMessage[] = [
+          {
+            id: 'msg-1',
+            data: Buffer.from('test'),
+            attributes: { key: undefined } as any,
+            publishTime: new Date() as any,
+            orderingKey: undefined,
+            deliveryAttempt: 1,
+            length: 0
+          }
+        ];
+
+        expect(() => {
+          queue.publish('test-topic', messages);
+        }).toThrow('Attribute values must be strings');
+      });
+
+      test('Accepts string attribute values', () => {
+        queue.registerTopic('test-topic');
+        queue.registerSubscription('test-sub', 'test-topic');
+
+        const messages: InternalMessage[] = [
+          {
+            id: 'msg-1',
+            data: Buffer.from('test'),
+            attributes: { key1: 'value1', key2: 'value2', key3: '' },
+            publishTime: new Date() as any,
+            orderingKey: undefined,
+            deliveryAttempt: 1,
+            length: 0
+          }
+        ];
+
+        expect(() => {
+          queue.publish('test-topic', messages);
+        }).not.toThrow();
+      });
     });
 
     // BR-014 & BR-013: In-Flight Metrics and Flow Control

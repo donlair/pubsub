@@ -270,13 +270,6 @@ export class MessageQueue {
    * Validate message size and attributes (BR-017).
    */
   private validateMessage(msg: InternalMessage): void {
-    const messageLength = this.calculateMessageLength(msg);
-    const maxMessageSize = 10 * 1024 * 1024;
-
-    if (messageLength > maxMessageSize) {
-      throw new InvalidArgumentError('Message size exceeds 10MB limit');
-    }
-
     for (const [key, value] of Object.entries(msg.attributes)) {
       if (!key || key.length === 0) {
         throw new InvalidArgumentError('Attribute keys must be non-empty');
@@ -287,7 +280,11 @@ export class MessageQueue {
         throw new InvalidArgumentError('Attribute key exceeds 256 bytes');
       }
 
-      const valueBytes = Buffer.byteLength(String(value), 'utf8');
+      if (typeof value !== 'string') {
+        throw new InvalidArgumentError('Attribute values must be strings');
+      }
+
+      const valueBytes = Buffer.byteLength(value, 'utf8');
       if (valueBytes > 1024) {
         throw new InvalidArgumentError('Attribute value exceeds 1024 bytes');
       }
@@ -295,6 +292,13 @@ export class MessageQueue {
       if (key.startsWith('goog') || key.startsWith('googclient_')) {
         throw new InvalidArgumentError('Attribute keys cannot start with reserved prefix');
       }
+    }
+
+    const messageLength = this.calculateMessageLength(msg);
+    const maxMessageSize = 10 * 1024 * 1024;
+
+    if (messageLength > maxMessageSize) {
+      throw new InvalidArgumentError('Message size exceeds 10MB limit');
     }
   }
 
@@ -306,7 +310,7 @@ export class MessageQueue {
 
     for (const [key, value] of Object.entries(msg.attributes)) {
       total += Buffer.byteLength(key, 'utf8');
-      total += Buffer.byteLength(String(value), 'utf8');
+      total += Buffer.byteLength(value, 'utf8');
     }
 
     return total;
