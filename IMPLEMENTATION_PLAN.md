@@ -375,11 +375,18 @@ Issues are prioritized by severity with critical fixes first.
 
 ### 7.2 Add Test for Pause/Resume Flow (AC-006)
 
-- [ ] Create test verifying pause() stops delivery and resume() restarts it
-  - Location: New test in `tests/unit/subscriber.test.ts`
-  - Gap: No dedicated test for `specs/06-subscriber.md:AC-006`
-  - Test: Open subscription, receive message, pause(), publish more, verify no delivery, resume(), verify delivery resumes
+- [x] Create test verifying pause() stops delivery and resume() restarts it
+  - Location: Refactored existing test in `tests/integration/publish-subscribe.test.ts:318-360`
+  - Gap: Test existed as AC-008 but used private messageStream property instead of public Subscription API
+  - Fix:
+    - Renamed from AC-008 to AC-006 to match specs/06-subscriber.md
+    - Changed to use `subscription.pause()` / `subscription.resume()` (public API)
+    - Removed access to private `(subscription as any).messageStream` property
+    - Simplified to match spec AC-006 exactly (specific assertions, msg1/msg2 naming)
+  - Test: Verifies pause() stops delivery and resume() restarts it using public Subscription API
+  - Code Review: Approved - improves public API usage and spec alignment
   - Spec: `specs/06-subscriber.md:AC-006`
+  - Completed: 2026-01-19
 
 ### 7.3 Add Test for Stop Waits for In-Flight (AC-007)
 
