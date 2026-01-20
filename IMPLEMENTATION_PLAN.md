@@ -461,11 +461,20 @@ Issues are prioritized by severity with critical fixes first.
 
 ### 8.1 Fix Topic.pubsub Property Type
 
-- [ ] Change `pubsub` property type from `unknown` to `PubSub`
-  - Location: `src/topic.ts:29`
+- [x] Change `pubsub` property type from `unknown` to `PubSub`
+  - Location: `src/topic.ts:29`, `src/subscription.ts:31`, `src/iam.ts:12`
   - Gap: Property typed as `unknown` instead of `PubSub`, requiring type assertions
-  - Fix: Import PubSub type and use proper typing
-  - Impact: Improves IDE autocomplete and type safety
+  - Fix: Import PubSub type using type-only imports (`import type`) to avoid circular dependencies
+  - Implementation:
+    - Added `import type { PubSub } from './pubsub'` to Topic, Subscription, and IAM classes
+    - Changed property type from `readonly pubsub: unknown` to `readonly pubsub: PubSub`
+    - Changed constructor parameter from `pubsub: unknown` to `pubsub: PubSub`
+    - Updated unit test mocks to use `as PubSub` type assertion
+    - Added test in `tests/unit/topic.test.ts:300-304` verifying pubsub.projectId access
+  - Impact: Improves IDE autocomplete, type safety, and eliminates need for type assertions. Fixed 25 failing tests.
+  - Tests: All unit tests pass, TypeScript compiles with zero errors, lint passes
+  - Code Review: Approved - no issues found, follows all project guidelines
+  - Completed: 2026-01-19
 
 ### 8.2 Add Type Guards for Subscription Options
 

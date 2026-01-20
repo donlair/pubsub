@@ -19,13 +19,14 @@ import { Topic } from '../../src/topic';
 import { MessageQueue } from '../../src/internal/message-queue';
 import type { Message } from '../../src/message';
 import { AckResponses } from '../../src/types/message';
+import type { PubSub } from '../../src/pubsub';
 
-let pubsub: unknown;
+let pubsub: PubSub;
 let queue: MessageQueue;
 
 beforeEach(() => {
 	queue = MessageQueue.getInstance();
-	pubsub = { projectId: 'test-project' };
+	pubsub = { projectId: 'test-project' } as PubSub;
 });
 
 afterEach(() => {

@@ -7,13 +7,14 @@
  */
 
 import type { Policy } from './types/iam';
+import type { PubSub } from './pubsub';
 import { UnimplementedError } from './types/errors';
 
 export class IAM {
-	readonly pubsub: unknown;
+	readonly pubsub: PubSub;
 	readonly resourceId: string;
 
-	constructor(pubsub: unknown, resourceId: string) {
+	constructor(pubsub: PubSub, resourceId: string) {
 		this.pubsub = pubsub;
 		this.resourceId = resourceId;
 	}
