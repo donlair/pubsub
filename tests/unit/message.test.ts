@@ -4,7 +4,7 @@
  * Tests all 15 acceptance criteria.
  */
 
-import { test, expect, describe, beforeEach } from 'bun:test';
+import { test, expect, describe, beforeEach, spyOn } from 'bun:test';
 import { Message } from '../../src/message';
 import { PreciseDate } from '../../src/utils/precise-date';
 import { AckResponses } from '../../src/types/message';
@@ -22,6 +22,12 @@ describe('Message', () => {
 		messageQueue.registerSubscription(
 			'projects/test/subscriptions/test-sub',
 			'projects/test/topics/test-topic',
+			{
+				retryPolicy: {
+					minimumBackoff: { seconds: 0.1 },
+					maximumBackoff: { seconds: 1 }
+				}
+			} as any
 		);
 	});
 
@@ -98,8 +104,8 @@ describe('Message', () => {
 		expect(messagesAfterAck).toHaveLength(0);
 	});
 
-	// AC-003: Nack Causes Immediate Redelivery
-	test('AC-003: nack should cause immediate redelivery', () => {
+	// AC-003: Nack Causes Redelivery with Backoff
+	test('AC-003: nack should cause redelivery with backoff', async () => {
 		// Publish a message
 		messageQueue.publish('projects/test/topics/test-topic', [
 			{
@@ -136,7 +142,10 @@ describe('Message', () => {
 		// Nack the message
 		message.nack();
 
-		// Pull again - should be redelivered
+		// Wait for backoff
+		await new Promise(resolve => setTimeout(resolve, 150));
+
+		// Pull again - should be redelivered after backoff
 		const redeliveredMessages = messageQueue.pull(
 			'projects/test/subscriptions/test-sub',
 			1,
@@ -326,7 +335,7 @@ describe('Message', () => {
 	});
 
 	// AC-009: Ack After Nack Has No Effect
-	test('AC-009: ack after nack should have no effect', () => {
+	test('AC-009: ack after nack should have no effect', async () => {
 		// Publish a message
 		messageQueue.publish('projects/test/topics/test-topic', [
 			{
@@ -362,7 +371,10 @@ describe('Message', () => {
 		// Then ack (should have no effect)
 		message.ack();
 
-		// Message should be redelivered
+		// Wait for backoff
+		await new Promise(resolve => setTimeout(resolve, 150));
+
+		// Message should be redelivered after backoff
 		const redelivered = messageQueue.pull(
 			'projects/test/subscriptions/test-sub',
 			1,
@@ -455,7 +467,10 @@ describe('Message', () => {
 		const response = await message.nackWithResponse();
 		expect(response).toBe(AckResponses.Success);
 
-		// Message should be redelivered
+		// Wait for backoff
+		await new Promise(resolve => setTimeout(resolve, 150));
+
+		// Message should be redelivered after backoff
 		const redelivered = messageQueue.pull(
 			'projects/test/subscriptions/test-sub',
 			1,
@@ -539,8 +554,255 @@ describe('Message', () => {
 		expect(response).toBe(AckResponses.Success);
 	});
 
-	// AC-015: Attribute Validation
-	describe('AC-015: Attribute validation', () => {
+	// AC-015: Response Code Coverage (New tests for FAILED_PRECONDITION and OTHER)
+	describe('AC-015: ackWithResponse error scenarios', () => {
+		test('should return FAILED_PRECONDITION when subscription queue deleted', async () => {
+			messageQueue.publish('projects/test/topics/test-topic', [
+				{
+					id: 'msg-1',
+					data: Buffer.from('test'),
+					attributes: {},
+					publishTime: new PreciseDate(),
+					orderingKey: undefined,
+					deliveryAttempt: 1,
+					length: 4,
+				},
+			]);
+
+			const messages = messageQueue.pull(
+				'projects/test/subscriptions/test-sub',
+				1,
+			);
+			const internalMsg = messages[0];
+			if (!internalMsg) throw new Error('No message');
+
+			const message = new Message(
+				internalMsg.id,
+				internalMsg.ackId || 'ack-1',
+				internalMsg.data,
+				internalMsg.attributes,
+				internalMsg.publishTime,
+				{ name: 'test-sub' },
+			);
+
+			// Delete subscription queue to simulate subscription closed
+			messageQueue.unregisterSubscription('projects/test/subscriptions/test-sub');
+
+			// Should return FAILED_PRECONDITION instead of throwing
+			const response = await message.ackWithResponse();
+			expect(response).toBe(AckResponses.FailedPrecondition);
+		});
+
+		test('should return SUCCESS when queue is intact', async () => {
+			messageQueue.publish('projects/test/topics/test-topic', [
+				{
+					id: 'msg-1',
+					data: Buffer.from('test'),
+					attributes: {},
+					publishTime: new PreciseDate(),
+					orderingKey: undefined,
+					deliveryAttempt: 1,
+					length: 4,
+				},
+			]);
+
+			const messages = messageQueue.pull(
+				'projects/test/subscriptions/test-sub',
+				1,
+			);
+			const internalMsg = messages[0];
+			if (!internalMsg) throw new Error('No message');
+
+			const message = new Message(
+				internalMsg.id,
+				internalMsg.ackId || 'ack-1',
+				internalMsg.data,
+				internalMsg.attributes,
+				internalMsg.publishTime,
+				{ name: 'test-sub' },
+			);
+
+			// Normal case - should succeed
+			const response = await message.ackWithResponse();
+			expect(response).toBe(AckResponses.Success);
+		});
+
+		test('nackWithResponse should return FAILED_PRECONDITION when subscription deleted', async () => {
+			messageQueue.publish('projects/test/topics/test-topic', [
+				{
+					id: 'msg-1',
+					data: Buffer.from('test'),
+					attributes: {},
+					publishTime: new PreciseDate(),
+					orderingKey: undefined,
+					deliveryAttempt: 1,
+					length: 4,
+				},
+			]);
+
+			const messages = messageQueue.pull(
+				'projects/test/subscriptions/test-sub',
+				1,
+			);
+			const internalMsg = messages[0];
+			if (!internalMsg) throw new Error('No message');
+
+			const message = new Message(
+				internalMsg.id,
+				internalMsg.ackId || 'ack-1',
+				internalMsg.data,
+				internalMsg.attributes,
+				internalMsg.publishTime,
+				{ name: 'test-sub' },
+			);
+
+			// Delete subscription queue
+			messageQueue.unregisterSubscription('projects/test/subscriptions/test-sub');
+
+			// Should return FAILED_PRECONDITION
+			const response = await message.nackWithResponse();
+			expect(response).toBe(AckResponses.FailedPrecondition);
+		});
+
+		test('modAckWithResponse should return SUCCESS for valid deadline', async () => {
+			messageQueue.publish('projects/test/topics/test-topic', [
+				{
+					id: 'msg-1',
+					data: Buffer.from('test'),
+					attributes: {},
+					publishTime: new PreciseDate(),
+					orderingKey: undefined,
+					deliveryAttempt: 1,
+					length: 4,
+				},
+			]);
+
+			const messages = messageQueue.pull(
+				'projects/test/subscriptions/test-sub',
+				1,
+			);
+			const internalMsg = messages[0];
+			if (!internalMsg) throw new Error('No message');
+
+			const message = new Message(
+				internalMsg.id,
+				internalMsg.ackId || 'ack-1',
+				internalMsg.data,
+				internalMsg.attributes,
+				internalMsg.publishTime,
+				{ name: 'test-sub' },
+			);
+
+			const response = await message.modAckWithResponse(30);
+			expect(response).toBe(AckResponses.Success);
+		});
+
+		test('modAckWithResponse should return INVALID for out-of-range deadline', async () => {
+			messageQueue.publish('projects/test/topics/test-topic', [
+				{
+					id: 'msg-1',
+					data: Buffer.from('test'),
+					attributes: {},
+					publishTime: new PreciseDate(),
+					orderingKey: undefined,
+					deliveryAttempt: 1,
+					length: 4,
+				},
+			]);
+
+			const messages = messageQueue.pull(
+				'projects/test/subscriptions/test-sub',
+				1,
+			);
+			const internalMsg = messages[0];
+			if (!internalMsg) throw new Error('No message');
+
+			const message = new Message(
+				internalMsg.id,
+				internalMsg.ackId || 'ack-1',
+				internalMsg.data,
+				internalMsg.attributes,
+				internalMsg.publishTime,
+				{ name: 'test-sub' },
+			);
+
+			const response = await message.modAckWithResponse(999);
+			expect(response).toBe(AckResponses.Invalid);
+		});
+
+		test('modAckWithResponse should return FAILED_PRECONDITION when subscription deleted', async () => {
+			messageQueue.publish('projects/test/topics/test-topic', [
+				{
+					id: 'msg-1',
+					data: Buffer.from('test'),
+					attributes: {},
+					publishTime: new PreciseDate(),
+					orderingKey: undefined,
+					deliveryAttempt: 1,
+					length: 4,
+				},
+			]);
+
+			const messages = messageQueue.pull(
+				'projects/test/subscriptions/test-sub',
+				1,
+			);
+			const internalMsg = messages[0];
+			if (!internalMsg) throw new Error('No message');
+
+			const message = new Message(
+				internalMsg.id,
+				internalMsg.ackId || 'ack-1',
+				internalMsg.data,
+				internalMsg.attributes,
+				internalMsg.publishTime,
+				{ name: 'test-sub' },
+			);
+
+			messageQueue.unregisterSubscription('projects/test/subscriptions/test-sub');
+
+			const response = await message.modAckWithResponse(30);
+			expect(response).toBe(AckResponses.FailedPrecondition);
+		});
+
+		test('modAckWithResponse should return INVALID when already acked', async () => {
+			messageQueue.publish('projects/test/topics/test-topic', [
+				{
+					id: 'msg-1',
+					data: Buffer.from('test'),
+					attributes: {},
+					publishTime: new PreciseDate(),
+					orderingKey: undefined,
+					deliveryAttempt: 1,
+					length: 4,
+				},
+			]);
+
+			const messages = messageQueue.pull(
+				'projects/test/subscriptions/test-sub',
+				1,
+			);
+			const internalMsg = messages[0];
+			if (!internalMsg) throw new Error('No message');
+
+			const message = new Message(
+				internalMsg.id,
+				internalMsg.ackId || 'ack-1',
+				internalMsg.data,
+				internalMsg.attributes,
+				internalMsg.publishTime,
+				{ name: 'test-sub' },
+			);
+
+			await message.ack();
+
+			const response = await message.modAckWithResponse(30);
+			expect(response).toBe(AckResponses.Invalid);
+		});
+	});
+
+	// AC-016: Attribute Validation
+	describe('AC-016: Attribute validation', () => {
 		test('should freeze attributes to prevent modification', () => {
 			const attributes = { key: 'value' };
 			const message = new Message(
@@ -712,7 +974,7 @@ describe('Message', () => {
 			);
 		});
 
-		test('modifyAckDeadline(0) should act as nack', () => {
+		test('modifyAckDeadline(0) should act as nack', async () => {
 			// Publish a message
 			messageQueue.publish(
 				'projects/test/topics/test-topic',
@@ -748,12 +1010,177 @@ describe('Message', () => {
 			// modifyAckDeadline(0) should cause redelivery like nack
 			message.modifyAckDeadline(0);
 
-			// Message should be redelivered
+			// Wait for backoff
+			await new Promise(resolve => setTimeout(resolve, 150));
+
+			// Message should be redelivered after backoff
 			const redelivered = messageQueue.pull(
 				'projects/test/subscriptions/test-sub',
 				1,
 			);
 			expect(redelivered).toHaveLength(1);
+		});
+	});
+
+	describe('FailedPreconditionError warning logs', () => {
+		test('ack should log warning when subscription deleted', () => {
+			messageQueue.publish('projects/test/topics/test-topic', [
+				{
+					id: 'msg-1',
+					data: Buffer.from('test'),
+					attributes: {},
+					publishTime: new PreciseDate(),
+					orderingKey: undefined,
+					deliveryAttempt: 1,
+					length: 4,
+				},
+			]);
+
+			const messages = messageQueue.pull(
+				'projects/test/subscriptions/test-sub',
+				1,
+			);
+			const internalMsg = messages[0];
+			if (!internalMsg) throw new Error('No message');
+
+			const message = new Message(
+				internalMsg.id,
+				internalMsg.ackId || 'ack-1',
+				internalMsg.data,
+				internalMsg.attributes,
+				internalMsg.publishTime,
+				{ name: 'test-sub' },
+			);
+
+			const warnSpy = spyOn(console, 'warn').mockImplementation(() => {});
+
+			messageQueue.unregisterSubscription('projects/test/subscriptions/test-sub');
+
+			message.ack();
+
+			expect(warnSpy).toHaveBeenCalledWith(
+				'Ack ignored: Subscription no longer exists: projects/test/subscriptions/test-sub',
+			);
+
+			warnSpy.mockRestore();
+		});
+
+		test('nack should log warning when subscription deleted', () => {
+			messageQueue.publish('projects/test/topics/test-topic', [
+				{
+					id: 'msg-1',
+					data: Buffer.from('test'),
+					attributes: {},
+					publishTime: new PreciseDate(),
+					orderingKey: undefined,
+					deliveryAttempt: 1,
+					length: 4,
+				},
+			]);
+
+			const messages = messageQueue.pull(
+				'projects/test/subscriptions/test-sub',
+				1,
+			);
+			const internalMsg = messages[0];
+			if (!internalMsg) throw new Error('No message');
+
+			const message = new Message(
+				internalMsg.id,
+				internalMsg.ackId || 'ack-1',
+				internalMsg.data,
+				internalMsg.attributes,
+				internalMsg.publishTime,
+				{ name: 'test-sub' },
+			);
+
+			const warnSpy = spyOn(console, 'warn').mockImplementation(() => {});
+
+			messageQueue.unregisterSubscription('projects/test/subscriptions/test-sub');
+
+			message.nack();
+
+			expect(warnSpy).toHaveBeenCalledWith(
+				'Nack ignored: Subscription no longer exists: projects/test/subscriptions/test-sub',
+			);
+
+			warnSpy.mockRestore();
+		});
+
+		test('ack should not throw error when subscription deleted', () => {
+			messageQueue.publish('projects/test/topics/test-topic', [
+				{
+					id: 'msg-1',
+					data: Buffer.from('test'),
+					attributes: {},
+					publishTime: new PreciseDate(),
+					orderingKey: undefined,
+					deliveryAttempt: 1,
+					length: 4,
+				},
+			]);
+
+			const messages = messageQueue.pull(
+				'projects/test/subscriptions/test-sub',
+				1,
+			);
+			const internalMsg = messages[0];
+			if (!internalMsg) throw new Error('No message');
+
+			const message = new Message(
+				internalMsg.id,
+				internalMsg.ackId || 'ack-1',
+				internalMsg.data,
+				internalMsg.attributes,
+				internalMsg.publishTime,
+				{ name: 'test-sub' },
+			);
+
+			const warnSpy = spyOn(console, 'warn').mockImplementation(() => {});
+
+			messageQueue.unregisterSubscription('projects/test/subscriptions/test-sub');
+
+			expect(() => message.ack()).not.toThrow();
+
+			warnSpy.mockRestore();
+		});
+
+		test('nack should not throw error when subscription deleted', () => {
+			messageQueue.publish('projects/test/topics/test-topic', [
+				{
+					id: 'msg-1',
+					data: Buffer.from('test'),
+					attributes: {},
+					publishTime: new PreciseDate(),
+					orderingKey: undefined,
+					deliveryAttempt: 1,
+					length: 4,
+				},
+			]);
+
+			const messages = messageQueue.pull(
+				'projects/test/subscriptions/test-sub',
+				1,
+			);
+			const internalMsg = messages[0];
+			if (!internalMsg) throw new Error('No message');
+
+			const message = new Message(
+				internalMsg.id,
+				internalMsg.ackId || 'ack-1',
+				internalMsg.data,
+				internalMsg.attributes,
+				internalMsg.publishTime,
+				{ name: 'test-sub' },
+			);
+
+			const warnSpy = spyOn(console, 'warn').mockImplementation(() => {});
+
+			messageQueue.unregisterSubscription('projects/test/subscriptions/test-sub');
+
+			expect(() => message.nack()).not.toThrow();
+
+			warnSpy.mockRestore();
 		});
 	});
 });

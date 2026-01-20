@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach } from 'bun:test';
+import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import { PubSub } from '../../src/pubsub';
 import type { Message } from '../../src/message';
 
@@ -7,6 +7,10 @@ describe('Integration: Publish-Subscribe Flow', () => {
 
 	beforeEach(() => {
 		pubsub = new PubSub({ projectId: 'integration-test' });
+	});
+
+	afterEach(async () => {
+		await pubsub.close();
 	});
 
 	test('AC-001: Complete publish-subscribe flow with ack', async () => {
@@ -315,7 +319,7 @@ describe('Integration: Publish-Subscribe Flow', () => {
 		await pubsub.close();
 	});
 
-	test('AC-008: Subscription pause stops message flow', async () => {
+	test('AC-006: Pause and resume (specs/06-subscriber.md)', async () => {
 		const topicName = 'test-topic-pause';
 		const subName = 'test-sub-pause';
 
@@ -335,33 +339,25 @@ describe('Integration: Publish-Subscribe Flow', () => {
 
 		subscription.open();
 
-		await topic.publishMessage({ data: Buffer.from('Message 1') });
+		await topic.publishMessage({ data: Buffer.from('msg1') });
 
 		await new Promise((resolve) => setTimeout(resolve, 50));
 
-		const beforePause = receivedMessages.length;
-		expect(beforePause).toBeGreaterThan(0);
+		expect(receivedMessages.length).toBe(1);
 
-		const messageStream = (subscription as any).messageStream;
-		if (messageStream) {
-			messageStream.pause();
-		}
+		subscription.pause();
 
-		await topic.publishMessage({ data: Buffer.from('Message 2') });
-		await topic.publishMessage({ data: Buffer.from('Message 3') });
+		await topic.publishMessage({ data: Buffer.from('msg2') });
 
 		await new Promise((resolve) => setTimeout(resolve, 50));
 
-		const afterPause = receivedMessages.length;
-		expect(afterPause).toBe(beforePause);
+		expect(receivedMessages.length).toBe(1);
 
-		if (messageStream) {
-			messageStream.resume();
-		}
+		subscription.resume();
 
 		await new Promise((resolve) => setTimeout(resolve, 50));
 
-		expect(receivedMessages.length).toBeGreaterThan(beforePause);
+		expect(receivedMessages.length).toBe(2);
 
 		await subscription.close();
 		await pubsub.close();

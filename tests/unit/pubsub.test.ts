@@ -473,6 +473,74 @@ describe('PubSub Client', () => {
 		});
 	});
 
+	describe('AC-014: Client Configuration', () => {
+		test('should accept clientConfig property', () => {
+			const customConfig = { timeout: 5000, maxRetries: 3 };
+			const pubsub = new PubSub({
+				projectId: 'test-project',
+				clientConfig: customConfig
+			});
+			expect(pubsub).toBeInstanceOf(PubSub);
+		});
+
+		test('should store clientConfig when provided', async () => {
+			const customConfig = {
+				timeout: 10000,
+				maxRetries: 5,
+				customProperty: 'test-value'
+			};
+			const pubsub = new PubSub({
+				projectId: 'test-project',
+				clientConfig: customConfig
+			});
+			const config = await pubsub.getClientConfig() as any;
+			expect(config.clientConfig).toEqual(customConfig);
+		});
+
+		test('should work without clientConfig', async () => {
+			const pubsub = new PubSub({ projectId: 'test-project' });
+			const config = await pubsub.getClientConfig() as any;
+			expect(config.projectId).toBe('test-project');
+			expect(config.clientConfig).toBeUndefined();
+		});
+
+		test('should handle clientConfig with nested properties', async () => {
+			const complexConfig = {
+				retry: {
+					retryCodes: [10, 14],
+					backoffSettings: {
+						initialRetryDelayMillis: 100,
+						maxRetryDelayMillis: 60000
+					}
+				},
+				timeout: 60000
+			};
+			const pubsub = new PubSub({
+				projectId: 'test-project',
+				clientConfig: complexConfig
+			});
+			const config = await pubsub.getClientConfig() as any;
+			expect(config.clientConfig).toEqual(complexConfig);
+			expect(config.clientConfig.retry.retryCodes).toEqual([10, 14]);
+		});
+
+		test('should allow arbitrary types in clientConfig', async () => {
+			const arbitraryConfig = {
+				customField: 'value',
+				numericField: 42,
+				booleanField: true,
+				arrayField: [1, 2, 3],
+				nullField: null
+			};
+			const pubsub = new PubSub({
+				projectId: 'test-project',
+				clientConfig: arbitraryConfig
+			});
+			const config = await pubsub.getClientConfig() as any;
+			expect(config.clientConfig).toEqual(arbitraryConfig);
+		});
+	});
+
 	describe('Additional Behavior Tests', () => {
 		test('should detect emulator mode from environment', () => {
 			process.env.PUBSUB_EMULATOR_HOST = 'localhost:8085';

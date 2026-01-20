@@ -248,6 +248,163 @@ describe('Integration: Message Ordering', () => {
 		});
 	});
 
+	describe('AC-006: No Ordering Key Not Blocked', () => {
+		test('should deliver messages without ordering key even when ordered messages are blocked', async () => {
+			topic = pubsub.topic('ordered-events');
+			await topic.create();
+
+			const subscription = topic.subscription('ordered-sub', {
+				closeOptions: { behavior: 'NACK' }
+			});
+			await subscription.create({ enableMessageOrdering: true });
+			subscriptions.push(subscription);
+
+			const receivedMessages: Array<{ data: string; orderingKey?: string }> = [];
+
+			subscription.on('message', (message) => {
+				const data = message.data.toString();
+				receivedMessages.push({ data, orderingKey: message.orderingKey });
+
+				if (data === 'unordered') {
+					message.ack();
+				}
+			});
+
+			subscription.on('error', (error) => {
+				console.error('Subscription error:', error);
+			});
+
+			subscription.open();
+
+			await topic.publishMessage({
+				data: Buffer.from('ordered-blocked'),
+				orderingKey: 'user-123',
+			});
+
+			await topic.publishMessage({
+				data: Buffer.from('unordered'),
+			});
+
+			await new Promise((resolve) => setTimeout(resolve, 200));
+
+			const unorderedMsg = receivedMessages.find(msg => msg.data === 'unordered');
+			expect(unorderedMsg).toBeDefined();
+			expect(unorderedMsg?.orderingKey).toBeUndefined();
+		});
+	});
+
+	describe('AC-009: Ordering Key Accepted Without Explicit Enable', () => {
+		test('should accept ordering key as metadata without explicit messageOrdering enable', async () => {
+			topic = pubsub.topic('standard-topic');
+			await topic.create();
+
+			const subscription = topic.subscription('standard-sub', {
+				closeOptions: { behavior: 'NACK' }
+			});
+			await subscription.create();
+			subscriptions.push(subscription);
+
+			const receivedMessage = new Promise<{ data: string; orderingKey?: string }>((resolve) => {
+				subscription.on('message', (message) => {
+					resolve({
+						data: message.data.toString(),
+						orderingKey: message.orderingKey
+					});
+					message.ack();
+				});
+			});
+
+			subscription.on('error', (error) => {
+				console.error('Subscription error:', error);
+			});
+
+			subscription.open();
+
+			const messageId = await topic.publishMessage({
+				data: Buffer.from('test-message'),
+				orderingKey: 'user-123',
+			});
+
+			expect(typeof messageId).toBe('string');
+			expect(messageId.length).toBeGreaterThan(0);
+
+			const received = await receivedMessage;
+			expect(received.data).toBe('test-message');
+			expect(received.orderingKey).toBe('user-123');
+		});
+	});
+
+	describe('AC-010: Batching with Ordering Keys', () => {
+		test('should batch messages with multiple ordering keys without losing messages', async () => {
+			topic = pubsub.topic('batched-topic');
+			await topic.create();
+
+			topic.setPublishOptions({
+				batching: {
+					maxMessages: 10,
+					maxMilliseconds: 50,
+				},
+			});
+
+			const promises: Promise<string>[] = [];
+
+			for (let i = 0; i < 20; i++) {
+				promises.push(
+					topic.publishMessage({
+						data: Buffer.from(`message-${i}`),
+						orderingKey: `user-${i % 5}`,
+					})
+				);
+			}
+
+			const messageIds = await Promise.all(promises);
+
+			expect(messageIds).toHaveLength(20);
+			expect(messageIds.every(id => typeof id === 'string' && id.length > 0)).toBe(true);
+		});
+	});
+
+	describe('AC-011: Ordering Key Paused on Error', () => {
+		test('should reject publishing to a paused ordering key', async () => {
+			topic = pubsub.topic('ordered-events');
+			await topic.create();
+			topic.setPublishOptions({ messageOrdering: true });
+
+			(topic.publisher as any).pausedOrderingKeys.add('user-123');
+
+			await expect(
+				topic.publishMessage({
+					data: Buffer.from('test'),
+					orderingKey: 'user-123',
+				})
+			).rejects.toThrow('Ordering key user-123 is paused');
+
+			const messageId = await topic.publishMessage({
+				data: Buffer.from('test'),
+				orderingKey: 'user-456',
+			});
+			expect(messageId).toBeDefined();
+		});
+	});
+
+	describe('AC-012: Resume Publishing After Error', () => {
+		test('should resume publishing after calling resumePublishing()', async () => {
+			topic = pubsub.topic('ordered-events');
+			await topic.create();
+			topic.setPublishOptions({ messageOrdering: true });
+
+			(topic.publisher as any).pausedOrderingKeys.add('user-123');
+
+			topic.resumePublishing('user-123');
+
+			const messageId = await topic.publishMessage({
+				data: Buffer.from('test'),
+				orderingKey: 'user-123',
+			});
+			expect(messageId).toBeDefined();
+		});
+	});
+
 	describe('publishJSON with orderingKey', () => {
 		test('should publish JSON messages with orderingKey option', async () => {
 			topic = pubsub.topic('user-events');

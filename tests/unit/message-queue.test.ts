@@ -3,7 +3,7 @@
  * Tests all 13 acceptance criteria from specs/07-message-queue.md
  */
 
-import { test, expect, beforeEach, describe } from 'bun:test';
+import { test, expect, beforeEach, describe, spyOn } from 'bun:test';
 import { MessageQueue } from '../../src/internal/message-queue';
 import type { InternalMessage } from '../../src/internal/types';
 
@@ -125,9 +125,14 @@ describe('MessageQueue', () => {
   });
 
   // AC-006: Nack Redelivers Immediately
-  test('AC-006: Nack causes immediate redelivery', () => {
+  test('AC-006: Nack causes redelivery with backoff', async () => {
     queue.registerTopic('test-topic');
-    queue.registerSubscription('test-sub', 'test-topic');
+    queue.registerSubscription('test-sub', 'test-topic', {
+      retryPolicy: {
+        minimumBackoff: { seconds: 0.1 },
+        maximumBackoff: { seconds: 1 }
+      }
+    } as any);
 
     const messages: InternalMessage[] = [
       {
@@ -149,18 +154,27 @@ describe('MessageQueue', () => {
     // Nack the message
     queue.nack(pulled1[0]!.ackId!);
 
-    // Should be available immediately with incremented delivery attempt
+    // Should not be available immediately (backoff applied)
     const pulled2 = queue.pull('test-sub', 10);
-    expect(pulled2).toHaveLength(1);
-    expect(pulled2[0]!.deliveryAttempt).toBe(2);
+    expect(pulled2).toHaveLength(0);
+
+    // After minimal backoff, should be available with incremented delivery attempt
+    await new Promise(resolve => setTimeout(resolve, 150));
+    const pulled3 = queue.pull('test-sub', 10);
+    expect(pulled3).toHaveLength(1);
+    expect(pulled3[0]!.deliveryAttempt).toBe(2);
   });
 
   // AC-007: Ack Deadline Expiry Redelivers
   test('AC-007: Ack deadline expiry causes redelivery', async () => {
     queue.registerTopic('test-topic');
     queue.registerSubscription('test-sub', 'test-topic', {
-      ackDeadlineSeconds: 1  // 1 second for faster testing
-    });
+      ackDeadlineSeconds: 1,  // 1 second for faster testing
+      retryPolicy: {
+        minimumBackoff: { seconds: 0.1 },
+        maximumBackoff: { seconds: 1 }
+      }
+    } as any);
 
     const messages: InternalMessage[] = [
       {
@@ -179,10 +193,10 @@ describe('MessageQueue', () => {
     const pulled1 = queue.pull('test-sub', 10);
     expect(pulled1).toHaveLength(1);
 
-    // Don't ack - wait for deadline
-    await new Promise(resolve => setTimeout(resolve, 1100));
+    // Don't ack - wait for deadline + backoff
+    await new Promise(resolve => setTimeout(resolve, 1250));
 
-    // Should be available for redelivery
+    // Should be available for redelivery after backoff
     const pulled2 = queue.pull('test-sub', 10);
     expect(pulled2).toHaveLength(1);
     expect(pulled2[0]!.deliveryAttempt).toBe(2);
@@ -626,6 +640,132 @@ describe('MessageQueue', () => {
           queue.publish('test-topic', messages);
         }).not.toThrow();
       });
+
+      test('Rejects non-string attribute value (number)', () => {
+        queue.registerTopic('test-topic');
+        queue.registerSubscription('test-sub', 'test-topic');
+
+        const messages: InternalMessage[] = [
+          {
+            id: 'msg-1',
+            data: Buffer.from('test'),
+            attributes: { key: 123 } as any,
+            publishTime: new Date() as any,
+            orderingKey: undefined,
+            deliveryAttempt: 1,
+            length: 0
+          }
+        ];
+
+        expect(() => {
+          queue.publish('test-topic', messages);
+        }).toThrow('Attribute values must be strings');
+      });
+
+      test('Rejects non-string attribute value (boolean)', () => {
+        queue.registerTopic('test-topic');
+        queue.registerSubscription('test-sub', 'test-topic');
+
+        const messages: InternalMessage[] = [
+          {
+            id: 'msg-1',
+            data: Buffer.from('test'),
+            attributes: { key: true } as any,
+            publishTime: new Date() as any,
+            orderingKey: undefined,
+            deliveryAttempt: 1,
+            length: 0
+          }
+        ];
+
+        expect(() => {
+          queue.publish('test-topic', messages);
+        }).toThrow('Attribute values must be strings');
+      });
+
+      test('Rejects non-string attribute value (object)', () => {
+        queue.registerTopic('test-topic');
+        queue.registerSubscription('test-sub', 'test-topic');
+
+        const messages: InternalMessage[] = [
+          {
+            id: 'msg-1',
+            data: Buffer.from('test'),
+            attributes: { key: { nested: 'value' } } as any,
+            publishTime: new Date() as any,
+            orderingKey: undefined,
+            deliveryAttempt: 1,
+            length: 0
+          }
+        ];
+
+        expect(() => {
+          queue.publish('test-topic', messages);
+        }).toThrow('Attribute values must be strings');
+      });
+
+      test('Rejects non-string attribute value (null)', () => {
+        queue.registerTopic('test-topic');
+        queue.registerSubscription('test-sub', 'test-topic');
+
+        const messages: InternalMessage[] = [
+          {
+            id: 'msg-1',
+            data: Buffer.from('test'),
+            attributes: { key: null } as any,
+            publishTime: new Date() as any,
+            orderingKey: undefined,
+            deliveryAttempt: 1,
+            length: 0
+          }
+        ];
+
+        expect(() => {
+          queue.publish('test-topic', messages);
+        }).toThrow('Attribute values must be strings');
+      });
+
+      test('Rejects non-string attribute value (undefined)', () => {
+        queue.registerTopic('test-topic');
+        queue.registerSubscription('test-sub', 'test-topic');
+
+        const messages: InternalMessage[] = [
+          {
+            id: 'msg-1',
+            data: Buffer.from('test'),
+            attributes: { key: undefined } as any,
+            publishTime: new Date() as any,
+            orderingKey: undefined,
+            deliveryAttempt: 1,
+            length: 0
+          }
+        ];
+
+        expect(() => {
+          queue.publish('test-topic', messages);
+        }).toThrow('Attribute values must be strings');
+      });
+
+      test('Accepts string attribute values', () => {
+        queue.registerTopic('test-topic');
+        queue.registerSubscription('test-sub', 'test-topic');
+
+        const messages: InternalMessage[] = [
+          {
+            id: 'msg-1',
+            data: Buffer.from('test'),
+            attributes: { key1: 'value1', key2: 'value2', key3: '' },
+            publishTime: new Date() as any,
+            orderingKey: undefined,
+            deliveryAttempt: 1,
+            length: 0
+          }
+        ];
+
+        expect(() => {
+          queue.publish('test-topic', messages);
+        }).not.toThrow();
+      });
     });
 
     // BR-014 & BR-013: In-Flight Metrics and Flow Control
@@ -725,11 +865,15 @@ describe('MessageQueue', () => {
         expect(pulled3).toHaveLength(1);
       });
 
-      test('Tracks in-flight bytes correctly', () => {
+      test('Tracks in-flight bytes correctly', async () => {
         queue.registerTopic('test-topic');
         queue.registerSubscription('test-sub', 'test-topic', {
           flowControl: {
             maxBytes: 1000
+          },
+          retryPolicy: {
+            minimumBackoff: { seconds: 0.1 },
+            maximumBackoff: { seconds: 1 }
           }
         } as any);
 
@@ -750,6 +894,7 @@ describe('MessageQueue', () => {
 
         queue.nack(pulled[0]!.ackId!);
 
+        await new Promise(resolve => setTimeout(resolve, 150));
         const pulled2 = queue.pull('test-sub', 10);
         expect(pulled2).toHaveLength(1);
       });
@@ -878,7 +1023,7 @@ describe('MessageQueue', () => {
         expect(pulled3[0]!.deliveryAttempt).toBe(2);
       });
 
-      test('No backoff when no retryPolicy specified', () => {
+      test('Applies default backoff (10s-600s) when no retryPolicy specified', async () => {
         queue.registerTopic('test-topic');
         queue.registerSubscription('test-sub', 'test-topic');
 
@@ -897,9 +1042,14 @@ describe('MessageQueue', () => {
         queue.nack(pulled1[0]!.ackId!);
 
         const pulled2 = queue.pull('test-sub', 10);
-        expect(pulled2).toHaveLength(1);
-        expect(pulled2[0]!.deliveryAttempt).toBe(2);
-      });
+        expect(pulled2).toHaveLength(0);
+
+        await new Promise(resolve => setTimeout(resolve, 10100));
+
+        const pulled3 = queue.pull('test-sub', 10);
+        expect(pulled3).toHaveLength(1);
+        expect(pulled3[0]!.deliveryAttempt).toBe(2);
+      }, { timeout: 15000 });
 
       test('Caps backoff at maximumBackoff', async () => {
         queue.registerTopic('test-topic');
@@ -936,7 +1086,7 @@ describe('MessageQueue', () => {
 
     // BR-016: Dead Letter Queue
     describe('BR-016: Dead Letter Queue', () => {
-      test('Routes message to DLQ after maxDeliveryAttempts', () => {
+      test('Routes message to DLQ after maxDeliveryAttempts', async () => {
         queue.registerTopic('test-topic');
         queue.registerTopic('dlq-topic');
         queue.registerSubscription('dlq-sub', 'dlq-topic');
@@ -944,6 +1094,10 @@ describe('MessageQueue', () => {
           deadLetterPolicy: {
             deadLetterTopic: 'dlq-topic',
             maxDeliveryAttempts: 3
+          },
+          retryPolicy: {
+            minimumBackoff: { seconds: 0.1 },
+            maximumBackoff: { seconds: 1 }
           }
         } as any);
 
@@ -962,12 +1116,15 @@ describe('MessageQueue', () => {
         const pulled1 = queue.pull('test-sub', 10);
         queue.nack(pulled1[0]!.ackId!);
 
+        await new Promise(resolve => setTimeout(resolve, 150));
         const pulled2 = queue.pull('test-sub', 10);
         queue.nack(pulled2[0]!.ackId!);
 
+        await new Promise(resolve => setTimeout(resolve, 250));
         const pulled3 = queue.pull('test-sub', 10);
         queue.nack(pulled3[0]!.ackId!);
 
+        await new Promise(resolve => setTimeout(resolve, 250));
         const pulled4 = queue.pull('test-sub', 10);
         expect(pulled4).toHaveLength(0);
 
@@ -977,7 +1134,7 @@ describe('MessageQueue', () => {
         expect(dlqMessages[0]!.orderingKey).toBe('key-1');
       });
 
-      test('Removes message from original subscription after DLQ routing', () => {
+      test('Removes message from original subscription after DLQ routing', async () => {
         queue.registerTopic('test-topic');
         queue.registerTopic('dlq-topic');
         queue.registerSubscription('dlq-sub', 'dlq-topic');
@@ -985,6 +1142,10 @@ describe('MessageQueue', () => {
           deadLetterPolicy: {
             deadLetterTopic: 'dlq-topic',
             maxDeliveryAttempts: 2
+          },
+          retryPolicy: {
+            minimumBackoff: { seconds: 0.1 },
+            maximumBackoff: { seconds: 1 }
           }
         } as any);
 
@@ -1003,14 +1164,16 @@ describe('MessageQueue', () => {
         const pulled1 = queue.pull('test-sub', 10);
         queue.nack(pulled1[0]!.ackId!);
 
+        await new Promise(resolve => setTimeout(resolve, 150));
         const pulled2 = queue.pull('test-sub', 10);
         queue.nack(pulled2[0]!.ackId!);
 
+        await new Promise(resolve => setTimeout(resolve, 150));
         const pulled3 = queue.pull('test-sub', 10);
         expect(pulled3).toHaveLength(0);
       });
 
-      test('Preserves original message metadata in DLQ', () => {
+      test('Preserves original message metadata in DLQ', async () => {
         queue.registerTopic('test-topic');
         queue.registerTopic('dlq-topic');
         queue.registerSubscription('dlq-sub', 'dlq-topic');
@@ -1018,6 +1181,10 @@ describe('MessageQueue', () => {
           deadLetterPolicy: {
             deadLetterTopic: 'dlq-topic',
             maxDeliveryAttempts: 2
+          },
+          retryPolicy: {
+            minimumBackoff: { seconds: 0.1 },
+            maximumBackoff: { seconds: 1 }
           }
         } as any);
 
@@ -1037,14 +1204,651 @@ describe('MessageQueue', () => {
         const pulled1 = queue.pull('test-sub', 10);
         queue.nack(pulled1[0]!.ackId!);
 
+        await new Promise(resolve => setTimeout(resolve, 150));
         const pulled2 = queue.pull('test-sub', 10);
         queue.nack(pulled2[0]!.ackId!);
 
+        await new Promise(resolve => setTimeout(resolve, 150));
         const dlqMessages = queue.pull('dlq-sub', 10);
         expect(dlqMessages[0]!.attributes.key).toBe('value');
         expect(dlqMessages[0]!.orderingKey).toBe('order-key');
         expect(dlqMessages[0]!.publishTime).toBeDefined();
       });
+
+      test('Logs warning when DLQ topic does not exist', async () => {
+        const warnSpy = spyOn(console, 'warn');
+
+        queue.registerTopic('test-topic');
+        queue.registerSubscription('test-sub', 'test-topic', {
+          deadLetterPolicy: {
+            deadLetterTopic: 'non-existent-dlq-topic',
+            maxDeliveryAttempts: 2
+          },
+          retryPolicy: {
+            minimumBackoff: { seconds: 0.1 },
+            maximumBackoff: { seconds: 1 }
+          }
+        } as any);
+
+        const messages: InternalMessage[] = [{
+          id: 'msg-1',
+          data: Buffer.from('test'),
+          attributes: {},
+          publishTime: new Date() as any,
+          orderingKey: undefined,
+          deliveryAttempt: 1,
+          length: 4
+        }];
+
+        queue.publish('test-topic', messages);
+
+        const pulled1 = queue.pull('test-sub', 10);
+        queue.nack(pulled1[0]!.ackId!);
+
+        await new Promise(resolve => setTimeout(resolve, 150));
+        const pulled2 = queue.pull('test-sub', 10);
+        queue.nack(pulled2[0]!.ackId!);
+
+        await new Promise(resolve => setTimeout(resolve, 150));
+
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining('Dead letter topic does not exist')
+        );
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining('non-existent-dlq-topic')
+        );
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining('msg-1')
+        );
+
+        warnSpy.mockRestore();
+      });
+    });
+  });
+
+  describe('Periodic Cleanup', () => {
+    test('Cleanup timer starts when instance created', () => {
+      const queue = MessageQueue.getInstance();
+      expect((queue as any).cleanupTimer).toBeDefined();
+    });
+
+    test('Cleanup timer cleared on resetForTesting', () => {
+      const queue = MessageQueue.getInstance();
+      const timerId = (queue as any).cleanupTimer;
+      expect(timerId).toBeDefined();
+
+      MessageQueue.resetForTesting();
+
+      const newQueue = MessageQueue.getInstance();
+      const newTimerId = (newQueue as any).cleanupTimer;
+      expect(newTimerId).toBeDefined();
+      expect(newTimerId).not.toBe(timerId);
+    });
+
+    test('Removes expired orphaned leases during cleanup', async () => {
+      queue.registerTopic('test-topic');
+      queue.registerSubscription('test-sub', 'test-topic', {
+        ackDeadline: 10
+      } as any);
+
+      const messages: InternalMessage[] = [{
+        id: 'msg-1',
+        data: Buffer.from('test'),
+        attributes: {},
+        publishTime: new Date() as any,
+        orderingKey: undefined,
+        deliveryAttempt: 1,
+        length: 4
+      }];
+
+      queue.publish('test-topic', messages);
+      const pulled = queue.pull('test-sub', 10);
+      const ackId = pulled[0]!.ackId!;
+      const lease = (queue as any).leases.get(ackId);
+
+      expect((queue as any).leases.has(ackId)).toBe(true);
+
+      if (lease.timer) {
+        clearTimeout(lease.timer);
+      }
+      lease.deadline = new Date(Date.now() - 1000);
+
+      const subQueue = (queue as any).queues.get('test-sub');
+      subQueue.inFlight.delete(ackId);
+
+      (queue as any).runCleanup();
+
+      expect((queue as any).leases.has(ackId)).toBe(false);
+    });
+
+    test('Does not remove valid leases during cleanup', async () => {
+      queue.registerTopic('test-topic');
+      queue.registerSubscription('test-sub', 'test-topic', {
+        ackDeadline: 600
+      } as any);
+
+      const messages: InternalMessage[] = [{
+        id: 'msg-1',
+        data: Buffer.from('test'),
+        attributes: {},
+        publishTime: new Date() as any,
+        orderingKey: undefined,
+        deliveryAttempt: 1,
+        length: 4
+      }];
+
+      queue.publish('test-topic', messages);
+      const pulled = queue.pull('test-sub', 10);
+      const ackId = pulled[0]!.ackId!;
+
+      expect((queue as any).leases.has(ackId)).toBe(true);
+
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      (queue as any).runCleanup();
+
+      expect((queue as any).leases.has(ackId)).toBe(true);
+    });
+
+    test('Cleanup runs every 60 seconds', async () => {
+      let cleanupCalled = false;
+      const originalRunCleanup = (MessageQueue.prototype as any).runCleanup;
+
+      (MessageQueue.prototype as any).runCleanup = function() {
+        cleanupCalled = true;
+        originalRunCleanup.call(this);
+      };
+
+      MessageQueue.resetForTesting();
+      MessageQueue.getInstance();
+
+      expect(cleanupCalled).toBe(false);
+
+      await new Promise(resolve => setTimeout(resolve, 61000));
+
+      expect(cleanupCalled).toBe(true);
+
+      (MessageQueue.prototype as any).runCleanup = originalRunCleanup;
+    }, { timeout: 65000 });
+
+    test('Removes expired messages during cleanup (default 7-day retention)', () => {
+      queue.registerTopic('test-topic');
+      queue.registerSubscription('test-sub', 'test-topic', {
+        ackDeadlineSeconds: 10
+      } as any);
+
+      const eightDaysAgo = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
+      const oneDayAgo = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000);
+
+      const messages: InternalMessage[] = [
+        {
+          id: 'msg-old',
+          data: Buffer.from('old'),
+          attributes: {},
+          publishTime: eightDaysAgo as any,
+          orderingKey: undefined,
+          deliveryAttempt: 1,
+          length: 3
+        },
+        {
+          id: 'msg-recent',
+          data: Buffer.from('recent'),
+          attributes: {},
+          publishTime: oneDayAgo as any,
+          orderingKey: undefined,
+          deliveryAttempt: 1,
+          length: 6
+        }
+      ];
+
+      queue.publish('test-topic', messages);
+
+      const subQueue = (queue as any).queues.get('test-sub');
+      expect(subQueue.messages.length).toBe(2);
+
+      (queue as any).runCleanup();
+
+      expect(subQueue.messages.length).toBe(1);
+      expect(subQueue.messages[0]!.id).toBe('msg-recent');
+    });
+
+    test('Removes expired messages with custom retention period', () => {
+      queue.registerTopic('test-topic');
+      queue.registerSubscription('test-sub', 'test-topic', {
+        ackDeadlineSeconds: 10,
+        messageRetentionDuration: { seconds: 3600 }
+      } as any);
+
+      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+      const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+
+      const messages: InternalMessage[] = [
+        {
+          id: 'msg-old',
+          data: Buffer.from('old'),
+          attributes: {},
+          publishTime: twoHoursAgo as any,
+          orderingKey: undefined,
+          deliveryAttempt: 1,
+          length: 3
+        },
+        {
+          id: 'msg-recent',
+          data: Buffer.from('recent'),
+          attributes: {},
+          publishTime: thirtyMinutesAgo as any,
+          orderingKey: undefined,
+          deliveryAttempt: 1,
+          length: 6
+        }
+      ];
+
+      queue.publish('test-topic', messages);
+
+      const subQueue = (queue as any).queues.get('test-sub');
+      expect(subQueue.messages.length).toBe(2);
+
+      (queue as any).runCleanup();
+
+      expect(subQueue.messages.length).toBe(1);
+      expect(subQueue.messages[0]!.id).toBe('msg-recent');
+    });
+
+    test('Removes expired messages from ordering queues', () => {
+      queue.registerTopic('test-topic');
+      queue.registerSubscription('test-sub', 'test-topic', {
+        ackDeadlineSeconds: 10,
+        enableMessageOrdering: true,
+        messageRetentionDuration: { seconds: 3600 }
+      } as any);
+
+      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+      const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+
+      const messages: InternalMessage[] = [
+        {
+          id: 'msg-old-1',
+          data: Buffer.from('old1'),
+          attributes: {},
+          publishTime: twoHoursAgo as any,
+          orderingKey: 'key-1',
+          deliveryAttempt: 1,
+          length: 4
+        },
+        {
+          id: 'msg-recent-1',
+          data: Buffer.from('recent1'),
+          attributes: {},
+          publishTime: thirtyMinutesAgo as any,
+          orderingKey: 'key-1',
+          deliveryAttempt: 1,
+          length: 7
+        },
+        {
+          id: 'msg-old-2',
+          data: Buffer.from('old2'),
+          attributes: {},
+          publishTime: twoHoursAgo as any,
+          orderingKey: 'key-2',
+          deliveryAttempt: 1,
+          length: 4
+        }
+      ];
+
+      queue.publish('test-topic', messages);
+
+      const subQueue = (queue as any).queues.get('test-sub');
+      expect(subQueue.orderingQueues!.get('key-1')!.length).toBe(2);
+      expect(subQueue.orderingQueues!.get('key-2')!.length).toBe(1);
+
+      (queue as any).runCleanup();
+
+      expect(subQueue.orderingQueues!.get('key-1')!.length).toBe(1);
+      expect(subQueue.orderingQueues!.get('key-1')![0]!.id).toBe('msg-recent-1');
+      expect(subQueue.orderingQueues!.has('key-2')).toBe(false);
+    });
+
+    test('Removes expired messages from backoff queue', () => {
+      queue.registerTopic('test-topic');
+      queue.registerSubscription('test-sub', 'test-topic', {
+        ackDeadlineSeconds: 1,
+        messageRetentionDuration: { seconds: 3600 }
+      } as any);
+
+      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+
+      const messages: InternalMessage[] = [
+        {
+          id: 'msg-old',
+          data: Buffer.from('old'),
+          attributes: {},
+          publishTime: twoHoursAgo as any,
+          orderingKey: undefined,
+          deliveryAttempt: 1,
+          length: 3
+        }
+      ];
+
+      queue.publish('test-topic', messages);
+      queue.pull('test-sub', 10);
+      const subQueue = (queue as any).queues.get('test-sub');
+      const ackId = Array.from(subQueue.inFlight.keys())[0] as string;
+      queue.nack(ackId);
+
+      expect(subQueue.backoffQueue.size).toBe(1);
+
+      (queue as any).runCleanup();
+
+      expect(subQueue.backoffQueue.size).toBe(0);
+    });
+
+    test('Handles retention with number format (seconds only)', () => {
+      queue.registerTopic('test-topic');
+      queue.registerSubscription('test-sub', 'test-topic', {
+        ackDeadlineSeconds: 10,
+        messageRetentionDuration: 3600
+      } as any);
+
+      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+
+      const messages: InternalMessage[] = [
+        {
+          id: 'msg-old',
+          data: Buffer.from('old'),
+          attributes: {},
+          publishTime: twoHoursAgo as any,
+          orderingKey: undefined,
+          deliveryAttempt: 1,
+          length: 3
+        }
+      ];
+
+      queue.publish('test-topic', messages);
+      const subQueue = (queue as any).queues.get('test-sub');
+      expect(subQueue.messages.length).toBe(1);
+
+      (queue as any).runCleanup();
+
+      expect(subQueue.messages.length).toBe(0);
+    });
+
+    test('Does not remove messages within retention period', () => {
+      queue.registerTopic('test-topic');
+      queue.registerSubscription('test-sub', 'test-topic', {
+        ackDeadlineSeconds: 10,
+        messageRetentionDuration: { seconds: 86400 }
+      } as any);
+
+      const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
+
+      const messages: InternalMessage[] = [
+        {
+          id: 'msg-valid',
+          data: Buffer.from('valid'),
+          attributes: {},
+          publishTime: twelveHoursAgo as any,
+          orderingKey: undefined,
+          deliveryAttempt: 1,
+          length: 5
+        }
+      ];
+
+      queue.publish('test-topic', messages);
+      const subQueue = (queue as any).queues.get('test-sub');
+      expect(subQueue.messages.length).toBe(1);
+
+      (queue as any).runCleanup();
+
+      expect(subQueue.messages.length).toBe(1);
+    });
+
+    test('Removes ackIds older than 10 minutes during cleanup', () => {
+      queue.registerTopic('test-topic');
+      queue.registerSubscription('test-sub', 'test-topic', {
+        ackDeadlineSeconds: 600
+      } as any);
+
+      const messages: InternalMessage[] = [{
+        id: 'msg-1',
+        data: Buffer.from('test'),
+        attributes: {},
+        publishTime: new Date() as any,
+        orderingKey: undefined,
+        deliveryAttempt: 1,
+        length: 4
+      }];
+
+      queue.publish('test-topic', messages);
+      const pulled = queue.pull('test-sub', 10);
+      const ackId = pulled[0]!.ackId!;
+
+      const lease = (queue as any).leases.get(ackId);
+      expect(lease).toBeDefined();
+
+      const elevenMinutesAgo = Date.now() - 11 * 60 * 1000;
+      (queue as any).ackIdCreationTimes.set(ackId, elevenMinutesAgo);
+
+      (queue as any).runCleanup();
+
+      expect((queue as any).leases.has(ackId)).toBe(false);
+      expect((queue as any).ackIdCreationTimes.has(ackId)).toBe(false);
+    });
+
+    test('Does not remove ackIds younger than 10 minutes during cleanup', () => {
+      queue.registerTopic('test-topic');
+      queue.registerSubscription('test-sub', 'test-topic', {
+        ackDeadlineSeconds: 600
+      } as any);
+
+      const messages: InternalMessage[] = [{
+        id: 'msg-1',
+        data: Buffer.from('test'),
+        attributes: {},
+        publishTime: new Date() as any,
+        orderingKey: undefined,
+        deliveryAttempt: 1,
+        length: 4
+      }];
+
+      queue.publish('test-topic', messages);
+      const pulled = queue.pull('test-sub', 10);
+      const ackId = pulled[0]!.ackId!;
+
+      const lease = (queue as any).leases.get(ackId);
+      expect(lease).toBeDefined();
+
+      const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+      (queue as any).ackIdCreationTimes.set(ackId, fiveMinutesAgo);
+
+      (queue as any).runCleanup();
+
+      expect((queue as any).leases.has(ackId)).toBe(true);
+      expect((queue as any).ackIdCreationTimes.has(ackId)).toBe(true);
+    });
+
+    test('Cleans up ackIdCreationTimes on ack()', () => {
+      queue.registerTopic('test-topic');
+      queue.registerSubscription('test-sub', 'test-topic', {
+        ackDeadlineSeconds: 10
+      } as any);
+
+      const messages: InternalMessage[] = [{
+        id: 'msg-1',
+        data: Buffer.from('test'),
+        attributes: {},
+        publishTime: new Date() as any,
+        orderingKey: undefined,
+        deliveryAttempt: 1,
+        length: 4
+      }];
+
+      queue.publish('test-topic', messages);
+      const pulled = queue.pull('test-sub', 10);
+      const ackId = pulled[0]!.ackId!;
+
+      expect((queue as any).ackIdCreationTimes.has(ackId)).toBe(true);
+
+      queue.ack(ackId);
+
+      expect((queue as any).ackIdCreationTimes.has(ackId)).toBe(false);
+    });
+
+    test('Cleans up ackIdCreationTimes on nack()', () => {
+      queue.registerTopic('test-topic');
+      queue.registerSubscription('test-sub', 'test-topic', {
+        ackDeadlineSeconds: 10
+      } as any);
+
+      const messages: InternalMessage[] = [{
+        id: 'msg-1',
+        data: Buffer.from('test'),
+        attributes: {},
+        publishTime: new Date() as any,
+        orderingKey: undefined,
+        deliveryAttempt: 1,
+        length: 4
+      }];
+
+      queue.publish('test-topic', messages);
+      const pulled = queue.pull('test-sub', 10);
+      const ackId = pulled[0]!.ackId!;
+
+      expect((queue as any).ackIdCreationTimes.has(ackId)).toBe(true);
+
+      queue.nack(ackId);
+
+      expect((queue as any).ackIdCreationTimes.has(ackId)).toBe(false);
+    });
+
+    test('logs errors in cleanup timer without stopping cleanup', () => {
+      const consoleSpy = spyOn(console, 'error').mockImplementation(() => {});
+      const originalStartPeriodicCleanup = (MessageQueue.prototype as any).startPeriodicCleanup;
+      const originalRunCleanup = (MessageQueue.prototype as any).runCleanup;
+      let capturedCallback: (() => void) | undefined;
+
+      (MessageQueue.prototype as any).startPeriodicCleanup = function() {
+        this.cleanupTimer = setInterval(() => {
+          try {
+            this.runCleanup();
+          } catch (error) {
+            console.error('Error during periodic cleanup:', error);
+          }
+        }, 60000);
+        capturedCallback = () => {
+          try {
+            this.runCleanup();
+          } catch (error) {
+            console.error('Error during periodic cleanup:', error);
+          }
+        };
+        this.cleanupTimer.unref();
+      };
+
+      (MessageQueue.prototype as any).runCleanup = () => {
+        throw new Error('Simulated cleanup error');
+      };
+
+      MessageQueue.resetForTesting();
+      MessageQueue.getInstance();
+
+      if (capturedCallback) {
+        capturedCallback();
+      }
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Error during periodic cleanup:',
+        expect.any(Error)
+      );
+
+      (MessageQueue.prototype as any).startPeriodicCleanup = originalStartPeriodicCleanup;
+      (MessageQueue.prototype as any).runCleanup = originalRunCleanup;
+    });
+  });
+
+  describe('Queue Size Warning Logging (BR-022)', () => {
+    test('warns when message count limit reached', () => {
+      queue.registerTopic('test-topic');
+      queue.registerSubscription('test-sub', 'test-topic');
+
+      const warnSpy = spyOn(console, 'warn').mockImplementation(() => {});
+
+      const queueState = (queue as any).queues.get('test-sub');
+      queueState.queueSize = 10000;
+
+      const message: InternalMessage = {
+        id: 'msg-1',
+        data: Buffer.from('test'),
+        attributes: {},
+        publishTime: new Date() as any,
+        orderingKey: undefined,
+        deliveryAttempt: 1,
+        length: 100,
+      };
+
+      queue.publish('test-topic', [message]);
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Queue capacity reached for subscription test-sub'),
+      );
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('10000 messages'));
+
+      warnSpy.mockRestore();
+    });
+
+    test('warns when byte limit reached', () => {
+      queue.registerTopic('test-topic');
+      queue.registerSubscription('test-sub', 'test-topic');
+
+      const warnSpy = spyOn(console, 'warn').mockImplementation(() => {});
+
+      const queueState = (queue as any).queues.get('test-sub');
+      queueState.queueBytes = 100 * 1024 * 1024;
+
+      const message: InternalMessage = {
+        id: 'msg-1',
+        data: Buffer.from('test'),
+        attributes: {},
+        publishTime: new Date() as any,
+        orderingKey: undefined,
+        deliveryAttempt: 1,
+        length: 100,
+      };
+
+      queue.publish('test-topic', [message]);
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Queue capacity reached for subscription test-sub'),
+      );
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('104857600 bytes'));
+
+      warnSpy.mockRestore();
+    });
+
+    test('does not warn when limits not reached', () => {
+      queue.registerTopic('test-topic');
+      queue.registerSubscription('test-sub', 'test-topic');
+
+      const warnSpy = spyOn(console, 'warn').mockImplementation(() => {});
+
+      const queueState = (queue as any).queues.get('test-sub');
+      queueState.queueSize = 100;
+      queueState.queueBytes = 1000;
+
+      const message: InternalMessage = {
+        id: 'msg-1',
+        data: Buffer.from('test'),
+        attributes: {},
+        publishTime: new Date() as any,
+        orderingKey: undefined,
+        deliveryAttempt: 1,
+        length: 100,
+      };
+
+      queue.publish('test-topic', [message]);
+
+      expect(warnSpy).not.toHaveBeenCalled();
+
+      warnSpy.mockRestore();
     });
   });
 });

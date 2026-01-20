@@ -22,16 +22,17 @@ import { MessageQueue } from './internal/message-queue';
 import { NotFoundError, AlreadyExistsError, InvalidArgumentError } from './types/errors';
 import { IAM } from './iam';
 import type { Subscription } from './subscription';
+import type { PubSub } from './pubsub';
 import { extractProjectId, formatSubscriptionName } from './internal/naming';
 
 export class Topic {
 	readonly name: string;
-	readonly pubsub: unknown;
+	readonly pubsub: PubSub;
 	readonly iam: IAM;
 	private _publisher?: Publisher;
 	private readonly queue: MessageQueue;
 
-	constructor(pubsub: unknown, name: string) {
+	constructor(pubsub: PubSub, name: string) {
 		this.pubsub = pubsub;
 		this.name = name;
 		this.iam = new IAM(pubsub, name);

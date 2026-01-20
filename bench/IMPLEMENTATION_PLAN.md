@@ -1,8 +1,10 @@
-# Containerized Benchmarking Implementation Plan
+# Containerized Benchmarking
 
-## Overview
+## Status: Complete
 
-Add Docker-based resource-constrained benchmarking to simulate cloud instance sizes (micro, small, medium) for capacity planning and deployment validation. Consult [Docker container benchmarking](../docs/dockerized-benchmarking.md) for an overview.
+Docker-based resource-constrained benchmarking for simulating cloud instance sizes (micro, small, medium). Enables capacity planning and deployment validation across different cloud VM tiers.
+
+See [Docker container benchmarking](../docs/dockerized-benchmarking.md) for detailed documentation.
 
 ## Resource Profiles
 
@@ -13,84 +15,22 @@ Add Docker-based resource-constrained benchmarking to simulate cloud instance si
 | `medium` | 1.0 | 4GB | GCP e2-medium, AWS t3.medium |
 | `native` | unlimited | unlimited | Host machine (baseline) |
 
-## Tasks
+## Usage
 
-### Phase 1: Profile Definitions ✓
+```bash
+bun run bench:constrained:micro    # Run all scenarios on micro profile
+bun run bench:constrained:small    # Run all scenarios on small profile
+bun run bench:constrained:medium   # Run all scenarios on medium profile
+bun run bench:docker:build         # Rebuild Docker image
+```
 
-- [x] Create `bench/utils/profiles.ts` with `ResourceProfile` interface
-- [x] Define `PROFILES` map with micro, small, medium, native configurations
-- [x] Export `getProfile()` and `listProfiles()` helper functions
-- [x] Define `SCENARIO_BENCHMARKS` constant (excludes mitata microbenchmarks)
+## Verification Results
 
-### Phase 2: Reporter Modifications ✓
+All phases (1-7) completed successfully:
 
-- [x] Add `DockerProfile` interface to `bench/utils/reporter.ts`
-- [x] Add optional `dockerProfile` field to `Environment` interface
-- [x] Create `captureEnvironmentWithProfile(profileName?: string)` function
-- [x] Modify `createResult()` to accept optional `profileName` parameter
-- [x] Modify `saveResults()` to include profile in filename when present
-
-### Phase 3: Docker Infrastructure ✓
-
-- [x] Create `bench/Dockerfile.bench` with minimal Bun image
-- [x] Create `bench/run-constrained.sh` orchestration script
-- [x] Make shell script executable with `chmod +x`
-- [x] Test Docker image builds successfully
-
-### Phase 4: Scenario Updates ✓
-
-- [x] Update `bench/scenarios/throughput.ts` to read `BENCH_PROFILE` env var
-- [x] Update `bench/scenarios/firehose.ts` to read `BENCH_PROFILE` env var
-- [x] Update `bench/scenarios/fanout.ts` to read `BENCH_PROFILE` env var
-- [x] Update `bench/scenarios/thundering-herd.ts` to read `BENCH_PROFILE` env var
-- [x] Update `bench/scenarios/saturation.ts` to read `BENCH_PROFILE` env var
-
-### Phase 5: Package Scripts ✓
-
-- [x] Add `bench:constrained` script to package.json
-- [x] Add `bench:constrained:micro` script
-- [x] Add `bench:constrained:small` script
-- [x] Add `bench:constrained:medium` script
-- [x] Add `bench:docker:build` script
-
-### Phase 6: Documentation ✓
-
-- [x] Update `bench/README.md` with containerized benchmarks section
-- [x] Document available profiles and usage
-- [x] Document result file naming convention
-- [x] Add architecture note (ARM64 vs x86_64)
-
-### Phase 7: Verification ✓
-
-- [x] Build Docker image successfully
-- [x] Run `throughput` benchmark with micro profile
-- [x] Verify result file contains `dockerProfile` metadata
-- [x] Compare native vs micro throughput (expect 2-4x reduction)
-  - Native: 8,014 msgs/sec, Micro: 3,957-4,625 msgs/sec (~2x reduction)
-- [x] Run all scenarios with micro profile
-  - throughput: ✓ PASS
-  - firehose-1KB: ✗ FAIL (expected - P99 target too aggressive for constrained env)
-  - firehose-10KB: ✓ PASS
-  - firehose-1MB: ✓ PASS
-  - fanout: ✓ PASS (100% delivery)
-  - thundering-herd: ✓ PASS (100% success)
-  - saturation: ✓ PASS (inflection at 90% load)
-
-## File Changes Summary
-
-| File | Action |
-|------|--------|
-| `bench/utils/profiles.ts` | Create ✓ |
-| `bench/utils/reporter.ts` | Modify ✓ |
-| `bench/Dockerfile.bench` | Create ✓ |
-| `bench/run-constrained.sh` | Create ✓ |
-| `bench/scenarios/throughput.ts` | Modify ✓ |
-| `bench/scenarios/firehose.ts` | Modify ✓ |
-| `bench/scenarios/fanout.ts` | Modify ✓ |
-| `bench/scenarios/thundering-herd.ts` | Modify ✓ |
-| `bench/scenarios/saturation.ts` | Modify ✓ |
-| `package.json` | Modify ✓ |
-| `bench/README.md` | Modify ✓ |
+- Native baseline: 8,014 msgs/sec
+- Micro profile: 3,957-4,625 msgs/sec (~2x reduction, expected)
+- All scenarios pass on micro profile except firehose-1KB (P99 target too aggressive for constrained env)
 
 ## Design Notes
 
@@ -99,3 +39,16 @@ Add Docker-based resource-constrained benchmarking to simulate cloud instance si
 - **Result naming**: `<scenario>-<profile>-<timestamp>.json` for containerized runs.
 - **Backward compatible**: Existing `bun bench:throughput` continues to work unchanged.
 - **Environment capture**: `os.cpus()` returns host CPU inside Docker (caveat documented), `os.totalmem()` returns container limit (accurate).
+
+## Implementation Summary
+
+**New Files:**
+- `bench/utils/profiles.ts` - Resource profile definitions
+- `bench/Dockerfile.bench` - Minimal Bun benchmark image
+- `bench/run-constrained.sh` - Docker orchestration script
+
+**Modified Files:**
+- `bench/utils/reporter.ts` - Profile metadata capture
+- `bench/scenarios/*.ts` - Profile environment variable support (5 scenarios)
+- `package.json` - Containerized benchmark npm scripts
+- `bench/README.md` - Usage documentation

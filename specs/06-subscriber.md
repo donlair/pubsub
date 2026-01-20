@@ -33,7 +33,7 @@ interface SubscriberOptions {
   maxExtensionTime?: number | Duration;    // Seconds, default: 3600 (60 minutes)
   batching?: BatchOptions;
   flowControl?: SubscriberFlowControlOptions;
-  useLegacyFlowControl?: boolean;          // Default: false
+  useLegacyFlowControl?: boolean;          // Default: false (API compatibility, no-op)
   streamingOptions?: MessageStreamOptions;
   closeOptions?: SubscriberCloseOptions;
 }
@@ -42,6 +42,12 @@ interface SubscriberOptions {
 - `ackDeadlineSeconds`: Subscription metadata property (see `specs/03-subscription.md`)
 - `minAckDeadline`/`maxAckDeadline`: Subscriber client-side options for automatic deadline extension
 - These are different properties serving different purposes
+
+**Note on useLegacyFlowControl:**
+- Accepted for API compatibility with Google Cloud Pub/Sub
+- In Google Cloud, controls server-side vs client-side flow control
+- No behavioral effect in this in-memory implementation (no server component)
+- All flow control is client-side only regardless of this setting
 
 interface SubscriberFlowControlOptions {
   maxMessages?: number;          // Default: 1000

@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach } from 'bun:test';
+import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import { PubSub } from '../../src/pubsub';
 import type { Message } from '../../src/message';
 
@@ -7,6 +7,10 @@ describe('Integration: Dead Letter Queue', () => {
 
 	beforeEach(() => {
 		pubsub = new PubSub({ projectId: 'dead-letter-test' });
+	});
+
+	afterEach(async () => {
+		await pubsub.close();
 	});
 
 	test('AC-001: Message moved to DLQ after maxDeliveryAttempts', async () => {

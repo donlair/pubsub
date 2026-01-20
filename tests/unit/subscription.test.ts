@@ -14,17 +14,19 @@
  * - AC-009: Multiple Subscriptions Same Topic
  */
 
-import { test, expect, beforeEach, afterEach } from 'bun:test';
+import { test, expect, beforeEach, afterEach, spyOn } from 'bun:test';
 import { Topic } from '../../src/topic';
 import { MessageQueue } from '../../src/internal/message-queue';
 import type { Message } from '../../src/message';
+import { AckResponses } from '../../src/types/message';
+import type { PubSub } from '../../src/pubsub';
 
-let pubsub: unknown;
+let pubsub: PubSub;
 let queue: MessageQueue;
 
 beforeEach(() => {
 	queue = MessageQueue.getInstance();
-	pubsub = { projectId: 'test-project' };
+	pubsub = { projectId: 'test-project' } as PubSub;
 });
 
 afterEach(() => {
@@ -63,7 +65,7 @@ test('AC-001: Create and Receive Messages', async () => {
 
 	await topic.publishMessage({ data: Buffer.from('Hello') });
 
-	await new Promise(resolve => setTimeout(resolve, 50));
+	await new Promise(resolve => setTimeout(resolve, 200));
 
 	expect(messages).toHaveLength(1);
 	expect(messages[0]?.data.toString()).toBe('Hello');
@@ -98,7 +100,7 @@ test('AC-002: Flow Control Max Messages', async () => {
 		await topic.publishMessage({ data: Buffer.from(`Message ${i}`) });
 	}
 
-	await new Promise(resolve => setTimeout(resolve, 50));
+	await new Promise(resolve => setTimeout(resolve, 200));
 
 	expect(receivedMessages.length).toBeLessThanOrEqual(2);
 
@@ -106,7 +108,7 @@ test('AC-002: Flow Control Max Messages', async () => {
 		m.ack();
 	}
 
-	await new Promise(resolve => setTimeout(resolve, 50));
+	await new Promise(resolve => setTimeout(resolve, 200));
 
 	expect(receivedMessages.length).toBeGreaterThan(2);
 
@@ -119,6 +121,10 @@ test('AC-003: Ack Deadline Redelivery', async () => {
 
 	const subscription = topic.subscription('my-sub', {
 		ackDeadlineSeconds: 1,
+		retryPolicy: {
+			minimumBackoff: { seconds: 0.1 },
+			maximumBackoff: { seconds: 1 }
+		},
 		closeOptions: {
 			behavior: 'NACK'
 		}
@@ -136,10 +142,10 @@ test('AC-003: Ack Deadline Redelivery', async () => {
 
 	await topic.publishMessage({ data: Buffer.from('test') });
 
-	await new Promise(resolve => setTimeout(resolve, 100));
+	await new Promise(resolve => setTimeout(resolve, 200));
 	expect(deliveryCount).toBe(1);
 
-	await new Promise(resolve => setTimeout(resolve, 1100));
+	await new Promise(resolve => setTimeout(resolve, 1050));
 
 	expect(deliveryCount).toBeGreaterThan(1);
 
@@ -156,6 +162,10 @@ test('AC-004: Message Ordering', async () => {
 
 	const subscription = topic.subscription('my-sub', {
 		enableMessageOrdering: true,
+		retryPolicy: {
+			minimumBackoff: { seconds: 0.1 },
+			maximumBackoff: { seconds: 1 }
+		},
 		closeOptions: {
 			behavior: 'NACK'
 		}
@@ -187,7 +197,7 @@ test('AC-004: Message Ordering', async () => {
 		orderingKey: 'user-123'
 	});
 
-	await new Promise(resolve => setTimeout(resolve, 100));
+	await new Promise(resolve => setTimeout(resolve, 300));
 
 	expect(receivedData).toEqual(['First', 'Second', 'Third']);
 
@@ -207,7 +217,7 @@ test('AC-005: Error Event Emission', async () => {
 
 	subscription.open();
 
-	await new Promise(resolve => setTimeout(resolve, 50));
+	await new Promise(resolve => setTimeout(resolve, 200));
 
 	expect(errors.length).toBeGreaterThan(0);
 
@@ -232,14 +242,14 @@ test('AC-006: Close Stops Message Flow', async () => {
 	subscription.open();
 
 	await topic.publishMessage({ data: Buffer.from('test') });
-	await new Promise(resolve => setTimeout(resolve, 50));
+	await new Promise(resolve => setTimeout(resolve, 200));
 
 	const countBeforeClose = messageCount;
 
 	await subscription.close();
 
 	await topic.publishMessage({ data: Buffer.from('test2') });
-	await new Promise(resolve => setTimeout(resolve, 50));
+	await new Promise(resolve => setTimeout(resolve, 200));
 
 	expect(messageCount).toBe(countBeforeClose);
 });
@@ -309,7 +319,7 @@ test('AC-009: Multiple Subscriptions Same Topic', async () => {
 	sub2.open();
 
 	await topic.publishMessage({ data: Buffer.from('test') });
-	await new Promise(resolve => setTimeout(resolve, 50));
+	await new Promise(resolve => setTimeout(resolve, 200));
 
 	expect(messages1).toHaveLength(1);
 	expect(messages2).toHaveLength(1);
@@ -424,7 +434,12 @@ test('pull(): Messages can be nacked and redelivered', async () => {
 	const topic = new Topic(pubsub, 'projects/test-project/topics/test-topic');
 	await topic.create();
 
-	const subscription = topic.subscription('test-sub');
+	const subscription = topic.subscription('test-sub', {
+		retryPolicy: {
+			minimumBackoff: { seconds: 0.1 },
+			maximumBackoff: { seconds: 1 }
+		}
+	});
 	await subscription.create();
 
 	await topic.publishMessage({ data: Buffer.from('Test message') });
@@ -434,6 +449,8 @@ test('pull(): Messages can be nacked and redelivered', async () => {
 	expect(messages1[0]!.deliveryAttempt).toBe(1);
 
 	messages1[0]!.nack();
+
+	await new Promise(resolve => setTimeout(resolve, 200));
 
 	const [messages2] = await subscription.pull({ maxMessages: 1 });
 	expect(messages2).toHaveLength(1);
@@ -460,13 +477,13 @@ test('pause(): Pauses message flow', async () => {
 	subscription.open();
 
 	await topic.publishMessage({ data: Buffer.from('Message 1') });
-	await new Promise(resolve => setTimeout(resolve, 50));
+	await new Promise(resolve => setTimeout(resolve, 200));
 	expect(messages).toHaveLength(1);
 
 	subscription.pause();
 
 	await topic.publishMessage({ data: Buffer.from('Message 2') });
-	await new Promise(resolve => setTimeout(resolve, 50));
+	await new Promise(resolve => setTimeout(resolve, 200));
 	expect(messages).toHaveLength(1);
 
 	await subscription.close();
@@ -489,18 +506,18 @@ test('resume(): Resumes message flow after pause', async () => {
 	subscription.open();
 
 	await topic.publishMessage({ data: Buffer.from('Message 1') });
-	await new Promise(resolve => setTimeout(resolve, 50));
+	await new Promise(resolve => setTimeout(resolve, 200));
 	expect(messages).toHaveLength(1);
 
 	subscription.pause();
 
 	await topic.publishMessage({ data: Buffer.from('Message 2') });
-	await new Promise(resolve => setTimeout(resolve, 50));
+	await new Promise(resolve => setTimeout(resolve, 200));
 	expect(messages).toHaveLength(1);
 
 	subscription.resume();
 
-	await new Promise(resolve => setTimeout(resolve, 50));
+	await new Promise(resolve => setTimeout(resolve, 200));
 	expect(messages).toHaveLength(2);
 
 	await subscription.close();
@@ -577,11 +594,16 @@ test('modifyAckDeadline(): Batch modifies ack deadlines', async () => {
 	expect(messages2).toHaveLength(0);
 });
 
-test('modifyAckDeadline(): Setting deadline to 0 causes immediate redelivery', async () => {
+test('modifyAckDeadline(): Setting deadline to 0 causes redelivery with backoff', async () => {
 	const topic = new Topic(pubsub, 'projects/test-project/topics/test-topic');
 	await topic.create();
 
-	const subscription = topic.subscription('test-sub');
+	const subscription = topic.subscription('test-sub', {
+		retryPolicy: {
+			minimumBackoff: { seconds: 0.1 },
+			maximumBackoff: { seconds: 1 }
+		}
+	});
 	await subscription.create();
 
 	await topic.publishMessage({ data: Buffer.from('Test message') });
@@ -595,7 +617,7 @@ test('modifyAckDeadline(): Setting deadline to 0 causes immediate redelivery', a
 		ackDeadlineSeconds: 0
 	});
 
-	await new Promise(resolve => setTimeout(resolve, 10));
+	await new Promise(resolve => setTimeout(resolve, 200));
 
 	const [messages2] = await subscription.pull({ maxMessages: 1 });
 	expect(messages2).toHaveLength(1);
@@ -610,4 +632,96 @@ test('modifyAckDeadline(): Works with empty array', async () => {
 	await subscription.create();
 
 	await subscription.modifyAckDeadline({ ackIds: [], ackDeadlineSeconds: 60 });
+});
+
+test('pull(): Message ack after subscription deletion logs warning', async () => {
+	const topic = new Topic(pubsub, 'projects/test-project/topics/test-topic');
+	await topic.create();
+
+	const subscription = topic.subscription('test-sub');
+	await subscription.create();
+
+	await topic.publishMessage({ data: Buffer.from('Test message') });
+
+	const [messages] = await subscription.pull({ maxMessages: 1 });
+	expect(messages).toHaveLength(1);
+	const message = messages[0]!;
+
+	await subscription.delete();
+
+	const warnSpy = spyOn(console, 'warn').mockImplementation(() => {});
+
+	message.ack();
+
+	expect(warnSpy).toHaveBeenCalledWith(
+		'Ack ignored: Subscription no longer exists: projects/test-project/subscriptions/test-sub',
+	);
+
+	warnSpy.mockRestore();
+});
+
+test('pull(): Message nack after subscription deletion logs warning', async () => {
+	const topic = new Topic(pubsub, 'projects/test-project/topics/test-topic');
+	await topic.create();
+
+	const subscription = topic.subscription('test-sub');
+	await subscription.create();
+
+	await topic.publishMessage({ data: Buffer.from('Test message') });
+
+	const [messages] = await subscription.pull({ maxMessages: 1 });
+	expect(messages).toHaveLength(1);
+	const message = messages[0]!;
+
+	await subscription.delete();
+
+	const warnSpy = spyOn(console, 'warn').mockImplementation(() => {});
+
+	message.nack();
+
+	expect(warnSpy).toHaveBeenCalledWith(
+		'Nack ignored: Subscription no longer exists: projects/test-project/subscriptions/test-sub',
+	);
+
+	warnSpy.mockRestore();
+});
+
+test('pull(): ackWithResponse after subscription deletion returns FAILED_PRECONDITION', async () => {
+	const topic = new Topic(pubsub, 'projects/test-project/topics/test-topic');
+	await topic.create();
+
+	const subscription = topic.subscription('test-sub');
+	await subscription.create();
+
+	await topic.publishMessage({ data: Buffer.from('Test message') });
+
+	const [messages] = await subscription.pull({ maxMessages: 1 });
+	expect(messages).toHaveLength(1);
+	const message = messages[0]!;
+
+	await subscription.delete();
+
+	const response = await message.ackWithResponse();
+
+	expect(response).toBe(AckResponses.FailedPrecondition);
+});
+
+test('pull(): nackWithResponse after subscription deletion returns FAILED_PRECONDITION', async () => {
+	const topic = new Topic(pubsub, 'projects/test-project/topics/test-topic');
+	await topic.create();
+
+	const subscription = topic.subscription('test-sub');
+	await subscription.create();
+
+	await topic.publishMessage({ data: Buffer.from('Test message') });
+
+	const [messages] = await subscription.pull({ maxMessages: 1 });
+	expect(messages).toHaveLength(1);
+	const message = messages[0]!;
+
+	await subscription.delete();
+
+	const response = await message.nackWithResponse();
+
+	expect(response).toBe(AckResponses.FailedPrecondition);
 });

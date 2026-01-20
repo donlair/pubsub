@@ -61,6 +61,12 @@ export interface ClientConfig {
    * - 'proto': HTTP/1.1 with protobuf
    */
   fallback?: boolean | 'rest' | 'proto';
+
+  /**
+   * Arbitrary gRPC client configuration.
+   * Pass-through for gRPC-specific options.
+   */
+  clientConfig?: unknown;
 }
 
 /**
@@ -82,7 +88,11 @@ export interface PubSubOptions extends ClientConfig {
    */
   enableOpenTelemetryTracing?: boolean;
 
-  /** gRPC call options. */
+  /**
+   * gRPC call options.
+   *
+   * Note: Accepted for API compatibility but has no runtime effect in this in-memory implementation.
+   */
   gaxOpts?: CallOptions;
 }
 

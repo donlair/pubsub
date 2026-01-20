@@ -13,7 +13,7 @@ import { PublisherFlowControl } from './flow-control';
 import { MessageQueue } from '../internal/message-queue';
 import type { InternalMessage } from '../internal/types';
 import { PreciseDate } from '../utils/precise-date';
-import { InvalidArgumentError, InternalError } from '../types/errors';
+import { InvalidArgumentError, InternalError, NotFoundError, ErrorCode, PubSubError } from '../types/errors';
 
 interface Batch {
 	messages: PubsubMessage[];
@@ -23,6 +23,22 @@ interface Batch {
 		reject: (error: Error) => void;
 	}>;
 	timer?: ReturnType<typeof setTimeout>;
+}
+
+function shouldPauseOrderingKey(error: unknown): boolean {
+	if (!(error instanceof PubSubError)) {
+		return true;
+	}
+
+	const nonRetryableCodes = [
+		ErrorCode.INVALID_ARGUMENT,
+		ErrorCode.NOT_FOUND,
+		ErrorCode.ALREADY_EXISTS,
+		ErrorCode.PERMISSION_DENIED,
+		ErrorCode.FAILED_PRECONDITION,
+	];
+
+	return nonRetryableCodes.includes(error.code);
 }
 
 export class Publisher {
@@ -234,8 +250,7 @@ export class Publisher {
 			// Check if batch should be published
 			if (this.shouldPublishBatch(batch)) {
 				this.publishBatch(batch, message.orderingKey).catch((error) => {
-					// Handle publish error - pause ordering key if present
-					if (message.orderingKey) {
+					if (message.orderingKey && shouldPauseOrderingKey(error)) {
 						this.pausedOrderingKeys.add(message.orderingKey);
 					}
 					reject(error);
@@ -496,11 +511,10 @@ export class Publisher {
 		});
 
 		try {
-			// Check if topic exists before publishing (avoids errors during cleanup)
 			if (!this.queue.topicExists(this.topicName)) {
-				// Topic was deleted, silently discard batch
+				const error = new NotFoundError(this.topicName, 'Topic');
 				for (const promise of batch.promises) {
-					promise.resolve('');
+					promise.reject(error);
 				}
 				for (const msg of internalMessages) {
 					this.flowControl.release(msg.length);
@@ -552,8 +566,7 @@ export class Publisher {
 				this.flowControl.release(msg.length);
 			}
 
-			// Pause ordering key on error
-			if (orderingKey) {
+			if (orderingKey && shouldPauseOrderingKey(err)) {
 				this.pausedOrderingKeys.add(orderingKey);
 			}
 

@@ -55,13 +55,15 @@ interface Attributes {
   [key: string]: string;
 }
 
-enum AckResponse {
-  SUCCESS = 0,              // gRPC OK - Acknowledgment successful
-  INVALID = 3,              // gRPC INVALID_ARGUMENT - Invalid ack ID
-  PERMISSION_DENIED = 7,    // gRPC PERMISSION_DENIED - Insufficient permissions
-  FAILED_PRECONDITION = 9,  // gRPC FAILED_PRECONDITION - Subscription state issue
-  OTHER = 13                // gRPC INTERNAL - Other transient errors
-}
+const AckResponses = {
+  Success: 'SUCCESS',                      // gRPC OK - Acknowledgment successful
+  Invalid: 'INVALID',                      // gRPC INVALID_ARGUMENT - Invalid ack ID
+  PermissionDenied: 'PERMISSION_DENIED',   // gRPC PERMISSION_DENIED - Insufficient permissions
+  FailedPrecondition: 'FAILED_PRECONDITION', // gRPC FAILED_PRECONDITION - Subscription state issue
+  Other: 'OTHER'                           // gRPC INTERNAL - Other transient errors
+} as const;
+
+type AckResponse = (typeof AckResponses)[keyof typeof AckResponses];
 ```
 
 ## Behavior Requirements

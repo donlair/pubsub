@@ -18,13 +18,14 @@
 import { test, expect, beforeEach, afterEach } from 'bun:test';
 import { Topic } from '../../src/topic';
 import { MessageQueue } from '../../src/internal/message-queue';
+import type { PubSub } from '../../src/pubsub';
 
-let pubsub: unknown;
+let pubsub: PubSub;
 let queue: MessageQueue;
 
 beforeEach(() => {
 	queue = MessageQueue.getInstance();
-	pubsub = { projectId: 'test-project' };
+	pubsub = { projectId: 'test-project' } as PubSub;
 });
 
 afterEach(() => {
@@ -295,4 +296,10 @@ test('Topic: IAM property is defined', () => {
 	expect(typeof topic.iam.getPolicy).toBe('function');
 	expect(typeof topic.iam.setPolicy).toBe('function');
 	expect(typeof topic.iam.testPermissions).toBe('function');
+});
+
+test('Topic: pubsub property has PubSub type with projectId', () => {
+	const topic = new Topic(pubsub, 'projects/test-project/topics/my-topic');
+	expect(topic.pubsub).toBeDefined();
+	expect(topic.pubsub.projectId).toBe('test-project');
 });

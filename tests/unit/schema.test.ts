@@ -420,4 +420,278 @@ describe('Schema', () => {
 			).resolves.toBeUndefined();
 		});
 	});
+
+	describe('Edge Cases: listSchemas()', () => {
+		test('returns empty array when no schemas exist', async () => {
+			const freshPubsub = new PubSub({ projectId: 'empty-project' });
+
+			const schemas = [];
+			for await (const schema of freshPubsub.listSchemas()) {
+				schemas.push(schema);
+			}
+
+			expect(schemas.length).toBe(0);
+		});
+
+		test('handles undefined view parameter (defaults to BASIC)', async () => {
+			const definition = JSON.stringify({ type: 'object' });
+			await pubsub.createSchema('test-schema-default-view', SchemaTypes.Json, definition);
+
+			const schemas = [];
+			for await (const schema of pubsub.listSchemas()) {
+				schemas.push(schema);
+			}
+
+			expect(schemas.length).toBeGreaterThanOrEqual(1);
+			const targetSchema = schemas.find(s => s.id.includes('test-schema-default-view'));
+			expect(targetSchema).toBeDefined();
+			expect(targetSchema?.type).toBeDefined();
+			expect(targetSchema?.definition).toBeUndefined();
+		});
+
+		test('BASIC view excludes definition', async () => {
+			const definition = JSON.stringify({ type: 'object' });
+			await pubsub.createSchema('basic-view-schema', SchemaTypes.Json, definition);
+
+			const schemas = [];
+			for await (const schema of pubsub.listSchemas('BASIC')) {
+				schemas.push(schema);
+			}
+
+			const targetSchema = schemas.find(s => s.id.includes('basic-view-schema'));
+			expect(targetSchema).toBeDefined();
+			expect(targetSchema?.type).toBeDefined();
+			expect(targetSchema?.definition).toBeUndefined();
+		});
+
+		test('FULL view includes definition', async () => {
+			const definition = JSON.stringify({ type: 'object', properties: { id: { type: 'number' } } });
+			await pubsub.createSchema('full-view-schema', SchemaTypes.Json, definition);
+
+			const schemas = [];
+			for await (const schema of pubsub.listSchemas('FULL')) {
+				schemas.push(schema);
+			}
+
+			const targetSchema = schemas.find(s => s.id.includes('full-view-schema'));
+			expect(targetSchema).toBeDefined();
+			expect(targetSchema?.type).toBeDefined();
+			expect(targetSchema?.definition).toBeDefined();
+			expect(targetSchema?.definition).toContain('"type":"object"');
+		});
+
+		test('lists multiple schemas correctly', async () => {
+			const definition1 = JSON.stringify({ type: 'object', properties: { a: { type: 'string' } } });
+			const definition2 = JSON.stringify({ type: 'object', properties: { b: { type: 'number' } } });
+			const definition3 = JSON.stringify({ type: 'object', properties: { c: { type: 'boolean' } } });
+
+			await pubsub.createSchema('multi-schema-1', SchemaTypes.Json, definition1);
+			await pubsub.createSchema('multi-schema-2', SchemaTypes.Json, definition2);
+			await pubsub.createSchema('multi-schema-3', SchemaTypes.Json, definition3);
+
+			const schemas = [];
+			for await (const schema of pubsub.listSchemas('FULL')) {
+				schemas.push(schema);
+			}
+
+			expect(schemas.length).toBeGreaterThanOrEqual(3);
+
+			const schema1 = schemas.find(s => s.id.includes('multi-schema-1'));
+			const schema2 = schemas.find(s => s.id.includes('multi-schema-2'));
+			const schema3 = schemas.find(s => s.id.includes('multi-schema-3'));
+
+			expect(schema1).toBeDefined();
+			expect(schema2).toBeDefined();
+			expect(schema3).toBeDefined();
+		});
+
+		test('handles schemas with different types', async () => {
+			const jsonDef = JSON.stringify({ type: 'object' });
+			const avroDef = JSON.stringify({ type: 'record', name: 'Test', fields: [] });
+
+			await pubsub.createSchema('json-type-schema', SchemaTypes.Json, jsonDef);
+			await pubsub.createSchema('avro-type-schema', SchemaTypes.Avro, avroDef);
+
+			const schemas = [];
+			for await (const schema of pubsub.listSchemas('FULL')) {
+				schemas.push(schema);
+			}
+
+			const jsonSchema = schemas.find(s => s.id.includes('json-type-schema'));
+			const avroSchema = schemas.find(s => s.id.includes('avro-type-schema'));
+
+			expect(jsonSchema?.type).toBe(SchemaTypes.Json);
+			expect(avroSchema?.type).toBe(SchemaTypes.Avro);
+		});
+	});
+
+	describe('Edge Cases: validateSchema()', () => {
+		test('rejects empty definition string', async () => {
+			await expect(
+				pubsub.validateSchema({
+					type: SchemaTypes.Json,
+					definition: ''
+				})
+			).rejects.toThrow();
+		});
+
+		test('rejects definition with syntax errors', async () => {
+			await expect(
+				pubsub.validateSchema({
+					type: SchemaTypes.Json,
+					definition: '{"type":"object",,}'
+				})
+			).rejects.toThrow();
+		});
+
+		test('accepts complex valid JSON schema', async () => {
+			const complexDefinition = JSON.stringify({
+				type: 'object',
+				properties: {
+					id: { type: 'number' },
+					name: { type: 'string', minLength: 1 },
+					email: { type: 'string', format: 'email' },
+					age: { type: 'number', minimum: 0, maximum: 150 },
+					tags: { type: 'array', items: { type: 'string' } },
+					metadata: {
+						type: 'object',
+						properties: {
+							created: { type: 'string', format: 'date-time' },
+							updated: { type: 'string', format: 'date-time' }
+						}
+					}
+				},
+				required: ['id', 'name']
+			});
+
+			await expect(
+				pubsub.validateSchema({
+					type: SchemaTypes.Json,
+					definition: complexDefinition
+				})
+			).resolves.toBeUndefined();
+		});
+
+		test('validates AVRO schema as JSON', async () => {
+			const avroDefinition = JSON.stringify({
+				type: 'record',
+				name: 'User',
+				fields: [{ name: 'id', type: 'int' }]
+			});
+
+			await expect(
+				pubsub.validateSchema({
+					type: SchemaTypes.Avro,
+					definition: avroDefinition
+				})
+			).resolves.toBeUndefined();
+		});
+
+		test('rejects invalid AVRO schema (malformed JSON)', async () => {
+			await expect(
+				pubsub.validateSchema({
+					type: SchemaTypes.Avro,
+					definition: '{ invalid json'
+				})
+			).rejects.toThrow('Invalid AVRO schema definition');
+		});
+
+		test('accepts Protocol Buffer schema without validation', async () => {
+			const protobufDefinition = 'syntax = "proto3"; message User { int32 id = 1; }';
+
+			await expect(
+				pubsub.validateSchema({
+					type: SchemaTypes.ProtocolBuffer,
+					definition: protobufDefinition
+				})
+			).resolves.toBeUndefined();
+		});
+
+		test('validates schema with array constraints', async () => {
+			const arrayDefinition = JSON.stringify({
+				type: 'object',
+				properties: {
+					items: {
+						type: 'array',
+						items: { type: 'string' },
+						minItems: 1,
+						maxItems: 10
+					}
+				}
+			});
+
+			await expect(
+				pubsub.validateSchema({
+					type: SchemaTypes.Json,
+					definition: arrayDefinition
+				})
+			).resolves.toBeUndefined();
+		});
+
+		test('validates schema with enum values', async () => {
+			const enumDefinition = JSON.stringify({
+				type: 'object',
+				properties: {
+					status: {
+						type: 'string',
+						enum: ['pending', 'active', 'completed']
+					}
+				}
+			});
+
+			await expect(
+				pubsub.validateSchema({
+					type: SchemaTypes.Json,
+					definition: enumDefinition
+				})
+			).resolves.toBeUndefined();
+		});
+
+		test('validates schema with pattern constraints', async () => {
+			const patternDefinition = JSON.stringify({
+				type: 'object',
+				properties: {
+					email: {
+						type: 'string',
+						pattern: '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$'
+					}
+				}
+			});
+
+			await expect(
+				pubsub.validateSchema({
+					type: SchemaTypes.Json,
+					definition: patternDefinition
+				})
+			).resolves.toBeUndefined();
+		});
+
+		test('rejects JSON schema with invalid type property value', async () => {
+			await expect(
+				pubsub.validateSchema({
+					type: SchemaTypes.Json,
+					definition: JSON.stringify({ type: 'invalid_type' })
+				})
+			).rejects.toThrow();
+		});
+
+		test('handles very large schema definitions', async () => {
+			const properties: Record<string, unknown> = {};
+			for (let i = 0; i < 100; i++) {
+				properties[`field${i}`] = { type: 'string' };
+			}
+
+			const largeDefinition = JSON.stringify({
+				type: 'object',
+				properties
+			});
+
+			await expect(
+				pubsub.validateSchema({
+					type: SchemaTypes.Json,
+					definition: largeDefinition
+				})
+			).resolves.toBeUndefined();
+		});
+	});
 });

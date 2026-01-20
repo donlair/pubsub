@@ -69,7 +69,11 @@ export interface IngestionDataSourceSettings {
  * Reference: research/11-typescript-types.md#createtopicoptions
  */
 export interface CreateTopicOptions extends TopicMetadata {
-  /** gRPC call options. */
+  /**
+   * gRPC call options.
+   *
+   * Note: Accepted for API compatibility but has no runtime effect in this in-memory implementation.
+   */
   gaxOpts?: CallOptions;
 }
 
@@ -84,7 +88,11 @@ export interface GetTopicOptions {
    */
   autoCreate?: boolean;
 
-  /** gRPC call options. */
+  /**
+   * gRPC call options.
+   *
+   * Note: Accepted for API compatibility but has no runtime effect in this in-memory implementation.
+   */
   gaxOpts?: CallOptions;
 }
 
@@ -98,7 +106,11 @@ export interface GetTopicsOptions {
   /** Page token for pagination. */
   pageToken?: string;
 
-  /** gRPC call options. */
+  /**
+   * gRPC call options.
+   *
+   * Note: Accepted for API compatibility but has no runtime effect in this in-memory implementation.
+   */
   gaxOpts?: CallOptions;
 
   /** Enable auto-pagination. */
@@ -115,7 +127,11 @@ export interface GetTopicSubscriptionsOptions {
   /** Page token for pagination. */
   pageToken?: string;
 
-  /** gRPC call options. */
+  /**
+   * gRPC call options.
+   *
+   * Note: Accepted for API compatibility but has no runtime effect in this in-memory implementation.
+   */
   gaxOpts?: CallOptions;
 
   /** Enable auto-pagination. */

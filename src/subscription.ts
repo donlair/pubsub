@@ -17,6 +17,7 @@ import type {
 } from './types/subscription';
 import type { CallOptions } from './types/common';
 import type { SubscriberOptions } from './types/subscriber';
+import type { PubSub } from './pubsub';
 import { MessageStream } from './subscriber/message-stream';
 import { MessageQueue } from './internal/message-queue';
 import { NotFoundError, AlreadyExistsError } from './types/errors';
@@ -27,7 +28,7 @@ interface Snapshot {
 
 export class Subscription extends EventEmitter {
 	readonly name: string;
-	readonly pubsub: unknown;
+	readonly pubsub: PubSub;
 	topic?: unknown;
 	metadata?: SubscriptionMetadata;
 	isOpen = false;
@@ -37,7 +38,7 @@ export class Subscription extends EventEmitter {
 	private options: SubscriberOptions;
 	private readonly queue: MessageQueue;
 
-	constructor(pubsub: unknown, name: string, options?: SubscriptionOptions) {
+	constructor(pubsub: PubSub, name: string, options?: SubscriptionOptions) {
 		super();
 		this.pubsub = pubsub;
 		this.name = name;
@@ -148,7 +149,8 @@ export class Subscription extends EventEmitter {
 
 		this.queue.registerSubscription(this.name, topicName, {
 			ackDeadlineSeconds: this.metadata.ackDeadlineSeconds,
-			enableMessageOrdering: this.metadata.enableMessageOrdering
+			enableMessageOrdering: this.metadata.enableMessageOrdering,
+			retryPolicy: this.metadata.retryPolicy
 		});
 
 		return [this, this.metadata];

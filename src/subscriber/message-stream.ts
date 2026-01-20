@@ -10,11 +10,31 @@ import type { EventEmitter } from 'node:events';
 import type { SubscriberOptions } from '../types/subscriber';
 import type { SubscriptionMetadata } from '../types/subscription';
 import type { InternalMessage } from '../internal/types';
+import type { Duration } from '../types/common';
 import { MessageQueue } from '../internal/message-queue';
 import { Message } from '../message';
 import { SubscriberFlowControl } from './flow-control';
 import { LeaseManager } from './lease-manager';
-import { NotFoundError } from '../types/errors';
+import { NotFoundError, InvalidArgumentError } from '../types/errors';
+import { Histogram } from '../utils/histogram';
+
+const DEADLINE_MONITOR_INTERVAL_MS = 1000;
+const MIN_SAMPLES_FOR_ADAPTIVE_DEADLINE = 10;
+
+/**
+ * Convert Duration to seconds.
+ */
+function durationToSeconds(duration: Duration): number {
+	if (typeof duration === 'number') {
+		return duration;
+	}
+	const days = duration.days ?? 0;
+	const hours = duration.hours ?? 0;
+	const minutes = duration.minutes ?? 0;
+	const seconds = duration.seconds ?? 0;
+	const nanos = duration.nanos ?? 0;
+	return days * 86400 + hours * 3600 + minutes * 60 + seconds + nanos / 1e9;
+}
 
 interface ISubscription extends EventEmitter {
 	name: string;
@@ -30,14 +50,19 @@ export class MessageStream {
 	private messageQueue: MessageQueue;
 	private isRunning = false;
 	private isPaused = false;
-	private pullInterval?: ReturnType<typeof setInterval>;
+	private pullIntervals: Array<ReturnType<typeof setInterval>> = [];
+	private timeoutTimer?: ReturnType<typeof setTimeout>;
+	private deadlineMonitorTimer?: ReturnType<typeof setInterval>;
 	private inFlightMessages = new Map<string, Message>();
 	private orderingQueues = new Map<string, Message[]>();
 	private processingOrderingKeys = new Set<string>();
 	private pendingMessages: InternalMessage[] = [];
+	private ackTimeHistogram: Histogram;
 
 	private readonly pullIntervalMs: number;
 	private readonly maxPullSize: number;
+	private readonly maxStreams: number;
+	private readonly timeoutMs: number;
 
 	constructor(subscription: ISubscription, options: SubscriberOptions) {
 		this.subscription = subscription;
@@ -50,9 +75,12 @@ export class MessageStream {
 			ackDeadlineSeconds: subscription.metadata?.ackDeadlineSeconds ?? 10,
 		});
 		this.messageQueue = MessageQueue.getInstance();
+		this.ackTimeHistogram = new Histogram({ maxSamples: 1000 });
 
 		this.pullIntervalMs = options.streamingOptions?.pullInterval ?? 10;
 		this.maxPullSize = options.streamingOptions?.maxPullSize ?? 100;
+		this.maxStreams = options.streamingOptions?.maxStreams ?? 5;
+		this.timeoutMs = options.streamingOptions?.timeout ?? 300000;
 	}
 
 	/**
@@ -103,7 +131,26 @@ export class MessageStream {
 
 		this.isRunning = true;
 		this.isPaused = false;
-		this.pullInterval = setInterval(() => this.pullMessages(), this.pullIntervalMs);
+
+		for (let i = 0; i < this.maxStreams; i++) {
+			const interval = setInterval(() => this.pullMessages(), this.pullIntervalMs);
+			this.pullIntervals.push(interval);
+		}
+
+		this.deadlineMonitorTimer = setInterval(() => {
+			this.monitorAndExtendDeadlines();
+		}, DEADLINE_MONITOR_INTERVAL_MS);
+
+		if (this.timeoutMs > 0) {
+			this.timeoutTimer = setTimeout(() => {
+				setImmediate(() => {
+					this.subscription.emit('error', new Error(`Stream timeout after ${this.timeoutMs}ms`));
+				});
+				this.stop().catch((error) => {
+					console.error('Failed to stop stream after timeout:', error);
+				});
+			}, this.timeoutMs);
+		}
 	}
 
 	/**
@@ -158,9 +205,19 @@ export class MessageStream {
 
 		this.isRunning = false;
 
-		if (this.pullInterval) {
-			clearInterval(this.pullInterval);
-			this.pullInterval = undefined;
+		for (const interval of this.pullIntervals) {
+			clearInterval(interval);
+		}
+		this.pullIntervals = [];
+
+		if (this.timeoutTimer) {
+			clearTimeout(this.timeoutTimer);
+			this.timeoutTimer = undefined;
+		}
+
+		if (this.deadlineMonitorTimer) {
+			clearInterval(this.deadlineMonitorTimer);
+			this.deadlineMonitorTimer = undefined;
 		}
 
 		const closeBehavior =
@@ -170,16 +227,20 @@ export class MessageStream {
 			for (const message of this.inFlightMessages.values()) {
 				try {
 					message.nack();
-				} catch {
-					// Ignore errors for already-expired leases during cleanup
+				} catch (error) {
+					if (!(error instanceof InvalidArgumentError)) {
+						console.error('Unexpected error during cleanup NACK:', error);
+					}
 				}
 			}
 			for (const pendingMsg of this.pendingMessages) {
 				if (pendingMsg.ackId) {
 					try {
 						this.messageQueue.nack(pendingMsg.ackId);
-					} catch {
-						// Ignore errors for already-expired leases during cleanup
+					} catch (error) {
+						if (!(error instanceof InvalidArgumentError)) {
+							console.error('Unexpected error during cleanup NACK:', error);
+						}
 					}
 				}
 			}
@@ -351,6 +412,13 @@ export class MessageStream {
 				return;
 			}
 
+			const subscriptionMeta = this.messageQueue.getSubscription(this.subscription.name);
+			if (subscriptionMeta?.topic && !this.messageQueue.topicExists(subscriptionMeta.topic)) {
+				throw new NotFoundError(subscriptionMeta.topic, 'Topic');
+			}
+
+			this.flowControl.startBatchPull();
+
 			const messages = this.messageQueue.pull(
 				this.subscription.name,
 				maxToPull,
@@ -359,7 +427,10 @@ export class MessageStream {
 			for (const internalMsg of messages) {
 				this.processSingleMessage(internalMsg);
 			}
+
+			this.flowControl.endBatchPull();
 		} catch (error) {
+			this.flowControl.endBatchPull();
 			setImmediate(() => {
 				this.subscription.emit('error', error);
 			});
@@ -415,8 +486,14 @@ export class MessageStream {
 	 * Calculate max messages to pull based on flow control.
 	 */
 	private calculateMaxPull(): number {
-		const inFlightCount = this.flowControl.getInFlightMessages();
 		const flowControlOptions = this.options.flowControl ?? {};
+		const allowExcessMessages = flowControlOptions.allowExcessMessages ?? false;
+
+		if (allowExcessMessages) {
+			return this.maxPullSize;
+		}
+
+		const inFlightCount = this.flowControl.getInFlightMessages();
 		const maxMessages =
 			flowControlOptions.maxMessages ?? 1000;
 
@@ -522,6 +599,11 @@ export class MessageStream {
 	 * Handle message completion (ack/nack).
 	 */
 	private handleMessageComplete(message: Message): void {
+		const ackTime = this.leaseManager.getAckTime(message.ackId);
+		if (ackTime !== null) {
+			this.ackTimeHistogram.recordMs(ackTime);
+		}
+
 		this.leaseManager.removeLease(message.ackId);
 		this.flowControl.removeMessage(message.length);
 		this.inFlightMessages.delete(message.ackId);
@@ -530,10 +612,50 @@ export class MessageStream {
 	}
 
 	/**
+	 * Monitor leases and automatically extend deadlines for slow processing.
+	 */
+	private monitorAndExtendDeadlines(): void {
+		try {
+			const leasesNeedingExtension = this.leaseManager.getLeasesNeedingExtension();
+
+			if (leasesNeedingExtension.length === 0) {
+				return;
+			}
+
+			const summary = this.ackTimeHistogram.summary();
+			let baseExtensionSeconds: number;
+
+			if (summary.count >= MIN_SAMPLES_FOR_ADAPTIVE_DEADLINE) {
+				baseExtensionSeconds = Math.ceil(summary.p99 / 1000);
+			} else {
+				const metadata = this.subscription.metadata;
+				baseExtensionSeconds = metadata?.ackDeadlineSeconds ?? 10;
+			}
+
+			baseExtensionSeconds = Math.max(10, Math.min(600, baseExtensionSeconds));
+
+			for (const lease of leasesNeedingExtension) {
+				try {
+					this.leaseManager.extendDeadline(lease.message.ackId, baseExtensionSeconds);
+					lease.message.modifyAckDeadline(baseExtensionSeconds);
+				} catch (_error) {
+					// Deadline extension is best-effort - message may have been acked/nacked
+				}
+			}
+		} catch (_error) {
+			// Monitoring errors should not crash the stream
+		}
+	}
+
+	/**
 	 * Wait for all in-flight messages to complete.
 	 */
 	private async waitForInFlight(): Promise<void> {
-		const timeout = 30000;
+		const configuredTimeout = this.options.closeOptions?.timeout;
+		const timeoutSeconds = configuredTimeout
+			? durationToSeconds(configuredTimeout)
+			: durationToSeconds(this.options.maxExtensionTime ?? 3600);
+		const timeout = timeoutSeconds * 1000;
 		const start = Date.now();
 
 		while (this.inFlightMessages.size > 0) {

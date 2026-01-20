@@ -10,7 +10,7 @@ import type { Attributes, AckResponse, MessageProperties } from './types/message
 import type { PreciseDate } from './types/common';
 import { AckResponses } from './types/message';
 import { MessageQueue } from './internal/message-queue';
-import { InvalidArgumentError } from './types/errors';
+import { InvalidArgumentError, FailedPreconditionError } from './types/errors';
 
 /**
  * Minimal Subscription interface for Message class.
@@ -115,8 +115,16 @@ export class Message implements MessageProperties {
 		if (this._acked) return;
 		this._acked = true;
 
-		const queue = MessageQueue.getInstance();
-		queue.ack(this.ackId);
+		try {
+			const queue = MessageQueue.getInstance();
+			queue.ack(this.ackId);
+		} catch (error) {
+			if (error instanceof FailedPreconditionError) {
+				console.warn(`Ack ignored: ${error.message}`);
+				return;
+			}
+			throw error;
+		}
 	}
 
 	/**
@@ -127,8 +135,16 @@ export class Message implements MessageProperties {
 		if (this._acked) return;
 		this._acked = true;
 
-		const queue = MessageQueue.getInstance();
-		queue.nack(this.ackId);
+		try {
+			const queue = MessageQueue.getInstance();
+			queue.nack(this.ackId);
+		} catch (error) {
+			if (error instanceof FailedPreconditionError) {
+				console.warn(`Nack ignored: ${error.message}`);
+				return;
+			}
+			throw error;
+		}
 	}
 
 	/**
@@ -168,8 +184,21 @@ export class Message implements MessageProperties {
 			return AckResponses.Invalid;
 		}
 
-		this.ack();
-		return AckResponses.Success;
+		this._acked = true;
+
+		try {
+			const queue = MessageQueue.getInstance();
+			queue.ack(this.ackId);
+			return AckResponses.Success;
+		} catch (error) {
+			if (error instanceof InvalidArgumentError) {
+				return AckResponses.Invalid;
+			}
+			if (error instanceof FailedPreconditionError) {
+				return AckResponses.FailedPrecondition;
+			}
+			return AckResponses.Other;
+		}
 	}
 
 	/**
@@ -180,19 +209,44 @@ export class Message implements MessageProperties {
 			return AckResponses.Invalid;
 		}
 
-		this.nack();
-		return AckResponses.Success;
+		this._acked = true;
+
+		try {
+			const queue = MessageQueue.getInstance();
+			queue.nack(this.ackId);
+			return AckResponses.Success;
+		} catch (error) {
+			if (error instanceof InvalidArgumentError) {
+				return AckResponses.Invalid;
+			}
+			if (error instanceof FailedPreconditionError) {
+				return AckResponses.FailedPrecondition;
+			}
+			return AckResponses.Other;
+		}
 	}
 
 	/**
 	 * Modify ack deadline with exactly-once delivery confirmation.
 	 */
 	async modAckWithResponse(deadline: number): Promise<AckResponse> {
+		if (this._acked) {
+			return AckResponses.Invalid;
+		}
+
+		this._acked = true;
+
 		try {
 			this.modifyAckDeadline(deadline);
 			return AckResponses.Success;
-		} catch {
-			return AckResponses.Invalid;
+		} catch (error) {
+			if (error instanceof InvalidArgumentError) {
+				return AckResponses.Invalid;
+			}
+			if (error instanceof FailedPreconditionError) {
+				return AckResponses.FailedPrecondition;
+			}
+			return AckResponses.Other;
 		}
 	}
 }

@@ -194,7 +194,7 @@ interface SubscriptionMetadata {
 **When** message is nacked or ack deadline expires
 **Then** calculate backoff delay: min(minimumBackoff * 2^(deliveryAttempt-1), maximumBackoff)
 **And** message becomes available after backoff delay (not immediately)
-**And** use default backoff if no retryPolicy specified (min: 10s, max: 600s)
+**And** if no retryPolicy specified, use immediate redelivery (0s backoff)
 
 ### BR-016: Dead Letter Queue
 **Given** a subscription has deadLetterPolicy configured

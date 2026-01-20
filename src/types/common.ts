@@ -59,6 +59,10 @@ export type Long = string | number;
 
 /**
  * Backoff settings for retries.
+ *
+ * **In-Memory Implementation Note:** These settings are accepted for API compatibility
+ * with @google-cloud/pubsub but have no runtime effect in this local implementation.
+ * This is an in-memory message broker with no gRPC calls or network operations.
  */
 export interface BackoffSettings {
   /** Initial retry delay in ms. */
@@ -79,6 +83,10 @@ export interface BackoffSettings {
 
 /**
  * Retry configuration.
+ *
+ * **In-Memory Implementation Note:** These settings are accepted for API compatibility
+ * with @google-cloud/pubsub but have no runtime effect in this local implementation.
+ * This is an in-memory message broker with no gRPC calls or network operations.
  */
 export interface RetryOptions {
   /** Retryable error codes. */
@@ -89,6 +97,13 @@ export interface RetryOptions {
 
 /**
  * gRPC call options.
+ *
+ * **In-Memory Implementation Note:** Most of these settings (timeout, retry) are accepted
+ * for API compatibility with @google-cloud/pubsub but have no runtime effect in this local
+ * implementation. This is an in-memory message broker with no gRPC calls or network operations.
+ * Pagination options (autoPaginate, pageToken, maxResults) are NOT currently implemented - all
+ * list operations return complete datasets.
+ *
  * Reference: research/11-typescript-types.md
  */
 export interface CallOptions {
@@ -96,27 +111,37 @@ export interface CallOptions {
   timeout?: number;
   /** Retry configuration. */
   retry?: RetryOptions;
-  /** Enable auto-pagination. */
+  /** Enable auto-pagination (NOT implemented - all results returned). */
   autoPaginate?: boolean;
-  /** Page token. */
+  /** Page token (NOT implemented - ignored). */
   pageToken?: string;
-  /** Maximum results. */
+  /** Maximum results (NOT implemented - all results returned). */
   maxResults?: number;
 }
 
 /**
  * Pagination options for list operations.
+ *
+ * **In-Memory Implementation Note:** Pagination options are accepted for API compatibility
+ * but are NOT currently implemented. All list operations return complete datasets regardless
+ * of these settings. This is acceptable for a local development library where all data fits
+ * in memory.
+ *
  * Reference: specs/01-pubsub-client.md
  */
 export interface PageOptions {
-  /** gRPC call options. */
+  /**
+   * gRPC call options.
+   *
+   * Note: Accepted for API compatibility but has no runtime effect in this in-memory implementation.
+   */
   gaxOpts?: CallOptions;
-  /** Enable auto-pagination. */
+  /** Enable auto-pagination (NOT implemented - all results returned). */
   autoPaginate?: boolean;
-  /** Maximum results per page. */
+  /** Maximum results per page (NOT implemented - all results returned). */
   maxResults?: number;
-  /** Page token for next page. */
+  /** Page token for next page (NOT implemented - always null). */
   pageToken?: string;
-  /** Page size. */
+  /** Page size (NOT implemented - all results returned). */
   pageSize?: number;
 }
