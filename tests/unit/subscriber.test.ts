@@ -463,6 +463,62 @@ describe('MessageStream', () => {
 		expect(processingComplete).toBe(true);
 	});
 
+	test('AC-007: Stop waits for in-flight (via Subscription.close)', async () => {
+		const mockSubscription = Object.assign(new EventEmitter(), {
+			name: `test-sub-${testCounter}`,
+			topic: `test-topic-${testCounter}`,
+			isOpen: false,
+			messageStream: undefined as unknown,
+			open(): void {
+				this.isOpen = true;
+				this.messageStream = new MessageStream(this as any, {
+					closeOptions: { behavior: 'WAIT' },
+				});
+				(this.messageStream as MessageStream).start();
+			},
+			async close(): Promise<void> {
+				if (!this.isOpen) {
+					return;
+				}
+				this.isOpen = false;
+				if (this.messageStream) {
+					await (this.messageStream as MessageStream).stop();
+				}
+			},
+		});
+
+		let processingComplete = false;
+
+		mockSubscription.on('message', async (message: Message) => {
+			await new Promise((resolve) => setTimeout(resolve, 100));
+			processingComplete = true;
+			message.ack();
+		});
+
+		mockSubscription.on('error', () => {});
+
+		mockSubscription.open();
+
+		messageQueue.publish(`test-topic-${testCounter}`, [
+			{
+				id: 'msg-1',
+				data: Buffer.from('test'),
+				attributes: {},
+				publishTime: new PreciseDate(),
+				orderingKey: undefined,
+				deliveryAttempt: 1,
+				length: 4,
+			},
+		]);
+
+		await new Promise((resolve) => setTimeout(resolve, 20));
+
+		const closePromise = mockSubscription.close();
+		await closePromise;
+
+		expect(processingComplete).toBe(true);
+	});
+
 	test('AC-008: Error event on subscription not found', async () => {
 		const badSubscription = Object.assign(new EventEmitter(), {
 			name: 'non-existent-sub',

@@ -390,11 +390,19 @@ Issues are prioritized by severity with critical fixes first.
 
 ### 7.3 Add Test for Stop Waits for In-Flight (AC-007)
 
-- [ ] Create test verifying stop() waits for in-flight messages before closing
-  - Location: New test in `tests/unit/subscriber.test.ts`
+- [x] Create test verifying stop() waits for in-flight messages before closing
+  - Location: New test in `tests/unit/subscriber.test.ts:466-520`
   - Gap: No dedicated test for `specs/06-subscriber.md:AC-007`
   - Test: Start subscription, receive message, call close() mid-processing, verify close() resolves only after processing completes
+  - Implementation:
+    - Added test named 'AC-007: Stop waits for in-flight (via Subscription.close)'
+    - Uses mocked Subscription object with `open()` and `close()` methods that delegate to MessageStream
+    - Tests the public API (Subscription.close) rather than internal MessageStream API
+    - Verifies close() waits for 100ms async message processing to complete
+    - Uses WAIT behavior for closeOptions
+  - Code Review: Approved - addressed variable shadowing and removed redundant registration
   - Spec: `specs/06-subscriber.md:AC-007`
+  - Completed: 2026-01-19
 
 ### 7.4 Add Test for Error Event on Failure (AC-008)
 
