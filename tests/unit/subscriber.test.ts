@@ -14,7 +14,7 @@ import { SubscriberFlowControl } from '../../src/subscriber/flow-control';
 import { LeaseManager } from '../../src/subscriber/lease-manager';
 import { Message } from '../../src/message';
 import { PreciseDate } from '../../src/utils/precise-date';
-import { InvalidArgumentError } from '../../src/types/errors';
+import { InvalidArgumentError, NotFoundError, ErrorCode } from '../../src/types/errors';
 
 describe('SubscriberFlowControl', () => {
 	test('AC-002: respects maxMessages limit', () => {
@@ -537,6 +537,29 @@ describe('MessageStream', () => {
 		await new Promise((resolve) => setTimeout(resolve, 50));
 
 		expect(errors.length).toBeGreaterThan(0);
+
+		await stream.stop();
+	});
+
+	test('AC-008: Error event on topic deleted mid-stream', async () => {
+		const stream = new MessageStream(subscription, {});
+		const errors: Error[] = [];
+
+		subscription.on('error', (error: Error) => {
+			errors.push(error);
+		});
+
+		stream.start();
+
+		await new Promise((resolve) => setTimeout(resolve, 10));
+
+		messageQueue.unregisterTopic(`test-topic-${testCounter}`);
+
+		await new Promise((resolve) => setTimeout(resolve, 100));
+
+		expect(errors.length).toBeGreaterThan(0);
+		expect(errors[0]).toBeInstanceOf(NotFoundError);
+		expect((errors[0] as NotFoundError).code).toBe(ErrorCode.NOT_FOUND);
 
 		await stream.stop();
 	});

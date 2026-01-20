@@ -406,11 +406,21 @@ Issues are prioritized by severity with critical fixes first.
 
 ### 7.4 Add Test for Error Event on Failure (AC-008)
 
-- [ ] Create test verifying error event emission on failures
-  - Location: New test in `tests/unit/subscriber.test.ts`
-  - Gap: No dedicated test for `specs/06-subscriber.md:AC-008`
-  - Test: Open subscription, delete topic, verify error event is emitted
+- [x] Create test verifying error event emission on failures
+  - Location: New test in `tests/unit/subscriber.test.ts:544-565`
+  - Gap: No dedicated test for `specs/06-subscriber.md:AC-008` for topic deletion scenario
+  - Implementation:
+    - Added topic existence validation in `MessageStream.pullMessages()` (lines 415-418)
+    - Checks if subscription's topic exists on each pull cycle
+    - Throws `NotFoundError` with proper gRPC code (5) when topic deleted
+    - Error caught and emitted via existing error handler in `pullMessages()`
+  - Test: Added comprehensive test verifying error event emission with proper error type and code
+    - Start stream, delete topic mid-stream, verify `NotFoundError` with `ErrorCode.NOT_FOUND` emitted
+    - Added imports for `NotFoundError` and `ErrorCode`
+  - Code Review: Approved - follows all project conventions
   - Spec: `specs/06-subscriber.md:AC-008`
+  - Note: There was already an AC-008 test for "subscription not found" (line 522-542), this adds the topic deletion scenario
+  - Completed: 2026-01-19
 
 ### 7.5 Add Test for Concurrent Message Delivery (AC-009)
 

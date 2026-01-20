@@ -412,6 +412,11 @@ export class MessageStream {
 				return;
 			}
 
+			const subscriptionMeta = this.messageQueue.getSubscription(this.subscription.name);
+			if (subscriptionMeta?.topic && !this.messageQueue.topicExists(subscriptionMeta.topic)) {
+				throw new NotFoundError(subscriptionMeta.topic, 'Topic');
+			}
+
 			this.flowControl.startBatchPull();
 
 			const messages = this.messageQueue.pull(
