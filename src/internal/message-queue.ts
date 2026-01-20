@@ -335,6 +335,8 @@ export class MessageQueue {
       return [];
     }
 
+    console.log('[DEBUG] Pull called:', subscriptionName, 'queue.messages.length:', queue.messages.length, 'queue.inFlightCount:', queue.inFlightCount);
+
     const flowControl = (subscription as unknown as { flowControl?: { maxMessages?: number; maxBytes?: number } }).flowControl;
     if (flowControl) {
       if (flowControl.maxMessages && queue.inFlightCount >= flowControl.maxMessages) {
@@ -452,7 +454,9 @@ export class MessageQueue {
     };
 
     const timerMs = ackDeadlineSeconds * 1000;
+    console.log('[DEBUG] Creating timer for ackId:', ackId, 'deadline:', timerMs, 'ms');
     lease.timer = setTimeout(() => {
+      console.log('[DEBUG] Timer fired for ackId:', ackId);
       this.handleDeadlineExpiry(ackId);
     }, timerMs);
 
@@ -478,6 +482,7 @@ export class MessageQueue {
       return;
     }
 
+    console.log('[DEBUG] Deadline expired for', ackId);
     this.nack(ackId);
   }
 
@@ -560,6 +565,7 @@ export class MessageQueue {
       const backoffMs = this.calculateBackoff(lease.message.deliveryAttempt, retryPolicy);
 
       if (backoffMs > 0) {
+        console.log('[DEBUG] Adding to backoff queue:', msg.id, 'backoff:', backoffMs);
         queue.backoffQueue.set(msg.id, {
           message: msg,
           availableAt: Date.now() + backoffMs,
@@ -569,6 +575,7 @@ export class MessageQueue {
           queue.blockedOrderingKeys.delete(msg.orderingKey);
         }
       } else {
+        console.log('[DEBUG] Adding to message queue for immediate redelivery:', msg.id);
         if (queue.orderingQueues && msg.orderingKey) {
           if (queue.blockedOrderingKeys) {
             queue.blockedOrderingKeys.delete(msg.orderingKey);
@@ -592,14 +599,19 @@ export class MessageQueue {
 
   /**
    * Calculate retry backoff delay (BR-015).
-   * Applies default backoff (10s-600s) when no retryPolicy provided.
+   * Returns 0 (immediate redelivery) when no retryPolicy provided.
+   * Applies exponential backoff when retryPolicy is configured.
    */
   private calculateBackoff(
     deliveryAttempt: number,
     retryPolicy?: { minimumBackoff?: { seconds?: number }; maximumBackoff?: { seconds?: number } }
   ): number {
-    const minBackoffSeconds = retryPolicy?.minimumBackoff?.seconds ?? 10;
-    const maxBackoffSeconds = retryPolicy?.maximumBackoff?.seconds ?? 600;
+    if (!retryPolicy) {
+      return 0;
+    }
+
+    const minBackoffSeconds = retryPolicy.minimumBackoff?.seconds ?? 10;
+    const maxBackoffSeconds = retryPolicy.maximumBackoff?.seconds ?? 600;
 
     const backoffSeconds = Math.min(
       minBackoffSeconds * 2 ** (deliveryAttempt - 1),

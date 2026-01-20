@@ -119,7 +119,62 @@ describe('Integration: Ack Deadline', () => {
 		{ timeout: 30000 }
 	);
 
-	test('AC-003: Ack deadline validation (0-600 seconds)', async () => {
+	test(
+		'AC-003: Automatic redelivery when ack deadline expires',
+		async () => {
+			const topicName = 'test-topic-ack-003';
+			const subName = 'test-sub-ack-003';
+
+			const [topic] = await pubsub.createTopic(topicName);
+			const [subscription] = await pubsub.createSubscription(topicName, subName, {
+				ackDeadlineSeconds: 1,
+			});
+
+			subscription.setOptions({
+				maxExtensionTime: 0,
+			});
+
+			let deliveryCount = 0;
+			const receivedMessages: Message[] = [];
+
+			const redeliveryReceived = new Promise<void>((resolve) => {
+				subscription.on('message', (message: Message) => {
+					deliveryCount++;
+					receivedMessages.push(message);
+
+					if (deliveryCount > 1) {
+						message.ack();
+						resolve();
+					}
+				});
+				subscription.on('error', (error: Error) => {
+					throw error;
+				});
+			});
+
+			subscription.open();
+
+			await topic.publishMessage({ data: Buffer.from('test') });
+
+			await new Promise((resolve) => setTimeout(resolve, 100));
+			expect(deliveryCount).toBe(1);
+
+			await new Promise((resolve) => setTimeout(resolve, 1100));
+
+			expect(deliveryCount).toBeGreaterThan(1);
+			expect(receivedMessages[0]?.id).toBe(receivedMessages[1]?.id);
+			expect(receivedMessages[0]?.data.toString()).toBe('test');
+			expect(receivedMessages[1]?.data.toString()).toBe('test');
+			expect(receivedMessages[1]?.deliveryAttempt).toBe(2);
+
+			await redeliveryReceived;
+			await subscription.close();
+			await pubsub.close();
+		},
+		{ timeout: 10000 }
+	);
+
+	test('Ack deadline validation (0-600 seconds)', async () => {
 		const topicName = 'test-topic-ack-004';
 		const subName = 'test-sub-ack-004';
 

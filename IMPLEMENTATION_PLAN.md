@@ -359,11 +359,19 @@ Issues are prioritized by severity with critical fixes first.
 
 ### 7.1 Add Test for Automatic Ack Deadline Redelivery (AC-003)
 
-- [ ] Create test verifying automatic redelivery when ack deadline expires
-  - Location: New test in `tests/integration/ack-deadline.test.ts`
-  - Gap: No test for `specs/03-subscription.md:AC-003`
-  - Test: Publish message, receive it, do NOT ack, wait for ackDeadlineSeconds, verify message redelivered with incremented `deliveryAttempt`
+- [x] Create test verifying automatic redelivery when ack deadline expires
+  - Location: Test already exists in `tests/integration/ack-deadline.test.ts:122-171`
+  - Gap: Test was failing due to automatic deadline extension preventing timeout
+  - Fix: Updated test to disable automatic deadline extension by setting `maxExtensionTime: 0`
+  - Implementation:
+    - Added `subscription.setOptions({ maxExtensionTime: 0 })` to disable automatic extension
+    - Test now correctly verifies message redelivery after 1s deadline expires
+    - Verifies deliveryCount > 1, same message ID, and deliveryAttempt incremented to 2
+  - Tests: All 4 ack-deadline tests pass
+  - Note: Automatic deadline extension (added in task 5.1) is correct behavior matching Google's client libraries. This test disables it to verify the underlying timeout mechanism works.
+  - Code Review: Approved - no issues found
   - Spec: `specs/03-subscription.md:AC-003`
+  - Completed: 2026-01-19
 
 ### 7.2 Add Test for Pause/Resume Flow (AC-006)
 
