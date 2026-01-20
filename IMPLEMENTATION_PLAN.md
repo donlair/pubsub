@@ -172,11 +172,18 @@ Issues are prioritized by severity with critical fixes first.
 
 ### 3.3 Add MessageStream stop() NACK Behavior Test
 
-- [ ] Create test for NACK behavior on stop with pending messages
-  - Location: New test in `tests/unit/subscriber.test.ts`
+- [x] Create test for NACK behavior on stop with pending messages
+  - Location: New test in `tests/unit/subscriber.test.ts:1249-1312`
   - Gap: No test verifying pending messages (held by flow control) are nacked
-  - Test: Start stream with flow control, publish messages, stop with NACK, verify all messages back in queue
+  - Test: Start stream with flow control (maxMessages: 2), publish 5 messages, stop with NACK, verify 3 pending messages redelivered to new stream
+  - Implementation:
+    - Test verifies only 2 messages delivered initially (flow control limit)
+    - Confirms stop() with NACK behavior does not deliver additional messages
+    - Verifies the 3 pending messages (held by flow control) are nacked and available for redelivery
+    - Uses second stream to confirm redelivery, checking message IDs
+  - Code Review: Approved - no issues found
   - Spec: FINDINGS.md Issue #13
+  - Completed: 2026-01-19
 
 ### 3.4 Add Timer-Triggered Batch Error Handling Test
 

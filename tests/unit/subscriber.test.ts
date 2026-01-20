@@ -1246,4 +1246,67 @@ describe('MessageStream', () => {
 		consoleSpy.mockRestore();
 	});
 
+	test('stop() with NACK behavior nacks pending messages held by flow control', async () => {
+		const stream = new MessageStream(subscription, {
+			flowControl: { maxMessages: 2 },
+			closeOptions: { behavior: 'NACK' },
+		});
+
+		const receivedMessages: Message[] = [];
+		subscription.on('message', (message: Message) => {
+			receivedMessages.push(message);
+		});
+
+		stream.start();
+
+		for (let i = 0; i < 5; i++) {
+			messageQueue.publish(`test-topic-${testCounter}`, [
+				{
+					id: `msg-${i}`,
+					data: Buffer.from(`message ${i}`),
+					attributes: {},
+					publishTime: new PreciseDate(),
+					orderingKey: undefined,
+					deliveryAttempt: 1,
+					length: 9,
+				},
+			]);
+		}
+
+		await new Promise((resolve) => setTimeout(resolve, 50));
+
+		expect(receivedMessages.length).toBe(2);
+
+		const receivedIds = receivedMessages.map((m) => m.id);
+
+		await stream.stop();
+
+		expect(receivedMessages.length).toBe(2);
+
+		subscription.removeAllListeners();
+		const redeliveryMessages: Message[] = [];
+		subscription.on('message', (message: Message) => {
+			redeliveryMessages.push(message);
+			message.ack();
+		});
+
+		const stream2 = new MessageStream(subscription, {
+			flowControl: { maxMessages: 10 },
+		});
+		stream2.start();
+
+		await new Promise((resolve) => setTimeout(resolve, 100));
+
+		expect(redeliveryMessages.length).toBe(3);
+
+		const redeliveredIds = redeliveryMessages.map((m) => m.id);
+		expect(redeliveredIds).toContain('msg-2');
+		expect(redeliveredIds).toContain('msg-3');
+		expect(redeliveredIds).toContain('msg-4');
+		expect(redeliveredIds).not.toContain(receivedIds[0]);
+		expect(redeliveredIds).not.toContain(receivedIds[1]);
+
+		await stream2.stop();
+	});
+
 });
