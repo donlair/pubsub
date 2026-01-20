@@ -337,16 +337,6 @@ export class MessageQueue {
 
     console.log('[DEBUG] Pull called:', subscriptionName, 'queue.messages.length:', queue.messages.length, 'queue.inFlightCount:', queue.inFlightCount);
 
-    const flowControl = (subscription as unknown as { flowControl?: { maxMessages?: number; maxBytes?: number } }).flowControl;
-    if (flowControl) {
-      if (flowControl.maxMessages && queue.inFlightCount >= flowControl.maxMessages) {
-        return [];
-      }
-      if (flowControl.maxBytes && queue.inFlightBytes >= flowControl.maxBytes) {
-        return [];
-      }
-    }
-
     const result: InternalMessage[] = [];
     const ackDeadlineSeconds = subscription.ackDeadlineSeconds || 10;
 
@@ -373,16 +363,6 @@ export class MessageQueue {
     }
 
     while (result.length < maxMessages && queue.messages.length > 0) {
-      const nextMsg = queue.messages[0];
-      if (flowControl) {
-        if (flowControl.maxMessages && queue.inFlightCount >= flowControl.maxMessages) {
-          break;
-        }
-        if (flowControl.maxBytes && queue.inFlightBytes + nextMsg!.length > flowControl.maxBytes) {
-          break;
-        }
-      }
-
       const msg = queue.messages.shift()!;
       const delivered = this.createLeaseAndDeliver(
         msg,
@@ -398,16 +378,6 @@ export class MessageQueue {
     if (queue.orderingQueues) {
       for (const [orderingKey, orderQueue] of queue.orderingQueues.entries()) {
         if (result.length >= maxMessages) break;
-
-        const nextMsg = orderQueue[0];
-        if (flowControl && nextMsg) {
-          if (flowControl.maxMessages && queue.inFlightCount >= flowControl.maxMessages) {
-            break;
-          }
-          if (flowControl.maxBytes && queue.inFlightBytes + nextMsg.length > flowControl.maxBytes) {
-            break;
-          }
-        }
 
         if (queue.blockedOrderingKeys?.has(orderingKey)) {
           continue;

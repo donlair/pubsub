@@ -22,8 +22,8 @@ describe('MessageStream Configuration', () => {
 
   afterEach(async () => {
     // Close all subscriptions for this topic before deleting
-    const subscriptions = await topic.getSubscriptions();
-    for (const [subscription] of subscriptions) {
+    const [subscriptions] = await topic.getSubscriptions();
+    for (const subscription of subscriptions) {
       if (subscription.isOpen) {
         await subscription.close();
       }
