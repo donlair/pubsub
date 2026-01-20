@@ -439,13 +439,21 @@ Issues are prioritized by severity with critical fixes first.
 
 ### 7.6 Add Tests for Ordering Edge Cases (AC-006, AC-009, AC-010)
 
-- [ ] Add dedicated tests for ordering acceptance criteria
-  - Location: New tests in `tests/integration/ordering.test.ts`
+- [x] Add dedicated tests for ordering acceptance criteria
+  - Location: New tests in `tests/integration/ordering.test.ts:251-365`
   - Gap: Missing dedicated tests for:
     - AC-006: Messages without ordering key not blocked by ordered messages
     - AC-009: Ordering keys accepted without explicit `messageOrdering` enable
     - AC-010: Multiple messages with different keys batched separately
+  - Implementation:
+    - Added AC-006 test (lines 251-294): Verifies unordered messages delivered independently when ordered messages blocked
+    - Added AC-009 test (lines 296-335): Verifies ordering key accepted as metadata without explicit `messageOrdering` enable
+    - Added AC-010 test (lines 337-365): Verifies concurrent publishing with `Promise.all` across 5 different ordering keys (20 messages total)
+    - All tests follow project patterns: Arrange-Act-Assert, error listeners, proper cleanup
+  - Tests: All 3 new tests passing
+  - Code Review: Approved - addressed feedback to use `Promise.all` for AC-010 and remove misleading assertion in AC-006
   - Spec: `specs/09-ordering.md:AC-006, AC-009, AC-010`
+  - Completed: 2026-01-19
 
 ---
 
