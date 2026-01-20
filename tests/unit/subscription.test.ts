@@ -14,10 +14,11 @@
  * - AC-009: Multiple Subscriptions Same Topic
  */
 
-import { test, expect, beforeEach, afterEach } from 'bun:test';
+import { test, expect, beforeEach, afterEach, spyOn } from 'bun:test';
 import { Topic } from '../../src/topic';
 import { MessageQueue } from '../../src/internal/message-queue';
 import type { Message } from '../../src/message';
+import { AckResponses } from '../../src/types/message';
 
 let pubsub: unknown;
 let queue: MessageQueue;
@@ -630,4 +631,96 @@ test('modifyAckDeadline(): Works with empty array', async () => {
 	await subscription.create();
 
 	await subscription.modifyAckDeadline({ ackIds: [], ackDeadlineSeconds: 60 });
+});
+
+test('pull(): Message ack after subscription deletion logs warning', async () => {
+	const topic = new Topic(pubsub, 'projects/test-project/topics/test-topic');
+	await topic.create();
+
+	const subscription = topic.subscription('test-sub');
+	await subscription.create();
+
+	await topic.publishMessage({ data: Buffer.from('Test message') });
+
+	const [messages] = await subscription.pull({ maxMessages: 1 });
+	expect(messages).toHaveLength(1);
+	const message = messages[0]!;
+
+	await subscription.delete();
+
+	const warnSpy = spyOn(console, 'warn').mockImplementation(() => {});
+
+	message.ack();
+
+	expect(warnSpy).toHaveBeenCalledWith(
+		'Ack ignored: Subscription no longer exists: projects/test-project/subscriptions/test-sub',
+	);
+
+	warnSpy.mockRestore();
+});
+
+test('pull(): Message nack after subscription deletion logs warning', async () => {
+	const topic = new Topic(pubsub, 'projects/test-project/topics/test-topic');
+	await topic.create();
+
+	const subscription = topic.subscription('test-sub');
+	await subscription.create();
+
+	await topic.publishMessage({ data: Buffer.from('Test message') });
+
+	const [messages] = await subscription.pull({ maxMessages: 1 });
+	expect(messages).toHaveLength(1);
+	const message = messages[0]!;
+
+	await subscription.delete();
+
+	const warnSpy = spyOn(console, 'warn').mockImplementation(() => {});
+
+	message.nack();
+
+	expect(warnSpy).toHaveBeenCalledWith(
+		'Nack ignored: Subscription no longer exists: projects/test-project/subscriptions/test-sub',
+	);
+
+	warnSpy.mockRestore();
+});
+
+test('pull(): ackWithResponse after subscription deletion returns FAILED_PRECONDITION', async () => {
+	const topic = new Topic(pubsub, 'projects/test-project/topics/test-topic');
+	await topic.create();
+
+	const subscription = topic.subscription('test-sub');
+	await subscription.create();
+
+	await topic.publishMessage({ data: Buffer.from('Test message') });
+
+	const [messages] = await subscription.pull({ maxMessages: 1 });
+	expect(messages).toHaveLength(1);
+	const message = messages[0]!;
+
+	await subscription.delete();
+
+	const response = await message.ackWithResponse();
+
+	expect(response).toBe(AckResponses.FailedPrecondition);
+});
+
+test('pull(): nackWithResponse after subscription deletion returns FAILED_PRECONDITION', async () => {
+	const topic = new Topic(pubsub, 'projects/test-project/topics/test-topic');
+	await topic.create();
+
+	const subscription = topic.subscription('test-sub');
+	await subscription.create();
+
+	await topic.publishMessage({ data: Buffer.from('Test message') });
+
+	const [messages] = await subscription.pull({ maxMessages: 1 });
+	expect(messages).toHaveLength(1);
+	const message = messages[0]!;
+
+	await subscription.delete();
+
+	const response = await message.nackWithResponse();
+
+	expect(response).toBe(AckResponses.FailedPrecondition);
 });
