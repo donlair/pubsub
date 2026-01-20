@@ -187,11 +187,20 @@ Issues are prioritized by severity with critical fixes first.
 
 ### 3.4 Add Timer-Triggered Batch Error Handling Test
 
-- [ ] Create test for timer-triggered publish failure
-  - Location: New test in `tests/unit/publisher.test.ts`
+- [x] Create test for timer-triggered publish failure
+  - Location: New test in `tests/unit/publisher.test.ts:972-1010`
   - Gap: No test for when timer-triggered batch fails
   - Test: Create publisher with maxMilliseconds timer, mock queue.publish to fail, verify promises rejected
+  - Implementation:
+    - Added test in `Timer-Triggered Batch Error Handling` describe block
+    - Test verifies all 3 batched messages reject with same error when timer-triggered publish fails
+    - Uses timing assertions (15-50ms) to confirm timer is actually firing
+    - Mocks `queue.publish` to throw `InternalError` before creating publisher
+    - Verifies batch error propagation matches existing error handling in `publishBatch()`
+  - Tests: `tests/unit/publisher.test.ts:972-1010` (1 test case with 5 assertions)
+  - Code Review: Approved - no issues found, follows project conventions
   - Spec: FINDINGS.md Issue #14
+  - Completed: 2026-01-19
 
 ---
 

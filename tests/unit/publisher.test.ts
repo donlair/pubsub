@@ -6,6 +6,7 @@
 import { test, expect, describe, beforeEach } from 'bun:test';
 import { Publisher } from '../../src/publisher/publisher';
 import { MessageQueue } from '../../src/internal/message-queue';
+import { InternalError } from '../../src/types/errors';
 
 describe('Publisher', () => {
 	let queue: MessageQueue;
@@ -965,6 +966,45 @@ describe('Publisher', () => {
 			await expect(publishPromise).rejects.toThrow(
 				`Topic not found: ${topicName}`,
 			);
+		});
+	});
+
+	describe('Timer-Triggered Batch Error Handling', () => {
+		test('should reject all promises when timer-triggered publish fails', async () => {
+			const topicName = 'projects/test-project/topics/timer-batch-test';
+			queue.registerTopic(topicName);
+
+			const originalPublish = queue.publish.bind(queue);
+			queue.publish = () => {
+				throw new InternalError('Simulated publish failure');
+			};
+
+			const publisher = new Publisher(topicName, {
+				batching: {
+					maxMessages: 100,
+					maxMilliseconds: 20,
+					maxBytes: 1024 * 1024,
+				},
+			});
+
+			const startTime = Date.now();
+
+			const promises = [
+				publisher.publishMessage({ data: Buffer.from('message 1') }),
+				publisher.publishMessage({ data: Buffer.from('message 2') }),
+				publisher.publishMessage({ data: Buffer.from('message 3') }),
+			];
+
+			await expect(Promise.all(promises)).rejects.toThrow(
+				'Simulated publish failure',
+			);
+
+			const duration = Date.now() - startTime;
+
+			expect(duration).toBeGreaterThanOrEqual(15);
+			expect(duration).toBeLessThan(50);
+
+			queue.publish = originalPublish;
 		});
 	});
 });
