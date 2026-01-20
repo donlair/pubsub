@@ -424,11 +424,18 @@ Issues are prioritized by severity with critical fixes first.
 
 ### 7.5 Add Test for Concurrent Message Delivery (AC-009)
 
-- [ ] Create test verifying multiple concurrent message delivery
-  - Location: New test in `tests/unit/subscriber.test.ts`
-  - Gap: No dedicated test for `specs/06-subscriber.md:AC-009`
-  - Test: Configure maxMessages=10, publish 10 messages, verify all 10 received concurrently before any acks
+- [x] Create test verifying multiple concurrent message delivery
+  - Location: Test already exists at `tests/unit/subscriber.test.ts:567-599`
+  - Gap Analysis: Test existed but had minor discrepancy (ack delay 50ms instead of spec's 100ms)
+  - Fix: Updated ack delay from 50ms to 100ms to exactly match spec requirements
+  - Test: Configure maxMessages=10, publish 10 messages, verify all 10 received concurrently within 50ms (before 100ms ack completes)
+  - Implementation:
+    - Changed `setTimeout(() => message.ack(), 50)` to `setTimeout(() => message.ack(), 100)` (line 575)
+    - Test verifies concurrent delivery: all messages received before acks complete
+    - Verifies flow control maxMessages limit respected (exactly 10 messages delivered)
+  - Tests: `tests/unit/subscriber.test.ts:567-599` passes
   - Spec: `specs/06-subscriber.md:AC-009`
+  - Completed: 2026-01-19
 
 ### 7.6 Add Tests for Ordering Edge Cases (AC-006, AC-009, AC-010)
 

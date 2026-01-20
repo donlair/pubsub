@@ -572,7 +572,7 @@ describe('MessageStream', () => {
 
 		subscription.on('message', (message: Message) => {
 			receivedMessages.push(message);
-			setTimeout(() => message.ack(), 50);
+			setTimeout(() => message.ack(), 100);
 		});
 
 		stream.start();
